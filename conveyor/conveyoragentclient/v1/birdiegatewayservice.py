@@ -1,0 +1,129 @@
+# Copyright 2011 Denali Systems, Inc.
+# All Rights Reserved.
+#
+#    Licensed under the Apache License, Version 2.0 (the "License"); you may
+#    not use this file except in compliance with the License. You may obtain
+#    a copy of the License at
+#
+#         http://www.apache.org/licenses/LICENSE-2.0
+#
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+#    License for the specific language governing permissions and limitations
+#    under the License.
+
+"""
+Volume interface (1.1 extension).
+"""
+
+try:
+    from urllib import urlencode
+except ImportError:
+    from urllib.parse import urlencode
+import six
+
+from conveyor.common import log as logging
+from conveyor.common import uuidutils
+from conveyor.conveyoragentclient.common import base
+
+LOG = logging.getLogger(__name__)
+
+
+class VServiceManager(base.Manager):
+    """
+    Manage :class:`VService` resources.
+    """
+    
+    def __init__(self, client=None, url=None):
+        
+        super(VServiceManager, self).__init__(client, url)
+
+    def create(self):
+        pass
+
+    def get(self, id):
+        pass
+        
+    def delete(self):
+        pass
+
+    def update(self, volume, **kwargs):
+        pass
+        
+        
+    def clone_volume(self, src_dev_name, des_dev_name, src_dev_format,
+                     src_mount_point, src_gw_url, des_gw_url):
+        
+        '''Clone volume data'''
+        
+        LOG.debug("Clone volume data start")
+        
+        body = {'clone_volume': {'src_dev_name': src_dev_name,
+                           'des_dev_name': des_dev_name,
+                           'src_dev_format': src_dev_format,
+                           'src_mount_point': src_mount_point,
+                           'src_gw_url': src_gw_url,
+                           'des_gw_url': des_gw_url,
+                           }}
+        
+        
+        self._clone_volume("/v2vGateWayServices", body)
+        
+    def mount_disk(self, dev_name, mount_point):
+        
+        '''Mount disk'''
+        
+        LOG.debug("Mount disk: %(dev_name)s to %(mount_point)s start", 
+                  {'disk_name': dev_name, 'mount_point': mount_point})
+        
+        body = {'mountDisk': {'dev_name': dev_name,
+                               'mount_point': mount_point}}
+        
+        url = '/v2vGateWayServices/%s/action' % uuidutils.generate_uuid()
+        self._mount_disk(url, body)
+    
+    def get_disk_format(self, dev_name):
+        LOG.debug("Query disk: %s format start", dev_name)
+        body = {'getDiskFormat': {'disk_name': dev_name}}
+        
+        url = '/v2vGateWayServices/%s/action' % uuidutils.generate_uuid()
+        
+        disk_format = self._get_disk_format(url, body)
+        
+        LOG.debug("Query disk: %(dev_name)s to %(mount_point)s start", 
+                  {'dev_name': dev_name, 'mount_point': disk_format})
+        
+        return disk_format
+    
+    def get_disk_mount_point(self, dev_name):
+        
+        LOG.debug("Query disk: %s mount point start", dev_name)
+        body = {'getDiskMountPoint': {'disk_name': dev_name}}
+        
+        url = '/v2vGateWayServices/%s/action' % uuidutils.generate_uuid()
+        
+        mount_point = self._get_disk_mount_point(url, body)
+        
+        LOG.debug("Query disk: %(dev_name)s mount pint: %(mount_point)s end", 
+                  {'dev_name': dev_name, 'mount_point': mount_point})
+        
+        return mount_point
+
+
+
+
+
+
+
+
+
+
+ 
+
+
+
+
+
+
+

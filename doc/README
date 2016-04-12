@@ -1,0 +1,39 @@
+##########################
+## install   guide      ##
+##########################
+# execute /tools/install.sh
+sh tools/install.sh <conveyor-api or conveyor-agent or conveyor-all>
+
+
+
+#####################################
+####   register cmd            ######
+####                           ######
+#####################################
+#2. register conveyor service as following steps (username/password/ip using your actual scene)
+#2.1 Conveyor api service register
+#register the user of conveyor service 
+keystone user-create --name=conveyor --pass=Huawei123 --email=admin@example.com
+
+#register conveyor user and tenant relation (eg: service Tenant / admin Role)
+keystone user-role-add --user=conveyor --tenant=service --role=admin
+
+#register conveyor service 
+keystone service-create --name=conveyor --type=hybrid --description="Hybrid vm manager"
+
+#register conveyor endpoint
+keystone endpoint-create --region=RegionOne --service-id=$(keystone service-list | awk '/ conveyor / {print $2}') --publicurl=http://192.210.10.15:9999/v1/$\(tenant_id\)s --adminurl=http://192.210.10.15:9999/v1/$\(tenant_id\)s  --internalurl=http://192.210.10.15:9999/v1/$\(tenant_id\)s
+
+#2.2 register conveyor agent api service
+
+#register conveyor service 
+keystone service-create --name=conveyorAgent --type=conveyorAgent --description="conveyor agent service"
+
+#register conveyor endpoint
+keystone endpoint-create --region=RegionOne --service-id=$(keystone service-list | awk '/ conveyorAgent / {print $2}') --publicurl=http://192.210.10.15:9998/v1/$\(tenant_id\)s --adminurl=http://192.210.10.15:9998/v1/$\(tenant_id\)s  --internalurl=http://192.210.10.15:9998/v1/$\(tenant_id\)s
+
+#3. start conveyor api service 
+/usr/local/bin/conveyor-api --config-file /etc/conveyor/conveyor.conf & 
+
+#4. start conveyor agent service
+/usr/local/bin/conveyor-agent --config-file /etc/conveyor/conveyor.conf & 
