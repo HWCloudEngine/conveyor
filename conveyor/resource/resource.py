@@ -182,8 +182,8 @@ class Plan(object):
         self.stack_id = stack_id
         
         self.created_at = created_at or timeutils.utcnow()
-        self.updated_at = updated_at or self.created_at
-        self.deleted_at = deleted_at or ''
+        self.updated_at = updated_at or None
+        self.deleted_at = deleted_at or None
         self.expire_at = expire_at or \
                             timeutils.utc_after_given_minutes(CONF.plan_expire_time)
         
@@ -279,11 +279,6 @@ class Plan(object):
             self.original_dependencies = dependencies
         else:
             self.updated_dependencies = dependencies
-            
-        
-    def delete(self):
-        self.deleted = True
-        self.deleted_at = timeutils.utcnow()
         
     def to_dict(self):
         
@@ -299,15 +294,15 @@ class Plan(object):
                 'project_id': self.project_id,
                 'user_id': self.user_id,
                 'stack_id': self.stack_id,
-                'created_at': self.created_at,
-                'updated_at': self.updated_at,
-                'expire_at': self.expire_at,
-                'deleted_at': self.deleted_at,
+                'created_at': str(self.created_at) if self.created_at else None,
+                'updated_at': str(self.updated_at) if self.updated_at else None,
+                'expire_at': str(self.expire_at) if self.expire_at else None,
+                'deleted_at': str(self.deleted_at) if self.deleted_at else None,
                 'deleted': self.deleted,
                 'task_status': self.task_status,
                 'plan_status': self.plan_status,
                 'original_resources': trans_from_obj_dict(self.original_resources),
-                'updated_resources': trans_from_obj_dict(self.original_resources),
+                'updated_resources': trans_from_obj_dict(self.updated_resources),
                 'original_dependencies': trans_from_obj_dict(self.original_dependencies),
                 'updated_dependencies': trans_from_obj_dict(self.updated_dependencies)
                 }
@@ -321,10 +316,10 @@ class Plan(object):
             key = 'name'
             if obj_name == 'ResourceDependency':
                 key = 'name_in_template'
-            for rd in r_dict:
+            for rd in r_dict.values():
                 obj_dict[rd[key]] = eval(obj_name).from_dict(rd)
             return obj_dict
-                
+
         ori_res = plan_dict.get('original_resources')
         ori_dep = plan_dict.get('original_dependencies')
         upd_res = plan_dict.get('updated_resources')
@@ -361,7 +356,6 @@ class Plan(object):
         self = cls(**plan)
         return self
 
-
     
 class TaskStatus():
     
@@ -370,45 +364,7 @@ class TaskStatus():
     creating volume_0
     ...
     """
-    DEPLOYING = 'deploying'
-    FINISHED = 'finished'
-    FAILED = 'failed'
-    
+    TASKSTATUS = (DEPLOYING, FINISHED, FAILED) \
+                = ('deploying', 'finished', 'failed')
 
-def volume_to_dict(volume):
-    volume_dict = {
-        'id': '',
-        'status': '',
-        'size': '',
-        'availability_zone': '',
-        'created_at': '',
-        'attachments': '',
-        'name': '',
-        'description': '',
-        'volume_type': '',
-        'snapshot_id': '',
-        'source_volid': '',
-        'metadata': '',
-        'user_id': '',
-        'bootable': '',
-        'encrypted': '',
-        'replication_status': '',
-        'consistencygroup_id': '',
-        'shareable': '',
-        'links': ''
-    }
-    return _get_attr(volume, volume_dict)
 
-def volume_type_to_dict(volume_type):
-    volume_type_dict = {
-        'id': '',
-        'name': '',
-        'extra_specs': ''
-        }
-    return _get_attr(volume_type, volume_type_dict)
-
-def _get_attr(obj, items):
-    for key in items.keys():
-        items[key] = getattr(obj, key, None)
-    return items    
-    

@@ -76,3 +76,18 @@ class API(object):
         return session.show(context, image_id,
                             include_locations=include_locations)
 
+
+    def get_all(self, context, **kwargs):
+        """Retrieves all information records about all disk images available
+        to show to the requesting user. If the requesting user is an admin,
+        all images in an ACTIVE status are returned. If the requesting user
+        is not an admin, the all public images and all private images that
+        are owned by the requesting user in the ACTIVE status are returned.
+
+        :param context: The `nova.context.Context` object for the request
+        :param kwargs: A dictionary of filter and pagination values that
+                       may be passed to the underlying image info driver.
+        """
+        session = self._get_session(context)
+        return session.detail(context, **kwargs)
+    

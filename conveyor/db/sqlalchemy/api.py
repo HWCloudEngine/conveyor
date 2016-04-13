@@ -208,7 +208,7 @@ def plan_get(context, id):
         msg = _("Invalid plan id %s in request") % id
         LOG.warn(msg)
         raise exception.InvalidID(id=id)
-    return result
+    return dict(result)
 
 
 @require_context

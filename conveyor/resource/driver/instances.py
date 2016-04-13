@@ -27,14 +27,12 @@ class InstanceResource(base.resource):
         self.neutron_api = network.API()
     
 
-    #_collected_resources: {'21fe498a-5597-46...': Resource(), 'idxxx': Resource()}
-    #_collected_parameters: {'idxxxx': 'server_1_image'}
-    def get_instances_resources(self, instance_ids=None):
+    def extract_instances(self, instance_ids=None):
 
         servers = []
         if not instance_ids:
             LOG.info('Get resources of all instances.')
-            servers = self.nova_api.servers_list(self.context)
+            servers = self.nova_api.get_all_servers(self.context)
         else:
             LOG.info('Get resources of instance: %s', instance_ids)
             for id in instance_ids:
@@ -46,9 +44,9 @@ class InstanceResource(base.resource):
                     raise exception.ResourceNotFound(resource_type='Instance', resource_id=id)
 
         for server in servers:
-            self._extract_instance(server)
+            self._extract_single_instance(server)
 
-    def _extract_instance(self, server):
+    def _extract_single_instance(self, server):
         
         if not server:
             return
@@ -316,13 +314,14 @@ class InstanceResource(base.resource):
             instance_dependencies.add_dependency(v.name)
             
             try:
-                volume_obj = self.cinder_api.get_volume(self.context, v.id)
+                volume_dict = self.cinder_api.get(self.context, v.id)
             except Exception:
-                pass
+                LOG.error("Instance volume %s could not be found.", v.id)
+                raise exception.ResourceNotFound(resource_type='Volume', resource_id=v.id)
             
-            att_info = getattr(volume_obj, 'attachments', [])
-            if att_info and att_info[0].get('device'):
-                properties['device_name'] = att_info[0].get('device')
+            if volume_dict.get('mountpoint'):
+                properties['device_name'] = volume_dict['mountpoint']
+
             bdm_property.append(properties)
             
         instance_resources.add_property('block_device_mapping_v2', bdm_property)

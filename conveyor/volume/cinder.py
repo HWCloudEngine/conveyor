@@ -154,6 +154,16 @@ def _untranslate_volume_summary_view(context, vol):
 
     return d
 
+
+def _untranslate_volume_type_summary_view(vtype):
+    """Maps keys for volume types summary view."""
+    type_dict = {}
+    type_dict['id'] = vtype.id
+    type_dict['name'] = vtype.name
+    type_dict['extra_specs'] = vtype.extra_specs
+    return type_dict
+
+
 def translate_volume_exception(method):
     """Transforms the exception for the volume but keeps its traceback intact.
     """
@@ -298,17 +308,7 @@ class API(object):
                                   error=False):
         return cinderclient(context).volumes.migrate_volume_completion(
             old_volume_id, new_volume_id, error)
-
-
- 
     
-    def volume_list(self, context, detailed=True, search_opts=None):
-        return cinderclient(context).volumes.list(detailed=detailed,
-                                                  search_opts=search_opts)
-            
-    def get_volume(self, context, volume_id,):
-        return cinderclient(context).volumes.get(volume_id)
-
     def snapshot_list(self, context, detailed=True, search_opts=None):
         return cinderclient(context).volume_snapshots.list(detailed=detailed,
                                                            search_opts=search_opts)
@@ -316,11 +316,24 @@ class API(object):
     def get_snapshot(self, context, snapshot_id):
         return cinderclient(context).volume_snapshots.get(snapshot_id)
             
-    def volume_type_list(self, context, search_opts=None):
-        return cinderclient(context).volume_types.list(search_opts=search_opts)
+    def volume_type_list(self, context, search_opts=None, trans_map=True):
+        type_objs = cinderclient(context).volume_types.list(search_opts=search_opts)
+        
+        if trans_map == False:
+            return type_objs
+        
+        type_list = []
+        for vtype in type_objs:
+            type_list.append(_untranslate_volume_type_summary_view(vtype))
             
-    def get_volume_type(self, context, volume_type_id):
-        return cinderclient(context).volume_types.get(volume_type_id)
+        return type_list
+            
+    def get_volume_type(self, context, volume_type_id, trans_map=True):
+        type_obj = cinderclient(context).volume_types.get(volume_type_id)
+        if trans_map:
+            return _untranslate_volume_type_summary_view(type_obj)
+        
+        return type_obj
                   
     def qos_specs_list(self, context):
         return cinderclient(context).qos_specs.list()

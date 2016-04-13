@@ -123,12 +123,14 @@ class API(object):
         LOG.debug("Nova client query server %s end", str(server))
         return server
 
-
-    def get_all_servers(self, context):
+    def get_all_servers(self, context, detailed=True, search_opts=None, 
+                                                marker=None, limit=None):
         LOG.debug("Nova client query all servers start")
         
         client = novaclient(context, admin=True)
-        return client.servers.list()
+        return client.servers.list(detailed=detailed, 
+                                   search_opts=search_opts,
+                                   marker=marker, limit=limit)
         LOG.debug("Nova client query all servers end")
    
     def create_instance(self, context, name, image, flavor, meta=None, files=None,
@@ -183,8 +185,6 @@ class API(object):
         nova = novaclient(context, admin=True)
         return nova.volumes.delete_server_volume(server_id, attachment_id)
     
-    
-
     def interface_attach(self, context, server_id, net_id, port_id=None, fixed_ip=None):
         LOG.debug("Nova client attach a interface to %s start",server_id)
      
@@ -203,13 +203,6 @@ class API(object):
         server = client.servers.get(server_id)
         LOG.debug("Nova client query server %s end", str(server))
         return client.servers.interface_detach(server, port_id)
-       
-
-    def servers_list(self, context, detailed=True, search_opts=None, 
-                                                marker=None, limit=None):
-        return novaclient(context, admin=True).servers.list(detailed=detailed, 
-                                                            search_opts=search_opts, 
-                                                            marker=marker, limit=limit)
             
     def keypair_list(self, context): 
         return novaclient(context, admin=True).keypairs.list()

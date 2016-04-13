@@ -76,9 +76,7 @@ class Plan(BASE, BirdieBase):
     plan_status = Column(String(length=255))
     plan_type = Column(String(length=255))
     original_resources = Column( String(length=1023))
-    original_dependency =  Column( String(length=1023))
     updated_resources   = Column(String(length=1023))
-    updated_dependency = Column(String(length=1023))
     stack_id =  Column(String(length=36))
 
 
