@@ -466,7 +466,7 @@ def wait():
         _launcher.wait()
     except KeyboardInterrupt:
         _launcher.stop()
-    rpc.cleanup()
+    #rpc.cleanup()
 
 
 class Launcher(object):

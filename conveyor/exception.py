@@ -333,8 +333,14 @@ class ResourceTypeNotSupported(V2vException):
 class PlanNotFound(NotFound):
     message = _("The plan <%(plan_id)s> could not be found.")
    
-class PlanUpdateException(NotFound):
+class PlanDeleteError(V2vException):
+    message = _("Plan <%(plan_id)s> delete failed.")
+   
+class PlanUpdateError(V2vException):
     message = _("Plan updated failed. The key not found or unsupported to update.")
+
+class PlanFileOperationError(V2vException):
+    message = _("Read or write plan file failed.")
 
 class ResourceNotFound(NotFound):
     message = _("%(resource_type)s resource <%(resource_id)s> could not be found.")
@@ -383,3 +389,15 @@ class IntegrityException(V2vException):
     
 class PlanCreateFailed(V2vException):
     message = _("Unable to create plan")
+    
+class DownloadTemplateFailed(V2vException):
+    message = _("Download the plan <%(id)s> failed.%(msg)s")    
+    
+class ExportTemplateFailed(V2vException): 
+    message = _("export template of the plan <%(id)s> failed.%(msg)s") 
+    
+class PlanCloneFailed(V2vException):
+    message = _("clone plan <%(id)s> failed.")
+    
+class PlanMigrateFailed(V2vException):
+    message = _("migrate plan <%(id)s> failed.")

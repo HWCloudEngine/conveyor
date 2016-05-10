@@ -21,6 +21,7 @@ from conveyor.i18n import _
 from conveyor import context
 from conveyor.common import log as logging
 from conveyor.common import uuidutils
+from conveyor.common import strutils
 from conveyor.api.wsgi import wsgi
 from conveyor.api import extensions
 
@@ -78,7 +79,7 @@ class ResourceActionController(wsgi.Controller):
         context = req.environ['conveyor.context']
         params = body['get_resource_detail_from_plan']
         
-        plan_id = params.get('plan_id', None)
+        plan_id = params.get('plan_id')
         
         if not plan_id:
             msg = _("The body should contain parameter plan_id.")
@@ -88,9 +89,23 @@ class ResourceActionController(wsgi.Controller):
             msg = _("Invalid plan_id provided, plan_id must be uuid.")
             raise exc.HTTPBadRequest(explanation=msg)
         
+        
+        is_original = params.get('is_original')
+        if is_original:
+            try:
+                if strutils.bool_from_string(is_original, True):
+                    is_original = True
+                else:
+                    is_original = False
+            except ValueError as e:
+                raise exc.HTTPBadRequest(explanation=unicode(e))
+        else:
+            is_original = False
+        
         try:
-            resource = self._resource_api.get_resource_detail_from_plan(context, 
-                                                                        plan_id, id)
+            resource = self._resource_api.get_resource_detail_from_plan(context,
+                                                                plan_id, id,
+                                                                is_original=is_original)
             return {"resource": resource}
         except Exception as e:
             LOG.error(unicode(e))

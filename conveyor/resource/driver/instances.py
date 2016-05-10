@@ -39,9 +39,11 @@ class InstanceResource(base.resource):
                 try:
                     server = self.nova_api.get_server(self.context, id)
                     servers.append(server)
-                except Exception:
-                    LOG.error("Instance resource %s could not be found.", id)
-                    raise exception.ResourceNotFound(resource_type='Instance', resource_id=id)
+                except Exception as e:
+                    msg = "Instance resource <%s> could not be found. %s" \
+                            % (id, unicode(e))
+                    LOG.error(msg)
+                    raise exception.ResourceNotFound(message=msg)
 
         for server in servers:
             self._extract_single_instance(server)
@@ -71,9 +73,9 @@ class InstanceResource(base.resource):
         instance_resources.add_property('availability_zone', getattr(server, 'OS-EXT-AZ:availability_zone', ''))
         
         #extract metadata parameter. If metadata is None, ignore this parameter.
-        metadata = getattr(server, 'metadata', {})
-        if metadata:
-            instance_resources.add_property('metadata', metadata)
+        #metadata = getattr(server, 'metadata', {})
+        #if metadata:
+        #    instance_resources.add_property('metadata', metadata)
          
         #extract userdata parameter. If userdata is None, ignore this parameter.
         user_data = getattr(server, 'OS-EXT-SRV-ATTR:user_data', '')
@@ -156,11 +158,13 @@ class InstanceResource(base.resource):
                 try:
                     flavor = self.nova_api.get_flavor(self.context, flavor_id)
                     flavor_objs.append(flavor)
-                except Exception:
+                except Exception as e:
                     #TODO if flavor resource can be extract by another method, ignore this exception
-                    LOG.error("Flavor resource %s could not be found.", flavor_id)
-                    raise exception.ResourceNotFound(resource_type='Flavor', resource_id=flavor_id)
-
+                    msg = "Flavor resource <%s> could not be found. %s" \
+                            % (flavor_id, unicode(e))
+                    LOG.error(msg)
+                    raise exception.ResourceNotFound(message=msg)
+                    
         for flavor in flavor_objs:
             resource_id = getattr(flavor, 'id', '')
             flavor_res = self._collected_resources.get(resource_id)
@@ -216,10 +220,11 @@ class InstanceResource(base.resource):
                 try:
                     keypair = self.nova_api.get_keypair(self.context, keypair_id)
                     keypair_objs.append(keypair)
-                except Exception:
-                    #TODO if keypair resource can be extract by another method, ignore this exception
-                    LOG.error("Keypair resource %s could not be found.", keypair_id)
-                    raise exception.ResourceNotFound(resource_type='Keypair', resource_id=keypair_id)
+                except Exception as e:
+                    msg = "Keypair resource <%s> could not be found. %s" \
+                            % (keypair_id, unicode(e))
+                    LOG.error(msg)
+                    raise exception.ResourceNotFound(message=msg)
         
         for keypair in keypair_objs:
             resource_id = getattr(keypair, 'id', '')
@@ -258,7 +263,10 @@ class InstanceResource(base.resource):
         try:
             secgroup_objs = self.nova_api.server_security_group_list(self.context, server)
         except Exception as e:
-            raise exception.ResourceNotFound(message=unicode(e))
+            msg = "Security groups of instance <%s> could not be found. %s" \
+                    % (server.id, unicode(e))
+            LOG.error(msg)
+            raise exception.ResourceNotFound(message=msg)
         
         secgroup_id_list = []
         
@@ -315,9 +323,11 @@ class InstanceResource(base.resource):
             
             try:
                 volume_dict = self.cinder_api.get(self.context, v.id)
-            except Exception:
-                LOG.error("Instance volume %s could not be found.", v.id)
-                raise exception.ResourceNotFound(resource_type='Volume', resource_id=v.id)
+            except Exception as e:
+                msg = "Instance volume <%s> could not be found. %s" \
+                        % (v.id, unicode(e))
+                LOG.error(msg)
+                raise exception.ResourceNotFound(message=msg)
             
             if volume_dict.get('mountpoint'):
                 properties['device_name'] = volume_dict['mountpoint']
@@ -334,6 +344,7 @@ class InstanceResource(base.resource):
         addresses = getattr(server, 'addresses', {})
         network_properties = []
         
+        fixed_ip_macs = []
         for addrs in addresses.values():
             for addr_info in addrs:
                 addr = addr_info.get('addr')
@@ -352,6 +363,12 @@ class InstanceResource(base.resource):
                                      collected_dependencies = self._collected_dependencies)
                 
                 if type == 'fixed':
+                    #Avoid the port with different ips was extract many times.
+                    if mac in fixed_ip_macs:
+                        continue
+                    else:
+                        fixed_ip_macs.append(mac)
+                    
                     port = self.neutron_api.port_list(self.context, mac_address=mac)
                     if not port:
                         msg = "Instance network resource extracted failed, \
@@ -375,26 +392,8 @@ class InstanceResource(base.resource):
                         raise exception.ResourceNotFound(message=msg)
                     
                     floatingip_id = floatingip[0].get('id')
-                    floatingip_res =  nr.extract_floatingips([floatingip_id])
+                    nr.extract_floatingips([floatingip_id])
                         
-                    #instance_dependencies.add_dependency(floatingip_res[0].name)
-                        
-                    
-#                     network_id = port.get('network_id')
-#                     if network_id:
-#                         nr = NetworkResource(self.context, collected_resources = self._collected_resources, 
-#                                             collected_parameters = self._collected_parameters,
-#                                             collected_dependencies = self._collected_dependencies)
-#                         network_res = nr.extract_nets([network_id])
-#                         if network_res:
-#                             network_properties.append({'uuid': {'get_resource': network_res[0].name}})
-#                             instance_dependencies.add_dependency(network_res[0].name)
-                        
-#                             if addr.get('addr') and addr.get('OS-EXT-IPS:type') == 'fixed':
-#                                 fixed_ips.append(addr.get('addr'))
-#                             elif addr.get('addr') and addr.get('OS-EXT-IPS:type') == 'floating':
-#                                 floating_ips.append(addr.get('addr'))
-        
         instance_resources.add_property('networks', network_properties)
 
     def extract_image(self, image_id):

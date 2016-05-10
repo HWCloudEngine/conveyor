@@ -62,4 +62,24 @@ class CloneAPI(object):
         LOG.debug("start call rpc api clone")
         cctxt = self.client.prepare(version='1.18')
         cctxt.cast(ctxt, 'clone', id=id, destination=destination, update_resources=update_resources)
+        
+        
+    def export_migrate_template(self, ctxt, id):
+        
+        LOG.debug("start call rpc api export_migrate_template")
+        cctxt = self.client.prepare(version='1.18')
+        cctxt.cast(ctxt, 'export_migrate_template', id=id)
+
+    
+    def migrate(self, ctxt, id, destination):
+        
+        LOG.debug("start call rpc api migrate")
+        cctxt = self.client.prepare(version='1.18')
+        cctxt.cast(ctxt, 'migrate', id=id, destination=destination)
+        
+    def download_template(self, ctxt, id):
+        
+        LOG.debug("start call rpc api download_template")
+        cctxt = self.client.prepare(version='1.18')
+        return cctxt.call(ctxt, 'download_template', id=id)
 

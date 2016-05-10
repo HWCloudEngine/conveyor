@@ -68,7 +68,10 @@ class VServiceManager(base.Manager):
                            }}
         
         
-        self._clone_volume("/v2vGateWayServices", body)
+        rsp = self._clone_volume("/v2vGateWayServices", body)
+        LOG.debug("Clone volume %(dev)s data end: %(rsp)s",
+                  {'dev': src_dev_name, 'rsp': rsp})
+        return rsp
         
     def mount_disk(self, dev_name, mount_point):
         
@@ -81,7 +84,7 @@ class VServiceManager(base.Manager):
                                'mount_point': mount_point}}
         
         url = '/v2vGateWayServices/%s/action' % uuidutils.generate_uuid()
-        self._mount_disk(url, body)
+        return self._mount_disk(url, body)
     
     def get_disk_format(self, dev_name):
         LOG.debug("Query disk: %s format start", dev_name)
@@ -109,6 +112,18 @@ class VServiceManager(base.Manager):
                   {'dev_name': dev_name, 'mount_point': mount_point})
         
         return mount_point
+    
+    def get_data_trans_status(self, task_id):
+        
+        LOG.debug("Query data transformer state start")
+        
+        url = '/v2vGateWayServices/%s' % task_id
+        
+        rsp =  self._get(url)
+        
+        LOG.debug("Query data transformer state end: %s", rsp)
+        
+        return rsp   
 
 
 

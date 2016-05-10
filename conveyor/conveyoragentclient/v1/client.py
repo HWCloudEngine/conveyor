@@ -22,6 +22,12 @@ client_opts = [
     cfg.StrOpt('gateway_protocol',
                default='http',
                help='conveyor gateway service api protocol(http or https) '),
+    cfg.IntOpt('conveyoragent_timeout',
+               default=300,
+               help='conveyor gateway service api time out '),
+    cfg.IntOpt('conveyoragent_retries',
+               default=10,
+               help='conveyor gateway service api time out '),
     ]
 CONF = cfg.CONF
 CONF.register_opts(client_opts)
@@ -63,6 +69,11 @@ class Client(object):
             proto += "://"
         
         self.url = proto + host + ":" + port + "/" + birdie_gateway_version
+        
+        if not timeout:
+            timeout = CONF.conveyoragent_timeout
+        if not retries:
+            retries = CONF.conveyoragent_retries
         
         self.client = client._construct_http_client(
             username=username,

@@ -46,6 +46,19 @@ class API(object):
         LOG.debug("execute clone plan in clone api")
         self.clone_rpcapi.clone(context, id, destination, update_resources)
         
+    def export_migrate_template(self, context, id):
+        
+        LOG.debug("export migrate template of plan %s" %id)
+        self.clone_rpcapi.export_migrate_template(context, id)
+        
+    def migrate(self, context, id, destination): 
+        LOG.debug("execute migrate plan %s in  api" %id)
+        self.clone_rpcapi.migrate(context, id, destination)
+        
+    def download_template(self, context, id):
+        LOG.debug("download template of plan %s" %id)
+        return self.clone_rpcapi.download_template(context, id)
+        
         
     
     

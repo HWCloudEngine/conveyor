@@ -153,8 +153,8 @@ def model_query(context, model, *args, **kwargs):
             query to match the context's project_id. If set to 'allow_none',
             restriction includes project_id = None.
     :param base_model: Where model_query is passed a "model" parameter which is
-            not a subclass of BirdieBase, we should pass an extra base_model
-            parameter that is a subclass of BirdieBase and corresponds to the
+            not a subclass of ConveyorBase, we should pass an extra base_model
+            parameter that is a subclass of ConveyorBase and corresponds to the
             model parameter.
     """
 
@@ -166,14 +166,14 @@ def model_query(context, model, *args, **kwargs):
     read_deleted = kwargs.get('read_deleted') or context.read_deleted
 
     def issubclassof_gw_base(obj):
-        return isinstance(obj, type) and issubclass(obj, models.BirdieBase)
+        return isinstance(obj, type) and issubclass(obj, models.ConveyorBase)
 
     base_model = model
     if not issubclassof_gw_base(base_model):
         base_model = kwargs.get('base_model', None)
         if not issubclassof_gw_base(base_model):
             raise Exception(_("model or base_model parameter should be "
-                              "subclass of BirdieBase"))
+                              "subclass of ConveyorBase"))
 
     query = session.query(model, *args)
 

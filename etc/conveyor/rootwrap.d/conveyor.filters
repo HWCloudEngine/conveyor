@@ -1,0 +1,6 @@
+# v2v-rootwrap command filters for v2v-gateway
+# This file should be owned by (and only-writeable by) the root user
+
+[Filters]
+ping: CommandFilter, ping, root
+

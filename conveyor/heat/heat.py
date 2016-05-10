@@ -18,8 +18,17 @@ from conveyor.common import log as logging
 
 LOG = logging.getLogger(__name__)
 
+heat_opts = [
+    cfg.StrOpt('heat_url',
+               default='https://127.0.0.1:8700/v1',
+               help='Default heat URL',
+               deprecated_group='DEFAULT',
+               deprecated_name='heat_url')
+    ]
+
 CONF = cfg.CONF
 
+CONF.register_opts(heat_opts, 'heat')
 # Mapping of V2 Catalog Endpoint_type to V3 Catalog Interfaces
 ENDPOINT_TYPE_TO_INTERFACE = {
     'publicURL': 'public',
@@ -123,7 +132,11 @@ def heatclient(context, password=None):
     api_version = "1"
     insecure = getattr(CONF, 'OPENSTACK_SSL_NO_VERIFY', True)
     cacert = getattr(CONF, 'OPENSTACK_SSL_CACERT', None)
-    endpoint = url_for(context, 'orchestration')
+    try:
+        endpoint = url_for(context, 'orchestration')
+    except Exception as e:
+        LOG.error("HeatClient get URL from context.service_catalog error: %s" % e)
+        endpoint = CONF.heat.heat_url + '/' + context.project_id
     kwargs = {
         'token': context.auth_token,
         'insecure': insecure,
@@ -145,7 +158,9 @@ class API(object):
     
     def get_stack(self, context, stack_id):
         return heatclient(context).stacks.get(stack_id)
-
+    
+    def delete_stack(self, context, stack_id):
+        return heatclient(context).stacks.delete(stack_id)
 
     def create_stack(self, context, password=None, **kwargs):
         return heatclient(context, password).stacks.create(**kwargs)

@@ -7,11 +7,13 @@
 
 
 #v2v api service IP
-API_SERVICE_IP=0.0.0.0
+API_SERVICE_IP=162.3.253.50
 API_SERVICE_PORT=9999
  
 LOG_DIR=/var/log/fusionsphere/component/conveyor 
 LOG_FILE=${LOG_DIR}/install.log
+
+TEMPLATE_DIR=/opt/HUAWEI/image/plans
 
 #source code file directory
 CODE_DIR=/usr/lib64/python2.6/site-packages
@@ -105,7 +107,7 @@ copy_files_to_dir()
 {
     #copy  running file to /usr/bin
     
-    for bin in api clone manager all resource ; do
+    for bin in api clone manager all resource rootwrap ; do
         if [ -f ${BIN_DIR}/conveyor-$bin ]; then
 	     rm -f ${BIN_DIR}/conveyor-$bin
 	fi
@@ -131,7 +133,7 @@ copy_files_to_dir()
     mkdir ${CONFIG_DIR}
 
     #copy config file to /etc/conveyor
-    cp ./etc/conveyor/* ${CONFIG_DIR}
+    cp -r ./etc/conveyor/* ${CONFIG_DIR}
 }
 
 #####################################################################
@@ -190,7 +192,7 @@ register_services()
 
 clear_files()
 {
-     for bin in api clone manager all resource ; do
+     for bin in api clone manager all resource rootwrap; do
         if [ -f ${BIN_DIR}/conveyor-$bin ]; then
 	     rm -f ${BIN_DIR}/conveyor-$bin
 	    fi
@@ -201,6 +203,9 @@ clear_files()
 	
 	#remove config files
 	rm -rf ${CONFIG_DIR}
+	
+	#remove template_dir
+	rm -rf ${TEMPLATE_DIR}
 }
 
 create_db()
@@ -208,6 +213,13 @@ create_db()
    /opt/gaussdb/app/bin/gsql -U openstack -W FusionSphere123  -h "$database_ip" POSTGRES -c 'CREATE DATABASE conveyor OWNER openstack;'
 }
 
+create_dir_template()
+{
+   if [ ! -d ${TEMPLATE_DIR} ]; then
+	   mkdir -p ${TEMPLATE_DIR}
+	   chown -R openstack:openstack ${TEMPLATE_DIR}
+   fi
+}
  # create log directory
 mkdir -p ${LOG_DIR}
 chown -R openstack:openstack ${LOG_DIR}
@@ -221,6 +233,10 @@ init() {
    echo  ${TIME_CMD} "begin create db conveyor."
    create_db
    echo  ${TIME_CMD} "end create db conveyor."
+   
+   echo ${TIME_CMD} "begin create dir for store template."
+   create_dir_template
+   echo ${TIME_CMD} "end create dir for store template."
 }
 
 start() {

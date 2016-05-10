@@ -36,9 +36,11 @@ class VolumeResource(base.resource):
                 try:
                     volume = self.cinder_api.get(self.context, volume_id)
                     volume_dicts.append(volume)
-                except Exception:
-                    LOG.error("Volume resource %s could not be found.", volume_id)
-                    raise exception.ResourceNotFound(resource_type='Volume', resource_id=volume_id)
+                except Exception as e:
+                    msg = "Volume resource <%s> could not be found. %s" \
+                            % (volume_id, unicode(e))
+                    LOG.error(msg)
+                    raise exception.ResourceNotFound(message=msg)
 
         for volume in volume_dicts:
             volume_id = volume['id']
@@ -55,8 +57,8 @@ class VolumeResource(base.resource):
             
             if volume.get('display_description'):
                 properties['description'] = volume['display_description']
-            if volume.get('volume_metadata'):
-                properties['metadata'] = volume['volume_metadata']           
+            #if volume.get('volume_metadata'):
+            #    properties['metadata'] = volume['volume_metadata']           
             
             resource_type = "OS::Cinder::Volume"
             resource_name = 'volume_%d' % self._get_resource_num(resource_type)
@@ -65,7 +67,7 @@ class VolumeResource(base.resource):
             volume_dep = resource.ResourceDependency(volume_id, volume['display_name'], 
                                                        resource_name, resource_type)
             
-            volume_type_name = volume['volume_type_id']
+            volume_type_name = volume['volume_type']
             if volume_type_name:
                 volume_types = self.cinder_api.volume_type_list(self.context)
                 volume_type_id = None
@@ -119,11 +121,14 @@ class VolumeResource(base.resource):
             volume_type_ids = {}.fromkeys(volume_type_ids).keys()
             for volume_type_id in volume_type_ids:
                 try:
-                    volume_type = self.cinder_api.get_volume_type(self.context, volume_type_id)
+                    volume_type = self.cinder_api.get_volume_type(self.context, 
+                                                                  volume_type_id)
                     volume_type_dicts.append(volume_type)
-                except Exception:
-                    LOG.error("VolumeType resource %s could not be found.", volume_type_id)
-                    raise exception.ResourceNotFound(resource_type='VolumeType', resource_id=volume_type_id)
+                except Exception as e:
+                    msg = "VolumeType resource <%s> could not be found. %s" \
+                            % (volume_type_id, unicode(e))
+                    LOG.error(msg)
+                    raise exception.ResourceNotFound(message=msg)
 
         for volume_type in volume_type_dicts:
             volume_type_id = volume_type['id']

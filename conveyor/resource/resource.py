@@ -7,39 +7,27 @@ import copy
 import six
 from oslo.config import cfg
 
+from conveyor.common import jsonutils
+from conveyor.common import fileutils
 from conveyor.common import timeutils
 from conveyor.common import log as logging
 from conveyor.common import plan_status as p_status
 from conveyor import exception
 
+from conveyor.db import api as db_api
+
 LOG = logging.getLogger(__name__)
 
-resource_type = ['OS::Nova::Server',
+
+RESOURCE_TYPES = ['OS::Nova::Server',
                  'OS::Cinder::Volume',
                  'OS::Neutron::Net',
                  'OS::Neutron::Router',
                  'OS::Neutron::LoadBalancer',
                  'OS::Heat::Stack']
 
-
-instance_allowed_search_opts = ['reservation_id', 'name', 'status', 'image', 'flavor',
-                               'tenant_id', 'ip', 'changes-since', 'all_tenants']
-
-volume_allowed_search_opts = []
-
-network_allowed_search_opts = []
-
-resource_opts = [
-    cfg.IntOpt('plan_expire_time',
-               default=60,
-               help='If a plan still was not be cloned or migrated \
-                       after plan_expire_time minutes, the plan will be deleted',
-               deprecated_group='DEFAULT',
-               deprecated_name=''),
-]
-
-CONF = cfg.CONF
-CONF.register_opts(resource_opts)
+# instance_allowed_search_opts = ['reservation_id', 'name', 'status', 'image', 'flavor',
+#                                'tenant_id', 'ip', 'changes-since', 'all_tenants']
 
 
 class Resource(object):
@@ -93,6 +81,7 @@ class Resource(object):
                   "name": self.name,
                   "type": self.type,
                   "properties": self.properties,
+                  "extra_properties": self.extra_properties,
                   "parameters": self.parameters
                   }
         return resource
@@ -185,40 +174,17 @@ class Plan(object):
         self.updated_at = updated_at or None
         self.deleted_at = deleted_at or None
         self.expire_at = expire_at or \
-                            timeutils.utc_after_given_minutes(CONF.plan_expire_time)
+                         timeutils.utc_after_given_minutes(cfg.CONF.plan_expire_time)
         
         self.deleted = deleted or False
-        self.plan_status = plan_status or p_status.CREATING
+        self.plan_status = plan_status or p_status.INITIATING
         self.task_status = task_status or ''
         
         self.original_resources = original_resources or {}
         self.updated_resources = updated_resources or {}
         self.original_dependencies = original_dependencies or {}
         self.updated_dependencies = updated_dependencies or {}
-        
-
-    def update(self, values):
-        if not isinstance(values, dict):
-            msg = "Update plan failed. 'values' attribute must be a dict."
-            LOG.error(msg)
-            raise exception.PlanUpdateException(message=msg)
-        allowed_properties = ['task_status', 'plan_status', 'expire_at',
-                              'updated_resources', 'updated_dependencies']
-        for k,v in values.items():
-            if k not in allowed_properties:
-                msg = "Update plan failed. %s attribute \
-                        not found or unsupported to update." % k
-                LOG.error(msg)
-                raise exception.PlanUpdateException(message=msg)
-            elif k == 'plan_status' and v not in p_status.PLAN_STATUS:
-                msg = "Update plan failed. '%s' plan_status unsupported." % v
-                LOG.error(msg)
-                raise exception.PlanUpdateException(message=msg)
-        for k,v in values.items():
-            setattr(self, k, v)
-            if k == 'updated_resources':
-                self.rebuild_dependencies()
-    
+           
 
     def rebuild_dependencies(self, is_original=False):
         
@@ -280,7 +246,7 @@ class Plan(object):
         else:
             self.updated_dependencies = dependencies
         
-    def to_dict(self):
+    def to_dict(self, detail=True):
         
         def trans_from_obj_dict(object_dict):
             res = {}
@@ -300,12 +266,15 @@ class Plan(object):
                 'deleted_at': str(self.deleted_at) if self.deleted_at else None,
                 'deleted': self.deleted,
                 'task_status': self.task_status,
-                'plan_status': self.plan_status,
-                'original_resources': trans_from_obj_dict(self.original_resources),
-                'updated_resources': trans_from_obj_dict(self.updated_resources),
-                'original_dependencies': trans_from_obj_dict(self.original_dependencies),
-                'updated_dependencies': trans_from_obj_dict(self.updated_dependencies)
+                'plan_status': self.plan_status
                 }
+        
+        if detail:
+            plan['original_resources'] = trans_from_obj_dict(self.original_resources)
+            plan['updated_resources'] = trans_from_obj_dict(self.updated_resources)
+            plan['original_dependencies'] = trans_from_obj_dict(self.original_dependencies)
+            plan['updated_dependencies'] = trans_from_obj_dict(self.updated_dependencies)
+        
         return plan
 
     @classmethod
@@ -368,3 +337,92 @@ class TaskStatus():
                 = ('deploying', 'finished', 'failed')
 
 
+
+def save_plan_to_db(context, plan_file_dir, new_plan):
+    
+    if isinstance(new_plan, Plan):
+        plan = new_plan.to_dict()
+    else:
+        plan = copy.deepcopy(new_plan)
+        
+    LOG.debug('Save plan <%s> to database.', plan['plan_id'])
+    
+    plan.pop('original_dependencies', None)
+    plan.pop('updated_dependencies', None)
+    
+    field_name = ['original_resources', 'updated_resources']
+    for name in field_name:
+        if plan.get(name):
+            full_path = plan_file_dir + plan['plan_id'] + '.' + name
+            _write_json_to_file(full_path, plan[name])
+            plan[name] = full_path
+        else:
+            plan[name] = ''
+    
+    try:
+        db_api.plan_create(context, plan)
+    except Exception as e:
+        LOG.error(unicode(e))
+        #Roll back: delete files
+        for name in field_name:
+            full_path = plan_file_dir + plan['plan_id'] + '.' + name
+            fileutils.delete_if_exists(full_path)
+            
+        raise exception.PlanCreateFailed(message=unicode(e))
+
+
+def read_plan_from_db(context, plan_id):
+    plan_dict = db_api.plan_get(context, plan_id)
+    
+    field_name = ['original_resources', 'updated_resources']
+    for name in field_name:
+        if plan_dict.get(name):
+            plan_dict[name] = _read_json_from_file(plan_dict[name])
+            
+    plan_obj = Plan.from_dict(plan_dict)
+    
+    #rebuild dependencies
+    plan_obj.rebuild_dependencies(is_original=True)
+    plan_obj.rebuild_dependencies()
+    
+    return plan_obj.to_dict(), plan_obj
+
+
+def update_plan_to_db(context, plan_file_dir, plan_id, values):
+    
+    values.pop('original_dependencies', None)
+    values.pop('updated_dependencies', None)
+    
+    special_fields = ('original_resources', 'updated_resources')
+    
+    for field in special_fields:
+        if field in values.keys() and values[field]:
+            full_path = plan_file_dir + plan_id + '.' + field
+            _write_json_to_file(full_path, values[field])
+            values[field] = full_path
+            
+    db_api.plan_update(context, plan_id, values)
+
+
+def _write_json_to_file(full_path, data):
+    if not data or not full_path:
+        return
+    try:
+        with fileutils.file_open(full_path, 'w') as fp:
+            jsonutils.dump(data, fp, indent=4)
+    except Exception as e:
+        msg = "Write plan file (%s) failed, %s" % (full_path, unicode(e))
+        LOG.error(msg)
+        raise exception.PlanFileOperationError(message=msg)
+
+def _read_json_from_file(full_path):
+    if not full_path:
+        return
+    try:
+        with fileutils.file_open(full_path, 'r') as fp:
+            return jsonutils.load(fp)
+    except Exception as e:
+        msg = "Read plan file (%s) failed, %s" % (full_path, unicode(e))
+        LOG.error(msg)
+        raise exception.PlanFileOperationError(message=msg)
+    

@@ -17,10 +17,28 @@
 status of a plan.
 """
 
-PLAN_STATUS = (CREATING, AVAILABLE, CLONING, MIGRATING, 
-               FINISHED, DELETING, DELETED, EXPIRED, ERROR) = (
-               'creating', 'available', 'cloning', 'migrating', 
-               'finished', 'deleting', 'deleted', 'expired', 'error')
+PLAN_STATUS = (INITIATING, CREATING, AVAILABLE, CLONING, MIGRATING, 
+               FINISHED, DELETING, DELETED, ERROR_DELETING, EXPIRED, ERROR) = (
+               'initiating', 'creating', 'available', 'cloning', 'migrating', 
+               'finished', 'deleting', 'deleted', 'error_deleting', 'expired', 'error')
 
 
 
+STATE_MAP = {
+    'CREATE_IN_PROGRESS': 'cloning',
+    'CREATE_COMPLETE': 'cloning',
+    'DATA_TRANSFORMING': 'cloning',
+    'DATA_TRANS_FINISHED': 'finished',
+    'CREATE_FAILED': 'error',
+    'DATA_TRANS_FAILED': 'error'
+}
+
+MIGRATE_STATE_MAP = {
+    'CREATE_IN_PROGRESS': 'migrating',
+    'CREATE_COMPLETE': 'migrating',
+    'DATA_TRANSFORMING': 'migrating',
+    'DATA_TRANS_FINISHED': 'migrating',
+    'CREATE_FAILED': 'error',
+    'DATA_TRANS_FAILED': 'error',
+    'MIGRATE_FINISH': 'finished'
+}

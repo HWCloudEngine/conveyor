@@ -143,4 +143,29 @@ class API(object):
 
     def get_vip(self, context, vip_id, **_params):
         return neutronclient(context).show_vip(vip_id, **_params)['vip']
+    
+    def create_port(self, context, _params):
+        return neutronclient(context).create_port(_params)['port']['id']
 
+    def delete_port(self, context, port_id):
+        return neutronclient(context).delete_port(port_id)
+        
+    def allocate_floating_ip(self, context, pool=None):
+        param = {'floatingip': {'floating_network_id': pool}}
+        fip = neutronclient(context).create_floatingip(param)
+        return fip['floatingip']['floating_ip_address']
+    
+    def disassociate_floating_ip(self, context, floatingip_id,
+                                 affect_auto_assigned=False):
+        """Disassociate a floating ip from the instance."""
+        neutronclient(context).update_floatingip(floatingip_id, {'floatingip': {'port_id': None}})
+        
+    def associate_floating_ip(self, context,
+                              floatingip_id, port_id, fixed_address = None,
+                              affect_auto_assigned=False):
+        """Associate a floating ip with a fixed ip."""
+        param = {'port_id': port_id}
+        if fixed_address:
+            param['fixed_ip_address'] = fixed_address
+        neutronclient(context).update_floatingip(floatingip_id,
+                                         {'floatingip': param})

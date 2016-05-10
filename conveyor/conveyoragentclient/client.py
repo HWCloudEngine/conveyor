@@ -20,13 +20,12 @@ OpenStack Client interface. Handles the REST calls and responses.
 
 from __future__ import print_function
 
-import logging
-
 import requests
 
 from conveyor.conveyoragentclient.common import exceptions
 from conveyor.common import strutils
 from conveyor.common import importutils as utils
+from conveyor.common import log as logging
 
 
 try:
@@ -162,6 +161,8 @@ class HTTPClient(object):
         auth_attempts = 0
         attempts = 0
         backoff = 1
+        if 'proxies' not in kwargs:
+            kwargs['proxies'] = {'http': None, 'https':None}
         while True:
             attempts += 1
             #if not self.management_url or not self.auth_token:
@@ -177,10 +178,11 @@ class HTTPClient(object):
                 return resp, body
             except exceptions.BadRequest as e:
                 if attempts > self.retries:
-                    raise
+                    self._logger.error("Conveyor Client error: %s", e)
+                    raise exceptions.BadRequest
             except exceptions.Unauthorized:
                 if auth_attempts > 0:
-                    raise
+                    raise exceptions.Unauthorized
                 self._logger.debug("Unauthorized, reauthenticating.")
                 self.management_url = self.auth_token = None
                 # First reauth. Discount this attempt.
@@ -189,7 +191,8 @@ class HTTPClient(object):
                 continue
             except exceptions.ClientException as e:
                 if attempts > self.retries:
-                    raise
+                    self._logger.error("Conveyor Client error: %s", e)
+                    raise exceptions.ClientException
                 if 500 <= e.code <= 599:
                     pass
                 else:

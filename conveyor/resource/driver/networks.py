@@ -38,9 +38,11 @@ class NetworkResource(base.resource):
                 try:
                     net = self.neutron_api.get_network(self.context, net_id)
                     net_objs.append(net)
-                except Exception:
-                    LOG.error("Network resource %s could not be found.", net_id)
-                    raise exception.ResourceNotFound(resource_type='Network', resource_id=net_id)
+                except Exception as e:
+                    msg = "Network resource <%s> could not be found. %s" \
+                            % (net_id, unicode(e))
+                    LOG.error(msg)
+                    raise exception.ResourceNotFound(message=msg)
                 
         #every net_obj is a dict  
         for net in net_objs:
@@ -110,9 +112,11 @@ class NetworkResource(base.resource):
                 try:
                     subnet = self.neutron_api.get_subnet(self.context, subnet_id)
                     subnet_objs.append(subnet)
-                except Exception:
-                    LOG.error("Subnet resource %s could not be found.", subnet_id)
-                    raise exception.ResourceNotFound(resource_type='Subnet', resource_id=subnet_id)
+                except Exception as e:
+                    msg = "Subnet resource <%s> could not be found. %s" \
+                            % (subnet_id, unicode(e))
+                    LOG.error(msg)
+                    raise exception.ResourceNotFound(message=msg)
         
         for subnet in subnet_objs:
             subnet_id = subnet.get('id')
@@ -179,9 +183,11 @@ class NetworkResource(base.resource):
         for subnet_id in subnet_ids:
             try:
                 subnet = self.neutron_api.get_subnet(self.context, subnet_id)
-            except Exception:
-                LOG.error("Subnet resource %s could not be found.", subnet_id)
-                raise exception.ResourceNotFound(resource_type='Subnet', resource_id=subnet_id)
+            except Exception as e:
+                msg = "Subnet resource <%s> could not be found. %s" \
+                        % (subnet_id, unicode(e))
+                LOG.error(msg)
+                raise exception.ResourceNotFound(message=msg)
             
             subnet_id = subnet.get('id')
             properties = {
@@ -229,9 +235,11 @@ class NetworkResource(base.resource):
                 try:
                     port = self.neutron_api.get_port(self.context, port_id)
                     port_objs.append(port)
-                except Exception:
-                    LOG.error("Port resource %s could not be found.", port_id)
-                    raise exception.ResourceNotFound(resource_type='Port', resource_id=port_id)
+                except Exception as e:
+                    msg = "Port resource <%s> could not be found. %s" \
+                            % (port_id, unicode(e))
+                    LOG.error(msg)
+                    raise exception.ResourceNotFound(message=msg)
                 
         #every port_obj is a dict  
         for port in port_objs:
@@ -243,6 +251,7 @@ class NetworkResource(base.resource):
             
             properties = {
                 'name': port.get('name', ''),
+                'mac_address': port.get('mac_address', ''),
                 'admin_state_up': port.get('admin_state_up', True),
             }
             dependencies = []
@@ -256,8 +265,8 @@ class NetworkResource(base.resource):
             if port.get('binding:vnic_type') is not None:
                 value_specs['binding:vnic_type'] = port.get('binding:vnic_type')
                                
-            if value_specs:
-                properties['value_specs'] = value_specs
+            #if value_specs:
+            #    properties['value_specs'] = value_specs
             
             
             if port.get('security_groups'):
@@ -342,10 +351,11 @@ class NetworkResource(base.resource):
                 try:
                     floatingip = self.neutron_api.get_floatingip(self.context, floatingip_id)
                     floatingip_objs.append(floatingip)
-                except Exception:
-                    LOG.error("FloatingIp resource %s could not be found.", floatingip_id)
-                    raise exception.ResourceNotFound(resource_type='FloatingIp', 
-                                                     resource_id=floatingip_id)
+                except Exception as e:
+                    msg = "FloatingIp resource <%s> could not be found. %s" \
+                            % (floatingip_id, unicode(e))
+                    LOG.error(msg)
+                    raise exception.ResourceNotFound(message=msg)
             
         for floatingip in floatingip_objs:
             floatingip_id = floatingip.get('id')
@@ -354,10 +364,7 @@ class NetworkResource(base.resource):
                 floatingipResources.append(floatingip_res)
                 continue
                 
-            properties = {
-#                 'value_specs': floatingip.get('name'),
-#                 'fixed_ip_address': rules,
-            }
+            properties = {}
             dependencies = []
             
             floating_network_id = floatingip.get('floating_network_id')
@@ -501,9 +508,11 @@ class NetworkResource(base.resource):
                 try:
                     router = self.neutron_api.get_router(self.context, router_id)
                     router_objs.append(router)
-                except Exception:
-                    LOG.error("Router resource %s could not be found.", router_id)
-                    raise exception.ResourceNotFound(resource_type='Router', resource_id=router_id)
+                except Exception as e:
+                    msg = "Router resource <%s> could not be found. %s" \
+                            % (router_id, unicode(e))
+                    LOG.error(msg)
+                    raise exception.ResourceNotFound(message=msg)
                     
         #every router_obj is a dict
         for router in router_objs:
@@ -571,9 +580,11 @@ class NetworkResource(base.resource):
                 try:
                     sec = self.neutron_api.get_security_group(self.context, sec_id)
                     secgroup_objs.append(sec)
-                except Exception:
-                    LOG.error("SecurityGroup resource %s could not be found.", sec_id)
-                    raise exception.ResourceNotFound(resource_type='SecurityGroup', resource_id=sec_id)
+                except Exception as e:
+                    msg = "SecurityGroup resource <%s> could not be found. %s" \
+                            % (sec_id, unicode(e))
+                    LOG.error(msg)
+                    raise exception.ResourceNotFound(message=msg)
             
         for sec in secgroup_objs:
             sec_id = sec.get('id')
@@ -584,12 +595,10 @@ class NetworkResource(base.resource):
             
             if sec.get('name') == 'default':
                 sec['name'] = '_default'
-                
-            rules, dependencies = self._build_rules(sec.get('security_group_rules'))
+            
             properties = {
                 'description': sec.get('description'),
                 'name': sec.get('name'),
-                'rules': rules,
             }
             
             resource_type = "OS::Neutron::SecurityGroup"
@@ -597,13 +606,20 @@ class NetworkResource(base.resource):
             sec_res = resource.Resource(resource_name, resource_type,
                                         sec_id, properties=properties)
 
+            #Put secgroup into collected_resources first before extracting rules to
+            #avoid recycle dependencies.
+            self._collected_resources[sec_id] = sec_res
+
+            #Extract secgroup rules.
+            rules, dependencies = self._build_rules(sec.get('security_group_rules'))
+            self._collected_resources[sec_id].add_property('rules', rules)
+            
             #remove duplicate dependencies
             dependencies = {}.fromkeys(dependencies).keys()
             sec_dep = resource.ResourceDependency(sec_id, sec.get('name'), 
-                                                       resource_name, resource_type,
-                                                       dependencies=dependencies)
+                                                  resource_name, resource_type,
+                                                  dependencies=dependencies)
             
-            self._collected_resources[sec_id] = sec_res
             self._collected_dependencies[sec_id] = sec_dep
             secgroupResources.append(sec_res)
 
@@ -621,19 +637,20 @@ class NetworkResource(base.resource):
         for rule in rules:
             if rule.get('protocol') == 'any':
                 del rule['protocol']
+            #Only extract secgroups in first level, ignore the dependent secgroup.
             rg_id = rule.get('remote_group_id')
             if rg_id is not None:
                 rule['remote_mode'] = "remote_group_id"
-                
                 if rg_id == rule.get('security_group_id'):
                     del rule['remote_group_id']
-                else:
-                    res = self._extract_secgroups([rule.get('security_group_id')])
-                    if res:
-                        rule['remote_group_id'] = {'get_resource': res[0].name}
-                        dependencies.append(res[0].name)
-                    else:
-                        del rule['remote_group_id']
+#                 else:
+#                     res = self.extract_secgroups([rg_id])
+#                     if res:
+#                         rule['remote_group_id'] = {'get_resource': res[0].name}
+#                         dependencies.append(res[0].name)
+#                     else:
+#                         del rule['remote_group_id']
+                        
             del rule['tenant_id']
             del rule['id']
             del rule['security_group_id']

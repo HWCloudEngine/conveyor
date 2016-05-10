@@ -2,10 +2,13 @@
 @author: g00357909
 '''
 import time
+import six
+
 from conveyor.common import timeutils
 from webob import exc
-from conveyor.i18n import _, _LI
+from conveyor.i18n import _
 from conveyor.common import uuidutils
+from conveyor.common import template_format
 from conveyor.api.wsgi import wsgi
 from conveyor.common import log as logging
 from conveyor import exception
@@ -23,7 +26,7 @@ class Controller(wsgi.Controller):
         super(Controller, self).__init__()
 
     def show(self, req, id):
-        LOG.debug("Get a plan by plan id")
+        LOG.debug("Get plan with id of %s.", id)
         
         if not uuidutils.is_uuid_like(id):
             msg = _("Invalid id provided, id must be uuid.")
@@ -64,12 +67,12 @@ class Controller(wsgi.Controller):
                 msg = _("Every resource must be a dict with id and type keys.")
                 raise exc.HTTPBadRequest(explanation=msg)
             
-            id = res.get('id')
-            type = res.get('type')
-            if not id or not type:
+            res_id = res.get('id')
+            res_type = res.get('type')
+            if not res_id or not res_type:
                 msg = _('Type or id is empty')
                 raise exc.HTTPBadRequest(explanation=msg)
-            resources.append({'id': id, 'type': type})
+            resources.append({'id': res_id, 'type': res_type})
         
         if not resources:
             msg = _('No vaild resource, please check the types and ids')
@@ -92,19 +95,25 @@ class Controller(wsgi.Controller):
         
         LOG.debug("Create a plan by template")
         
-        if not self.is_valid_body(body, 'template'):
+        if not self.is_valid_body(body, 'plan'):
             msg = _("Incorrect request body format.")
             raise exc.HTTPBadRequest(explanation=msg)
         
         context = req.environ['conveyor.context']
-            
-        template = body['template']
+
+        tpl_param = body['plan'].get('template')
+        if not tpl_param:
+            msg = _('No template found in body.')
+            raise exc.HTTPBadRequest(explanation=msg)
+
+        template = self._convert_template_to_json(tpl_param)
+        
         expire_time = template.get('expire_time')
         plan_type = template.get('plan_type')
         
         if not expire_time or not plan_type:
             msg = _("Template must have 'expire_time' and 'plan_type' field.")
-            raise exc.HTTPBadRequest(explanation=msg)  
+            raise exc.HTTPBadRequest(explanation=msg)
         
         expire_time = timeutils.parse_isotime(expire_time)
         if timeutils.is_older_than(expire_time, 0):
@@ -119,8 +128,19 @@ class Controller(wsgi.Controller):
             raise exc.HTTPInternalServerError(explanation=unicode(e))
 
 
+    def _convert_template_to_json(self, template):
+        if isinstance(template, dict):
+            return template
+        elif isinstance(template, six.string_types):
+            LOG.debug("Convert template from string to map")
+            return template_format.parse(template)
+        else:
+            msg = _("Template must be string or map.")
+            raise exc.HTTPBadRequest(explanation=msg)
+
+
     def delete(self, req, id):
-        LOG.debug("Delete a clone or migrate plan")
+        LOG.debug("Delete plan <%s>.", id)
 
         if not uuidutils.is_uuid_like(id):
             msg = _("Invalid id provided, id must be uuid.")
@@ -136,10 +156,55 @@ class Controller(wsgi.Controller):
 #         except exception.PlanNotFound:
 #             msg = _("Delete failed. The plan %s could not be found" % id)
 #             raise exc.HTTPInternalServerError(explanation=msg)
+
+
+    @wsgi.response(202)
+    @wsgi.action('update_plan_resources')
+    def _update_plan_resources(self, req, id, body):
+        """Update resource of specific plan."""
+        
+        if not self.is_valid_body(body, 'update_plan_resources'):
+            msg = _("Incorrect request body format.")
+            raise exc.HTTPBadRequest(explanation=msg)
+        
+        context = req.environ['conveyor.context']
+        update_values = body['update_plan_resources'].get('resources')
+        
+        if not update_values:
+            msg = _('No resources found in body.')
+            raise exc.HTTPBadRequest(explanation=msg)
+        
+        LOG.debug("Update resource of plan <%s> with values: %s", id, update_values)
+
+        try:
+            self._resource_api.update_plan_resources(context, id, update_values)
+            #self._resource_api.update_plan(context, id,
+            #                               {"updated_resources": update_values})
+        except Exception as e:
+            LOG.error(unicode(e))
+            raise exc.HTTPInternalServerError(explanation=unicode(e))
+
+
+    def update(self, req, id, body):
+        """Update a plan."""
+        LOG.debug("Update a plan.")
+        
+        if not self.is_valid_body(body, 'plan'):
+            msg = _("Incorrect request body format.")
+            raise exc.HTTPBadRequest(explanation=msg)
+        
+        context = req.environ['conveyor.context']
+        update_values = body['plan']
+
+        try:
+            self._resource_api.update_plan(context, id, update_values)
+        except Exception as e:
+            LOG.error(unicode(e))
+            raise exc.HTTPInternalServerError(explanation=unicode(e))
         
         
     def detail(self, req):
-        LOG.debug("Get all plans")
+        LOG.debug("Get all plans.")
         search_opts = {}
         search_opts.update(req.GET)
         context = req.environ['conveyor.context']
@@ -147,7 +212,6 @@ class Controller(wsgi.Controller):
         plans = self._resource_api.get_plans(context, search_opts=search_opts)
         
         return {"plans": plans}
-
 
 
 def create_resource(ext_mgr):

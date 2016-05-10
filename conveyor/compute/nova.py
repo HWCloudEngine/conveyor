@@ -42,7 +42,7 @@ nova_opts = [
                default=None,
                help='Same as nova_endpoint_template, but for admin endpoint.'),
     cfg.StrOpt('os_region_name',
-               default=None,
+               default='cloud.hybrid',
                help='Region name of this node'),
     cfg.StrOpt('nova_ca_certificates_file',
                default=None,
@@ -55,6 +55,21 @@ nova_opts = [
 
 CONF = cfg.CONF
 CONF.register_opts(nova_opts)
+
+CONF.import_opt('auth_protocol', 'keystoneclient.middleware.auth_token',
+                group='keystone_authtoken')
+CONF.import_opt('auth_host', 'keystoneclient.middleware.auth_token',
+                group='keystone_authtoken')
+CONF.import_opt('auth_port', 'keystoneclient.middleware.auth_token',
+                group='keystone_authtoken')
+CONF.import_opt('auth_version', 'keystoneclient.middleware.auth_token',
+                group='keystone_authtoken')
+CONF.import_opt('admin_tenant_name', 'keystoneclient.middleware.auth_token',
+                group='keystone_authtoken')
+CONF.import_opt('admin_user', 'keystoneclient.middleware.auth_token',
+                group='keystone_authtoken')
+CONF.import_opt('admin_password', 'keystoneclient.middleware.auth_token',
+                group='keystone_authtoken')
 
 LOG = logging.getLogger(__name__)
 
@@ -88,14 +103,21 @@ def novaclient(context, admin=False):
         else:
             attr = None
             filter_value = None
-        url = sc.url_for(attr=attr,
+        try:
+            url = sc.url_for(attr=attr,
                          filter_value=filter_value,
                          service_type=service_type,
                          service_name=service_name,
                          endpoint_type=endpoint_type)
+        except Exception as e:
+            LOG.error("Novaclient get URL from service_catalog error: %s" % e)
+            return adminclient(context) 
 
     LOG.debug('Novaclient connection created using URL: %s' % url)
-
+    LOG.debug("Novaclient connection select URL from: %s" % context.service_catalog)
+    if not url:
+        return adminclient(context)
+    
     extensions = [assisted_volume_snapshots]
 
     c = nova_client.Client(context.user_id,
@@ -112,6 +134,26 @@ def novaclient(context, admin=False):
     return c
 
 
+
+def adminclient(context):
+
+    auth_url = "%s://%s:%s/identity/%s" % (
+                        CONF.keystone_authtoken.auth_protocol,
+                        CONF.keystone_authtoken.auth_host,
+                        CONF.keystone_authtoken.auth_port,
+                        CONF.keystone_authtoken.auth_version)
+    
+    c = nova_client.Client(CONF.keystone_authtoken.admin_user,
+                           CONF.keystone_authtoken.admin_password,
+                           CONF.keystone_authtoken.admin_tenant_name,
+                           auth_url=auth_url,
+                           insecure=CONF.nova_api_insecure,
+                           cacert=CONF.nova_ca_certificates_file,
+                           region_name=CONF.os_region_name)
+
+    return c
+
+
 class API(object):
     """API for interacting with novaclient."""
     
@@ -122,6 +164,13 @@ class API(object):
         server = client.servers.get(server_id)
         LOG.debug("Nova client query server %s end", str(server))
         return server
+    
+    def delete_server(self, context, server_id):
+        client = novaclient(context, admin=True)
+        LOG.debug("Nova client delete server %s start", server_id)
+        server = client.servers.delete(server_id)
+        LOG.debug("Nova client delete server %s end", str(server))
+        
 
     def get_all_servers(self, context, detailed=True, search_opts=None, 
                                                 marker=None, limit=None):
@@ -203,6 +252,16 @@ class API(object):
         server = client.servers.get(server_id)
         LOG.debug("Nova client query server %s end", str(server))
         return client.servers.interface_detach(server, port_id)
+        
+    def associate_floatingip(self, context, server_id, address, fixed_address=None):
+        LOG.debug("Nova client associate a floatingip %s to server %s start", address, server_id)
+        client = novaclient(context, admin=True)
+        client.servers.add_floating_ip(server_id, address, fixed_address)    
+        
+       
+    def migrate_interface_detach(self, context, server_id, port_id):
+        client = adminclient(context)
+        return client.servers.interface_detach(server_id, port_id)
             
     def keypair_list(self, context): 
         return novaclient(context, admin=True).keypairs.list()

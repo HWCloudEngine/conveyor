@@ -125,6 +125,7 @@ def _untranslate_volume_summary_view(context, vol):
     #            removed.
     d['attach_time'] = ""
     d['mountpoint'] = ""
+    d['attachments'] = vol.attachments
 
     if vol.attachments:
         att = vol.attachments[0]
@@ -142,7 +143,7 @@ def _untranslate_volume_summary_view(context, vol):
         d['display_name'] = vol.name
         d['display_description'] = vol.description
     # TODO(jdg): Information may be lost in this translation
-    d['volume_type_id'] = vol.volume_type
+    d['volume_type'] = vol.volume_type
     d['snapshot_id'] = vol.snapshot_id
     d['bootable'] = strutils.bool_from_string(vol.bootable)
     d['volume_metadata'] = {}
@@ -343,5 +344,8 @@ class API(object):
             
     def get_qos_associations(self, context, qos_specs_id):
         return cinderclient(context).qos_specs.get_associations(qos_specs_id)
+    
+    def delete(self, context, volume_id):
+        return cinderclient(context).volumes.delete(volume_id)
 
  

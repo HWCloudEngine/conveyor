@@ -36,7 +36,7 @@ def MediumText():
     return Text().with_variant(MEDIUMTEXT(), 'mysql')
 
 
-class BirdieBase(models.SoftDeleteMixin,
+class ConveyorBase(models.SoftDeleteMixin,
                models.TimestampMixin,
                models.ModelBase):
     metadata = None
@@ -57,10 +57,10 @@ class BirdieBase(models.SoftDeleteMixin,
         if session is None:
             session = api.get_session()
 
-        super(BirdieBase, self).save(session=session)
+        super(ConveyorBase, self).save(session=session)
 
 
-class Plan(BASE, BirdieBase):
+class Plan(BASE, ConveyorBase):
     """Represents a plan."""
     __tablename__ = "plans"
     __table_args__ = (
@@ -68,10 +68,10 @@ class Plan(BASE, BirdieBase):
     )
 
     id = Column(Integer, primary_key=True)
-    expire_at = Column(DateTime, onupdate=lambda: timeutils.utcnow())
+    expire_at = Column(DateTime)
     plan_id = Column(String(length=36), nullable=False)
     project_id = Column(String(length=36), nullable=False)
-    user_id = Column(String(length=36), nullable=False)        
+    user_id = Column(String(length=36), nullable=False)
     task_status = Column(String(length=255))
     plan_status = Column(String(length=255))
     plan_type = Column(String(length=255))

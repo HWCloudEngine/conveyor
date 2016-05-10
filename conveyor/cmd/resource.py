@@ -64,8 +64,7 @@ def main():
          version=version.version_string())
     logging.setup("conveyor")
     utils.monkey_patch()
-    launcher = service.get_launcher()
     server = service.Service.create(binary='conveyor-resource')
-    launcher.launch_service(server)
-    launcher.wait()
+    service.serve(server)
+    service.wait()
 

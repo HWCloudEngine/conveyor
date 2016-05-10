@@ -43,25 +43,27 @@ class ResourceAPI(object):
         self.client = rpc.get_client(target, '1.23', serializer=None)
 
 
-    def get_resource_types(self, context):
-        cctxt = self.client.prepare(version='1.18')
-        return cctxt.call(context, 'get_resource_types')
-    
-
     def get_resources(self, context, search_opts=None, marker=None, limit=None):
         cctxt = self.client.prepare(version='1.18')
         return cctxt.call(context, 'get_resources',
                           search_opts=search_opts,
                           marker=marker, limit=limit)
-    
        
-    def create_plan(self, context, type, resources):
+    def create_plan(self, context, plan_type, resources):
         cctxt = self.client.prepare(version='1.18')
-        return cctxt.call(context, 'create_plan', type=type, resources=resources)
+        return cctxt.call(context, 'create_plan', 
+                          plan_type=plan_type, resources=resources)
     
+    
+    #has been abolished
     def create_plan_by_template(self, context, template):
         cctxt = self.client.prepare(version='1.18')
         return cctxt.call(context, 'create_plan_by_template', template=template)
+
+    def build_plan_by_template(self, context, plan_dict, template):
+        cctxt = self.client.prepare(version='1.18')
+        return cctxt.cast(context, 'build_plan_by_template',
+                          plan_dict=plan_dict, template=template)
 
     def get_resource_detail(self, context, resource_type, resource_id):
         cctxt = self.client.prepare(version='1.18')
@@ -69,11 +71,13 @@ class ResourceAPI(object):
                           resource_type=resource_type,
                           resource_id=resource_id)
     
-    def get_resource_detail_from_plan(self, context, plan_id, resource_id):
+    def get_resource_detail_from_plan(self, context, plan_id, 
+                                      resource_id, is_original=True):
         cctxt = self.client.prepare(version='1.18')
         return cctxt.call(context, 'get_resource_detail_from_plan', 
                           plan_id=plan_id, 
-                          resource_id=resource_id)
+                          resource_id=resource_id,
+                          is_original=is_original)
 
     def update_plan(self, context, plan_id, values):
         cctxt = self.client.prepare(version='1.18')
@@ -81,14 +85,14 @@ class ResourceAPI(object):
                           plan_id=plan_id, values=values)
     
     
-    def get_plan_by_id(self, context, plan_id):
+    def get_plan_by_id(self, context, plan_id, detail=True):
         cctxt = self.client.prepare(version='1.18')
-        return cctxt.call(context, 'get_plan_by_id', plan_id=plan_id)
+        return cctxt.call(context, 'get_plan_by_id', plan_id=plan_id, detail=detail)
     
     
-    def get_plans(self, context, search_opts=None):
-        cctxt = self.client.prepare(version='1.18')
-        return cctxt.call(context, 'get_plans', search_opts=search_opts)
+#     def get_plans(self, context, search_opts=None):
+#         cctxt = self.client.prepare(version='1.18')
+#         return cctxt.call(context, 'get_plans', search_opts=search_opts)
 
 
     def delete_plan(self, context, plan_id):

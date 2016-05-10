@@ -21,12 +21,11 @@ from conveyor.common import log as logging
 from conveyor.i18n import _, _LE, _LI, _LW
 from conveyor import volume 
 from conveyor import compute
-from conveyor import image as glance_image
 from conveyor import exception
 from conveyor.conveyoragentclient.v1 import client as birdiegatewayclient
+from conveyor.common import plan_status
+from conveyor import network
 import time
-
-from conveyor import heat
 
 temp_opts = [
     cfg.StrOpt('data_trans_vm',
@@ -58,7 +57,7 @@ class StackTemplateCloneDriver(object):
         """Load configuration options and connect to the hypervisor."""
         self.cinder_api = volume.API()
         self.nova_api = compute.API()
-        self.heat_api = heat.API()
+        self.neutron_api = network.API()
         
     def start_template_clone(self, context, resource_name, template, create_volume_wait_fun=None,
                              volume_wait_fun=None,
@@ -68,6 +67,62 @@ class StackTemplateCloneDriver(object):
         LOG.debug("Clone instance %(instance)s starting in template %(template)s driver",
                   {'instance': resource_name, 'template': template})
         
+        #1. copy data
+        result = self._copy_volume_data(context, resource_name, template,
+                               trans_data_wait_fun=trans_data_wait_fun,
+                               port_wait_fun=port_wait_fun)
+        
+        #2. TODO: check data is transforming finished, and refresh clone plan status
+        plan_id = template.get('plan_id', None)
+        des_gw_ip = result.get('des_ip')
+        des_port = result.get('des_port')
+        task_ids = result.get('copy_tasks')
+        if trans_data_wait_fun:
+            trans_data_wait_fun(context, des_gw_ip, des_port, task_ids, plan_status.STATE_MAP, plan_id)
+            
+        #3 deatach data port for new intsance
+        server_id = result.get('server_id')
+        port_id = result.get('port_id')
+        if port_id:
+            self.nova_api.interface_detach(context, server_id, port_id)
+        
+        LOG.debug("Clone instances end in template driver")
+        
+
+    def start_template_migrate(self, context, resource_name, template, create_volume_wait_fun=None,
+                             volume_wait_fun=None,
+                             trans_data_wait_fun=None,
+                             create_instance_wait_fun=None,
+                             port_wait_fun=None):
+        LOG.debug("Migrate instance %(instance)s starting in template %(template)s driver",
+                  {'instance': resource_name, 'template': template})
+        
+        #1. copy data
+        result = self._copy_volume_data(context, resource_name, template,
+                               trans_data_wait_fun=trans_data_wait_fun,
+                               port_wait_fun=port_wait_fun)
+        
+        #2. TODO: check data is transforming finished, and refresh clone plan status
+        plan_id = template.get('plan_id', None)
+        des_gw_ip = result.get('des_ip')
+        des_port = result.get('des_port')
+        task_ids = result.get('copy_tasks')
+        if trans_data_wait_fun:
+            trans_data_wait_fun(context, des_gw_ip, des_port, task_ids, plan_status.MIGRATE_STATE_MAP ,plan_id)
+            
+        #3 deatach data port for new intsance
+        server_id = result.get('server_id')
+        port_id = result.get('port_id')
+        if port_id:
+            self.nova_api.interface_detach(context, server_id, port_id)
+        
+        
+        LOG.debug("Migrate instance end in template driver")
+        
+         
+    
+    def _copy_volume_data(self, context, resource_name, template, trans_data_wait_fun=None, port_wait_fun=None):
+        '''copy volumes in template data'''
         resources = template.get('resources')
         instance = resources.get(resource_name)
         #2. get server info
@@ -113,27 +168,29 @@ class StackTemplateCloneDriver(object):
         
         migrate_net_map = CONF.migrate_net_map
         migrate_net_id = migrate_net_map.get(server_az)
-        if not migrate_net_id:
-            LOG.error('Can not get the migrate net of server %s', server.id)
-            raise exception.NoMigrateNetProvided(server_uuid=server.id)
         
-        #4.1 call neutron api create port
-        LOG.debug("Instance template driver attach port to instance start")
-        net_info = self.nova_api.interface_attach(context, server.id, migrate_net_id,
+        if migrate_net_id:
+            #4.1 call neutron api create port
+            LOG.debug("Instance template driver attach port to instance start")
+            net_info = self.nova_api.interface_attach(context, server.id, migrate_net_id,
                                                   port_id=None, fixed_ip=None)
         
-        interface_attachment = net_info._info
-        if interface_attachment:
-            LOG.debug('The interface attachment info is %s ' %str(interface_attachment))
-            des_gw_ip = interface_attachment.get('fixed_ips')[0].get('ip_address')
-            port_id = interface_attachment.get('port_id')
+            interface_attachment = net_info._info
+            if interface_attachment:
+                LOG.debug('The interface attachment info is %s ' %str(interface_attachment))
+                des_gw_ip = interface_attachment.get('fixed_ips')[0].get('ip_address')
+                port_id = interface_attachment.get('port_id')
+            else:
+                LOG.error("Instance template driver attach port failed")
+                raise exception.NoMigrateNetProvided(server_uuid=server.id)
         else:
-            LOG.error("Instance template driver attach port failed")
-            raise exception.NoMigrateNetProvided(server_uuid=server.id)
+            time.sleep(60)
+            des_gw_ip = self._get_server_ip(context, server_id)
+            port_id = None
 
         #waiting port attach finished, and can ping this vm
-        if port_wait_fun:
-            port_wait_fun(context, port_id)
+#         if port_wait_fun:
+#             port_wait_fun(context, port_id, des_gw_ip)
             
         LOG.debug("Instance template driver attach port end: %s", des_gw_ip)
         #des_gw_url = ip:port
@@ -150,6 +207,8 @@ class StackTemplateCloneDriver(object):
             raise exception.InvalidInput(reason=msg)
         
         #5. request birdiegateway service to clone each volume data
+        #record all volume data copy task id
+        task_ids = []
         for bdm in bdms:
             # 6.1 TODO: query cloned new VM volume name
             src_dev_name = bdm.get('device_name')
@@ -160,12 +219,18 @@ class StackTemplateCloneDriver(object):
             if not src_dev_format:
                 client = birdiegatewayclient.get_birdiegateway_client(src_urls[0], src_urls[1])
                 src_dev_format = client.vservices.get_disk_format(src_dev_name).get('disk_format')
+            #if volume does not format, this volume not data to transformer
+            if not src_dev_format:
+                continue
                 
             src_mount_point = bdm.get('mount_point')
             
             if not src_mount_point:
                 client = birdiegatewayclient.get_birdiegateway_client(src_urls[0], src_urls[1])
                 src_mount_point = client.vservices.get_disk_mount_point(src_dev_name).get('mount_point')
+                
+            if not src_mount_point:
+                continue
                 
             mount_point = []
             mount_point.append(src_mount_point)   
@@ -175,24 +240,46 @@ class StackTemplateCloneDriver(object):
             # get conveyor gateway client to call birdiegateway api
             LOG.debug("Instance template driver transform data start")
             client = birdiegatewayclient.get_birdiegateway_client(des_gw_ip, des_port)
-            client.vservices.clone_volume(src_dev_name,
+            clone_rsp = client.vservices.clone_volume(src_dev_name,
                                           des_dev_name,
                                           src_dev_format,
                                           mount_point,
                                           src_gw_url,
                                           des_gw_url)
+            
+            task_id = clone_rsp.get('body').get('task_id')
+            if not task_id:
+                LOG.warn("Clone volume %(dev_name)s response is %(rsp)s",
+                         {'dev_name': des_dev_name, 'rsp': clone_rsp})
+                continue
+            task_ids.append(task_id)
+            
+        
+        rsp = {'server_id': server_id,
+               'port_id': port_id,
+               'des_ip': des_gw_ip,
+               'des_port': des_port,
+               'copy_tasks': task_ids}
+        
+        return rsp
+        
         LOG.debug("Instance template driver transform data end")
         
-        #7. TODO: check data is transforming finished
-        if trans_data_wait_fun:
-            trans_data_wait_fun(context)
+        
+
+    def _get_server_ip(self, context, server_id):
+        interfaces = self.neutron_api.port_list(context, 
+                                                device_id=server_id)
+        host_ip = None
+        for infa in interfaces:
+            if host_ip:
+                break
+            binding_profile =infa.get("binding:profile", [])
+            if binding_profile:
+                host_ip = binding_profile.get('host_ip')
+        
+        return host_ip
             
-        #8 TODO: deatach data port for new intsance
-        self.nova_api.interface_detach(context, server.id, port_id)
-        
-        
-        LOG.debug("Clone instances end in template driver")
-        
 
 
         
