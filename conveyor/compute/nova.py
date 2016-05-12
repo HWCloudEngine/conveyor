@@ -51,6 +51,10 @@ nova_opts = [
     cfg.BoolOpt('nova_api_insecure',
                 default=True,
                 help='Allow to perform insecure SSL requests to nova'),
+
+    cfg.StrOpt('nova_url',
+                default="",
+                help='Allow to perform insecure SSL requests to nova'),
 ]
 
 CONF = cfg.CONF
@@ -111,12 +115,10 @@ def novaclient(context, admin=False):
                          endpoint_type=endpoint_type)
         except Exception as e:
             LOG.error("Novaclient get URL from service_catalog error: %s" % e)
-            return adminclient(context) 
+            url = CONF.nova_url + '/' + context.project_id
 
     LOG.debug('Novaclient connection created using URL: %s' % url)
     LOG.debug("Novaclient connection select URL from: %s" % context.service_catalog)
-    if not url:
-        return adminclient(context)
     
     extensions = [assisted_volume_snapshots]
 

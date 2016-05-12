@@ -184,8 +184,13 @@ class StackTemplateCloneDriver(object):
                 LOG.error("Instance template driver attach port failed")
                 raise exception.NoMigrateNetProvided(server_uuid=server.id)
         else:
-            time.sleep(60)
-            des_gw_ip = self._get_server_ip(context, server_id)
+            retrying = 1
+            while retrying < 300:                
+                des_gw_ip = self._get_server_ip(context, server_id)
+                if des_gw_ip:
+                    break
+                retrying += 1
+                time.sleep(2)
             port_id = None
 
         #waiting port attach finished, and can ping this vm
