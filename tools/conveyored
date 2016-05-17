@@ -18,7 +18,7 @@
 # Description: Start the conveyor daemon
 ### END INIT INFO
 
-CONVEYOR_BINS="/usr/bin/conveyor-api /usr/bin/conveyor-clone"
+CONVEYOR_BINS="/usr/bin/conveyor-api /usr/bin/conveyor-clone /usr/bin/conveyor-resource"
 CONVEYOR_USER=openstack
 CONVEYOR_ID=$(id -u $CONVEYOR_USER)
 CONVEYOR_GID=$(id -g $CONVEYOR_USER)
@@ -54,8 +54,8 @@ case "$1" in
         ## Start daemon with startproc(8). If this fails
         ## the echo return value is set appropriate.
         for bin in $CONVEYOR_BINS ; do
-            #echo start-proc -u $CONVEYOR_ID -g $CONVEYOR_GID $bin --config-file /etc/conveyor/hybrid-v2v.conf 
-            startproc -u $CONVEYOR_ID -g $CONVEYOR_GID $bin --config-file /etc/conveyor/hybrid-v2v.conf >/dev/null 2>&1
+            #echo start-proc -u $CONVEYOR_ID -g $CONVEYOR_GID $bin --config-file /etc/conveyor/conveyor.conf 
+            startproc -u $CONVEYOR_ID -g $CONVEYOR_GID $bin --config-file /etc/conveyor/conveyor.conf >/dev/null 2>&1
         done
       
         # Remember status and be verbose
