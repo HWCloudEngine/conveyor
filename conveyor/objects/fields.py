@@ -463,8 +463,8 @@ class DictProxyField(object):
         if val is None:
             setattr(obj, self._fld_name, val)
         else:
-            setattr(obj, self._fld_name, {six.text_type(k): v
-                                          for k, v in six.iteritems(val)})
+            setattr(obj, self._fld_name, dict((six.text_type(k),v)
+                                          for k, v in six.iteritems(val)))
 
 
 class Set(CompoundFieldType):
