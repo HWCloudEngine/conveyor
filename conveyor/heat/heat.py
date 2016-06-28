@@ -15,6 +15,7 @@ from heatclient import client as heat_client
 
 from conveyor import exception
 from conveyor.common import log as logging
+from conveyor.common import client as url_client
 
 LOG = logging.getLogger(__name__)
 
@@ -136,6 +137,12 @@ def heatclient(context, password=None):
         endpoint = url_for(context, 'orchestration')
     except Exception as e:
         LOG.error("HeatClient get URL from context.service_catalog error: %s" % e)
+        cs = url_client.Client()
+        endpoint = cs.get_service_endpoint(context, 'orchestration',
+                                          region_name=CONF.os_region_name)
+        LOG.debug("HeatClient get URL from common function: %s" % endpoint)
+    
+    if not endpoint:
         endpoint = CONF.heat.heat_url + '/' + context.project_id
     kwargs = {
         'token': context.auth_token,

@@ -80,7 +80,7 @@ class VServiceManager(base.Manager):
         LOG.debug("Mount disk: %(dev_name)s to %(mount_point)s start", 
                   {'disk_name': dev_name, 'mount_point': mount_point})
         
-        body = {'mountDisk': {'dev_name': dev_name,
+        body = {'mountDisk': {'disk': {'disk_name': dev_name},
                                'mount_point': mount_point}}
         
         url = '/v2vGateWayServices/%s/action' % uuidutils.generate_uuid()
@@ -112,6 +112,20 @@ class VServiceManager(base.Manager):
                   {'dev_name': dev_name, 'mount_point': mount_point})
         
         return mount_point
+
+    def get_disk_name(self, volume_id):
+        
+        LOG.debug("Query disk: %s name start", volume_id)
+        body = {'getDiskName': {'volume_id': volume_id}}
+        
+        url = '/v2vGateWayServices/%s/action' % uuidutils.generate_uuid()
+        
+        dev_name = self._get_disk_name(url, body)
+        
+        LOG.debug("Query disk: %(dev_name)s name: %(mount_point)s end", 
+                  {'dev_name': volume_id, 'mount_point': dev_name})
+        
+        return dev_name
     
     def get_data_trans_status(self, task_id):
         
@@ -123,8 +137,32 @@ class VServiceManager(base.Manager):
         
         LOG.debug("Query data transformer state end: %s", rsp)
         
-        return rsp   
+        return rsp
+    
+    def force_mount_disk(self, dev_name, mount_point):
+        
+        '''Mount disk'''
+        
+        LOG.debug("Force mount disk: %(dev_name)s to %(mount_point)s start", 
+                  {'dev_name': dev_name, 'mount_point': mount_point})
+        
+        body = {'forceMountDisk': {'disk': {'disk_name': dev_name},
+                               'mount_point': mount_point}}
+        
+        url = '/v2vGateWayServices/%s/action' % uuidutils.generate_uuid()
+        return self._mount_disk(url, body)
+    
+    def _force_umount_disk(self, mount_point):
 
+        '''uMount disk'''
+        
+        LOG.debug("Force umount %(mount_point)s start", 
+                  {'mount_point': mount_point})
+        
+        body = {'forceUmountDisk': {'mount_point': mount_point}}
+        
+        url = '/v2vGateWayServices/%s/action' % uuidutils.generate_uuid()
+        return self._post(url, body)
 
 
 

@@ -62,6 +62,10 @@ class CloneActionController(wsgi.Controller):
         #call clone manager api
         #remove expire_time info in template
         template.pop('expire_time')
+        #remove plan type info
+        if template.has_key('plan_type'):
+            template.pop('plan_type')
+        
         LOG.debug("Clone from template: %s", temp_info)
         self.clone_api.start_template_clone(context, temp_info)
         

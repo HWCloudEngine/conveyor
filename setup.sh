@@ -206,11 +206,25 @@ clear_files()
 	
 	#remove template_dir
 	rm -rf ${TEMPLATE_DIR}
+	
+	#remove init config
+	if [ -f /etc/init.d/conveyored ]; then
+	     rm -f /etc/init.d/conveyored
+	fi
 }
 
 create_db()
 {
    /opt/gaussdb/app/bin/gsql -U openstack -W FusionSphere123  -h "$database_ip" POSTGRES -c 'CREATE DATABASE conveyor OWNER openstack;'
+}
+
+copy_init_script()
+{
+    cp ./tools/conveyored /etc/init.d/	
+	if [ ! -x /etc/init.d/conveyored ]; then
+	    chmod +x /etc/init.d/conveyored
+	fi
+	insserv conveyored	 
 }
 
 create_dir_template()
@@ -237,6 +251,10 @@ init() {
    echo ${TIME_CMD} "begin create dir for store template."
    create_dir_template
    echo ${TIME_CMD} "end create dir for store template."
+   
+   echo ${TIME_CMD} "begin copy init script."
+   copy_init_script
+   echo ${TIME_CMD} "end copy init script."
 }
 
 start() {

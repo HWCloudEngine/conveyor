@@ -26,6 +26,7 @@ from conveyor.conveyoragentclient.v1 import client as birdiegatewayclient
 from conveyor.common import plan_status
 from conveyor import network
 import time
+from conveyor import heat
 
 temp_opts = [
     cfg.StrOpt('data_trans_vm',
@@ -58,6 +59,7 @@ class StackTemplateCloneDriver(object):
         self.cinder_api = volume.API()
         self.nova_api = compute.API()
         self.neutron_api = network.API()
+        self.heat_api = heat.API()
         
     def start_template_clone(self, context, resource_name, template, create_volume_wait_fun=None,
                              volume_wait_fun=None,
@@ -127,6 +129,8 @@ class StackTemplateCloneDriver(object):
         instance = resources.get(resource_name)
         #2. get server info
         server_id = instance.get('id')
+        stack_id = template.get('stack_id')
+        
         try:
             server = self.nova_api.get_server(context, server_id)
         except Exception as e:
@@ -140,7 +144,12 @@ class StackTemplateCloneDriver(object):
         volumes = properties.get('block_device_mapping_v2')
         if not volumes:
             LOG.warn("Clone instance warning: instance does not have volume to clone.")
-            return
+            rsp = {'server_id': server_id,
+                   'port_id': None,
+                   'des_ip': None,
+                   'des_port': None,
+                   'copy_tasks': []}
+            return rsp
         bdms = []
         
         for volume in volumes:
@@ -151,11 +160,17 @@ class StackTemplateCloneDriver(object):
             if not sys_clone and bool_index in [0, '0']:
                 continue
             #3.2 get volume id
-            volume['id'] = resources.get(vol_res_name).get('id')
+            volume_id = self._get_resource_id(context, vol_res_name, stack_id)
+            volume['id'] = volume_id
             volume_ext_properties = resources.get(vol_res_name).get('extra_properties')
             if volume_ext_properties:
                 volume['guest_format'] = volume_ext_properties.get('guest_format')
                 volume['mount_point'] = volume_ext_properties.get('mount_point')
+                #volume dev name in system
+                vol_sys_dev = volume_ext_properties.get('sys_dev_name')
+                #if not None, use it,otherwise use default name(openstack dev name)
+                if vol_sys_dev:
+                    volume['device_name'] = vol_sys_dev
             bdms.append(volume)
             
             
@@ -198,6 +213,9 @@ class StackTemplateCloneDriver(object):
 #             port_wait_fun(context, port_id, des_gw_ip)
             
         LOG.debug("Instance template driver attach port end: %s", des_gw_ip)
+        if not des_gw_ip:
+            _msg = "New clone or migrate VM data transformer IP is None"
+            raise exception.V2vException(message=_msg)
         #des_gw_url = ip:port
         des_port = str(CONF.v2vgateway_api_listen_port)
         des_gw_url = des_gw_ip + ":" + des_port
@@ -284,6 +302,22 @@ class StackTemplateCloneDriver(object):
                 host_ip = binding_profile.get('host_ip')
         
         return host_ip
+    
+    
+    def _get_resource_id(self, context, resource_name, stack_id):
+            
+        try:
+            LOG.debug("Query stack %(stack)s resource %(name)s id start",
+                      {'stack': stack_id, 'name': resource_name})
+            heat_resource = self.heat_api.get_resource(context, stack_id, resource_name)
+            resource_id = heat_resource.physical_resource_id
+            LOG.debug("Query stack %(stack)s resource %(name)s id end, id is %(id)s",
+                      {'stack': stack_id, 'name': resource_name, 'id': resource_id})
+            return resource_id
+        except exception as e:
+            LOG.error("Query stack %(stack)s resource %(name)s id error, error info: %(error)s",
+                      {'stack': stack_id, 'name': resource_name, 'error': e})
+            return None
             
 
 

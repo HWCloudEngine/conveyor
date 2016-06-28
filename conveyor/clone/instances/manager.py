@@ -243,12 +243,22 @@ class CloneManager(object):
         retries = CONF.instance_allocate_retries
         if retries < 0:
             LOG.warn(_LW("Treating negative config value (%(retries)s) for "
-                         "'instance_create_retries' as 0."),
+                         "'datat_transformer_retries' as 0."),
                      {'retries': retries})
         # (1) treat  negative config value as 0
         # (2) the configured value is 0, one attempt should be made
         # (3) the configured value is > 0, then the total number attempts
         #      is (retries + 1)
+        
+        #if not volume data to copy
+        if not host:
+            plan_state = state_map.get('DATA_TRANS_FINISHED')
+            values = {}
+            values['plan_status'] = plan_state
+            values['task_status'] = 'DATA_TRANS_FINISHED'
+            self.resource_api.update_plan(context, plan_id, values)
+            return 0
+                      
         attempts = 1
         if retries >= 1:
             attempts = retries + 1

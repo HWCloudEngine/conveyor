@@ -23,6 +23,7 @@ from novaclient.v1_1.contrib import assisted_volume_snapshots
 from oslo.config import cfg
 
 from conveyor.common import log as logging
+from conveyor.common import client as url_client
 
 nova_opts = [
     cfg.StrOpt('nova_catalog_info',
@@ -115,7 +116,13 @@ def novaclient(context, admin=False):
                          endpoint_type=endpoint_type)
         except Exception as e:
             LOG.error("Novaclient get URL from service_catalog error: %s" % e)
-            url = CONF.nova_url + '/' + context.project_id
+            cs = url_client.Client()
+            url = cs.get_service_endpoint(context, 'compute',
+                                          region_name=CONF.os_region_name)
+            LOG.debug("Novaclient get URL from common function: %s" % url)
+            
+    if not url:
+        url = CONF.nova_url + '/' + context.project_id
 
     LOG.debug('Novaclient connection created using URL: %s' % url)
     LOG.debug("Novaclient connection select URL from: %s" % context.service_catalog)

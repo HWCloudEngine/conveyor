@@ -206,7 +206,7 @@ class HTTPClient(object):
                 "Failed attempt(%s of %s), retrying in %s seconds" %
                 (attempts, self.retries, backoff))
             sleep(backoff)
-            backoff *= 2
+            backoff += 5
 
     def get(self, url, **kwargs):
         return self._cs_request(url, 'GET', **kwargs)

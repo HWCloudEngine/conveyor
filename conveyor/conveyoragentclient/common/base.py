@@ -100,3 +100,13 @@ class Manager(object):
         url = self.url + url
         resp, body = self.client.post(url, body=body)
         return body
+    
+    def _get_disk_name(self, url, body, **kwargs):
+        url = self.url + url
+        resp, body = self.client.post(url, body=body)
+        return body
+    
+    def _post(self, url, body, **kwargs):
+        url = self.url + url
+        resp, body = self.client.post(url, body=body)
+        return body

@@ -136,7 +136,13 @@ class InstanceResource(base.resource):
                     'addresses' attribute is None"
             LOG.error(msg)
             raise exception.ResourceAttributesException(message=msg)
-
+        
+        #add extra properties
+        vm_state = getattr(server, 'OS-EXT-STS:vm_state', None)
+        instance_resources.add_extra_property('vm_state', vm_state)
+        
+        power_state = getattr(server, 'OS-EXT-STS:power_state', None)
+        instance_resources.add_extra_property('power_state', power_state)
         LOG.info('Extracting resources of instance %s has finished', instance_id)
         
         self._collected_resources[instance_id] = instance_resources
