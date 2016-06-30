@@ -50,10 +50,6 @@ cinder_opts = [
                     'endpoint e.g. http://localhost:8776/v1/%(project_id)s',
                deprecated_group='DEFAULT',
                deprecated_name='cinder_endpoint_template'),
-    cfg.StrOpt('os_region_name',
-               help='Region name of this node',
-               deprecated_group='DEFAULT',
-               deprecated_name='os_region_name'),
     cfg.StrOpt('ca_certificates_file',
                help='Location of ca certificates file to use for cinder '
                     'client requests.',
@@ -213,9 +209,9 @@ def get_cinder_client_version(context):
         info = CONF.cinder.catalog_info
         service_type, service_name, endpoint_type = info.split(':')
         # extract the region if set in configuration
-        if CONF.cinder.os_region_name:
+        if CONF.os_region_name:
             attr = 'region'
-            filter_value = CONF.cinder.os_region_name
+            filter_value = CONF.os_region_name
         else:
             attr = None
             filter_value = None

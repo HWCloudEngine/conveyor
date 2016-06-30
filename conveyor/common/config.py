@@ -200,7 +200,10 @@ global_opts = [
                     'plan_expire_time minutes, the plan will be expired.'),
     cfg.IntOpt('clear_expired_plan_interval',
                 default=300,
-                help='Interval in seconds for clearing expired plans.')
+                help='Interval in seconds for clearing expired plans.'),
+    cfg.StrOpt('os_region_name',
+               default='cloud.hybrid',
+               help='Region name of this node'),    
 ]
 
 CONF.register_opts(global_opts)

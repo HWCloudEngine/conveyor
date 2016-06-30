@@ -24,11 +24,7 @@ heat_opts = [
                default='https://127.0.0.1:8700/v1',
                help='Default heat URL',
                deprecated_group='DEFAULT',
-               deprecated_name='heat_url'),
-    cfg.StrOpt('os_region_name',
-               help='Region name of this node',
-               deprecated_group='DEFAULT',
-               deprecated_name='os_region_name')
+               deprecated_name='heat_url')
     ]
 
 CONF = cfg.CONF
@@ -143,7 +139,7 @@ def heatclient(context, password=None):
         LOG.error("HeatClient get URL from context.service_catalog error: %s" % e)
         cs = url_client.Client()
         endpoint = cs.get_service_endpoint(context, 'orchestration',
-                                          region_name=CONF.heat.os_region_name)
+                                          region_name=CONF.os_region_name)
         LOG.debug("HeatClient get URL from common function: %s" % endpoint)
     
     if not endpoint:
