@@ -27,7 +27,7 @@ from conveyor import manager
 from conveyor.resource import resource
 from conveyor.resource.driver.instances import InstanceResource
 #from conveyor.resource.driver.volumes import VolumeResource
-#from conveyor.resource.driver.networks import NetworkResource
+from conveyor.resource.driver.networks import NetworkResource
 
 
 CONF = cfg.CONF
@@ -206,6 +206,15 @@ class ResourceManager(manager.Manager):
 
         new_resources = ir.get_collected_resources()
         new_dependencies = ir.get_collected_dependencies()
+        
+        # if need generate network resource
+        if network_ids:
+            nt = NetworkResource(context, collected_resources=new_resources,
+                                 collected_dependencies=new_dependencies)
+            nt.extract_networks_resource(network_ids)
+            new_resources = nt.get_collected_resources()
+            new_dependencies = nt.get_collected_dependencies()
+        
 
         plan_id = uuidutils.generate_uuid()
         ori_res = self._replace_res_id(new_resources)

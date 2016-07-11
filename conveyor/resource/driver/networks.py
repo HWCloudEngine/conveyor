@@ -630,7 +630,193 @@ class NetworkResource(base.resource):
             raise exception.ResourceNotFound(message=msg)
         
         return secgroupResources
+    
+    
+    def extract_networks_resource(self, net_ids):
+        
+        for net_id in net_ids:
+            self.extract_network_resource(net_id)
+    
+    def extract_network_resource(self, net_id):
+        
+        LOG.debug("Generate network resource start: %s", net_id)
+        # generate net work resource
+        
+        subnets, net_name = self._get_network_info(net_id)
+        
+        if subnets: 
+            # generate subnet resource
+            self.extract_subnets_of_network(net_name, subnets)
+         
+        # generate router and interface resource
+        for subnet in subnets:
+            subnet_res = self._collected_resources.get(subnet)
+            
+            if not subnet_res:
+                LOG.error("Subnet resource can not find, subnet id: %s", subnet)
+                return None
+            
+            self._get_interface_info(subnet, subnet_res.name)
+            
+        
+        LOG.debug("Generate network resource end: %s", net_id)
+            
+            
+    def _get_interface_info(self, subnet_id, subnet_name):
+        
+        try:
+            interfaces = self.neutron_api.port_list(self.context, 
+                                device_owner="network:router_interface")
+        except Exception as e:
+            msg = "Interface resource extracted failed, \
+                    can't find router port list. %s" % unicode(e)
+            LOG.error(msg)
+            raise exception.ResourceNotFound(message=msg)
+        
+        for interface in interfaces:
+            fixed_ips = interface.get("fixed_ips", [])
+            for fip in fixed_ips:
+                if fip.get("subnet_id", "") == subnet_id:
+                    router_id = interface.get('device_id')
+                    
+                    router_name = self._generate_router_resource(router_id)
+                    
+                    self._generate_interface_resource(interface, subnet_name, router_name)
+    
+    
+    def _generate_router_resource(self, router_id):
+        
+        # 1. get router info from neutron api
+        #routers = None
+        
+        try:
+            router = self.neutron_api.get_router(self.context, router_id)
+        except Exception as e:
+            msg = "Router resource extracted failed, \
+                    can't find router with id: %s. %s" % (router_id, unicode(e))
+            LOG.error(msg)
+            raise exception.ResourceNotFound(message=msg)
+        
+        if not router:
+            msg = "Router resource <%s> could not be found." \
+                            % router_id
+            LOG.error(msg)
+            raise exception.ResourceNotFound(message=msg)
+        
+        
+        
+        # 2. check this router resource is exist or not   
+        router_id = router.get('id')
+        router_res = self._collected_resources.get(router_id)
+        if router_res:
+            return router_res.name
+        
+        # 3. generate new router resource
+        properties = {
+                'name': router.get('name'),
+                'admin_state_up': router.get('admin_state_up')
+            }
+        dependencies = []
+            
+        resource_type = "OS::Neutron::Router"
+        resource_name = 'router_%d' % self._get_resource_num(resource_type)
+        router_res = resource.Resource(resource_name, resource_type,
+                                router_id, properties=properties)
 
+        #remove duplicate dependencies
+        dependencies = {}.fromkeys(dependencies).keys()
+        router_dep = resource.ResourceDependency(router_id, router.get('name'), 
+                                                resource_name, resource_type,
+                                                dependencies=dependencies)
+             
+        self._collected_resources[router_id] = router_res
+        self._collected_dependencies[router_id] = router_dep
+        
+        return resource_name    
+            
+    def _generate_interface_resource(self, interface, subnet_name, router_name):
+        
+        interface_id = interface.get('id', '')
+        
+        # check this interface resource is exist in system or not
+        interface_res = self._collected_resources.get(interface_id)
+        if interface_res:
+            return
+        properties = {
+                'router_id': {'get_resource': router_name},
+                'subnet_id': {'get_resource': subnet_name}
+        }
+        
+        dependencies = [router_name, subnet_name]
+        resource_type = "OS::Neutron::RouterInterface"
+        resource_name = '%s_interface_0' % router_name
+        interface_res = resource.Resource(resource_name, resource_type,
+                            interface_id, properties=properties)
+         
+        interface_dep = resource.ResourceDependency(interface_id, interface.get('name', ''), 
+                                                   resource_name, resource_type,
+                                                   dependencies=dependencies)
+         
+        self._collected_resources[interface_id] = interface_res
+        self._collected_dependencies[interface_id] = interface_dep
+                
+                 
+    
+    def _get_network_info(self, net_id):
+        
+        # 1. get net info from neutron api
+        
+        try:
+            net = self.neutron_api.get_network(self.context, net_id)
+        except Exception as e:
+            msg = "Network resource <%s> could not be found. %s" \
+                        % (net_id, unicode(e))
+            LOG.error(msg)
+            raise exception.ResourceNotFound(message=msg)
+        
+        if not net:
+            msg = "Network resource <%s> could not be found. %s" \
+                        % (net_id, unicode(e))
+            LOG.error(msg)
+            raise exception.ResourceNotFound(message=msg)
+        
+        # 2. check net resource exist or not
+        net_res = self._collected_resources.get(net_id)
+        if net_res:
+            return net.get('subnets'), net_res.name
+   
+        properties = {
+            'name': net.get('name'),
+            'admin_state_up': net.get('admin_state_up'),
+            'shared': net.get('shared')
+        }
+            
+        value_specs = {}
+        if net.get('provider:physical_network') is not None:
+            value_specs['provider:physical_network'] = net.get('provider:physical_network')
+        if net.get('provider:network_type') is not None:
+            value_specs['provider:network_type'] = net.get('provider:network_type')
+        if net.get('provider:segmentation_id') is not None:
+            value_specs['provider:segmentation_id'] = net.get('provider:segmentation_id')
+        if net.get('router:external') is not None:
+            value_specs['router:external'] = net.get('router:external')
+                               
+        if value_specs:
+            properties['value_specs'] = value_specs
+            
+        resource_type = "OS::Neutron::Net"
+        resource_name = 'network_%d' % self._get_resource_num(resource_type)
+        net_res = resource.Resource(resource_name, resource_type,
+                                        net_id, properties=properties)
+             
+        net_dep = resource.ResourceDependency(net_id, net.get('name'), 
+                                                       resource_name, resource_type)
+             
+        self._collected_resources[net_id] = net_res
+        self._collected_dependencies[net_id] = net_dep
+        
+        return net.get('subnets'), resource_name
+    
     def _build_rules(self, rules):
         brules = []
         dependencies = []

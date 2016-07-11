@@ -28,6 +28,7 @@ from conveyor.api.v1 import clone
 from conveyor.api.v1 import resources
 from conveyor.api.v1 import plans
 from conveyor.api.v1 import migrate
+from conveyor.api.v1 import configuration
 
 
 LOG = logging.getLogger(__name__)
@@ -61,3 +62,10 @@ class APIRouter(conveyor.api.wsgi.APIRouter):
                         controller=self.resources['plans'],
                         collection={'detail': 'GET', 'create_plan_by_template': 'POST'},
                         member={'action': 'POST'})
+
+        self.resources['configurations'] = configuration.create_resource(ext_mgr)
+        mapper.resource("configurations", "configurations",
+                        controller=self.resources['configurations'],
+                        collection={'detail': 'GET'},
+                        member={'action': 'POST'})
+

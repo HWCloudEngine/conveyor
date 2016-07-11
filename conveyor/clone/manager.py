@@ -50,19 +50,9 @@ from conveyor.conveyoragentclient.v1 import client as birdiegatewayclient
 resource_from_dict = resource.Resource.from_dict
 
 birdie_opts = [
-    cfg.DictOpt('migrate_net_map',
-    default={
-            },
-    help='map of migrate net id of different az'),
     cfg.IntOpt('v2vgateway_api_listen_port',
                default=8899,
                help='Host port for v2v gateway api'),
-    cfg.DictOpt('vgw_ip_dict',
-               default={'az01.shenzhen--fusionsphere' : '127.0.0.1'},
-               help='ip of vgw host for different az'),
-    cfg.DictOpt('vgw_id_dict',
-               default={'az01.shenzhen--fusionsphere' : 'e7fcd23e-f363-438b-bfec-cc40677d9d5b'},
-               help='ip of vgw host for different az'),
     cfg.IntOpt('check_timeout',
                default=360,
                help='Host port for v2v gateway api'),
@@ -177,6 +167,15 @@ class CloneManager(manager.Manager):
         #5.1 according to resource type get resource manager, then call this manager clone template function
         
         src_resources = src_template.get("resources")
+        plan_id = template.get('plan_id')
+        
+        if not src_resources:
+            values = {}
+            values['plan_status'] = plan_status.STATE_MAP.get('DATA_TRANS_FINISHED')
+            self.resource_api.update_plan(context, plan_id, values)
+            LOG.warning("Clone resource warning: clone resource is empty.")
+            return stack_info['id']
+                
         LOG.debug("After pop self define info, resources: %s", src_resources)
         try:
             for key, resource in src_resources.items():
@@ -187,13 +186,16 @@ class CloneManager(manager.Manager):
                 resource['id'] = heat_resource.physical_resource_id
                 src_template['stack_id'] = stack_info['id']
                 #after step need update plan status
-                src_template['plan_id'] = template.get('plan_id')
+                src_template['plan_id'] = plan_id
                 #5.3 call resource manager clone fun
                 manager_type = RESOURCE_MAPPING.get(res_type)
                 if not manager_type:
                     continue
                 rs_maganger = self.clone_managers.get(manager_type)
                 if not rs_maganger:
+                    values = {}
+                    values['plan_status'] = plan_status.STATE_MAP.get('DATA_TRANS_FINISHED')
+                    self.resource_api.update_plan(context, plan_id, values)
                     continue
                 rs_maganger.start_template_clone(context, key, src_template)
             return stack_info['id']
@@ -205,7 +207,7 @@ class CloneManager(manager.Manager):
                 self.heat_api.delete_stack(context, stack_info['id'])
             return None
             
-        
+        return stack_info['id']
         LOG.debug("Clone resources end in clone manager")
         
     def export_clone_template(self, context, id, clone_element):
@@ -239,48 +241,16 @@ class CloneManager(manager.Manager):
                 self._add_extra_properties(context, resource_map, migrate_net_map)
             except Exception as e:   
                 LOG.exception('add extra_properties for server in this plan %s failed,\
-                                 the error is %s ' %(id, e.message))
-                
-        # merge the user param
-        if clone_element:
-            for element in clone_element:
-                element_id = element.get('res_id')
-                resource = resource_map.get(element_id)
-                if resource:
-                    element.pop('res_id')
-                    if element.get('id'):
-                        resource.id = element.get('id')
-                        element.pop('id')
-                    if resource.type == 'OS::Neutron::SecurityGroup':
-                        element.pop('type')
-                        for key, value in element.items():
-                            if key == 'security_group_rules':
-                                rules = self._build_rules(value)
-                                resource.properties['rules'] = rules
-                            else:
-                                resource.properties[key] = value       
-                    else:
-                        element.pop('type')
-                        for key, value in element.items():
-                            resource.properties[key] = value
-            resource_map_new = {}              
-            for key, value in resource_map.items():
-                resource_map_new[key] = value.to_dict()  
-            LOG.debug('the resourcemap after update is %s', resource_map_new)
-            
-            #create template
-            try:
-                self._format_template(resource_map, id, expire_time, plan_type) 
-            except Exception as e:  
-                LOG.error('the generate template of plan %s failed',id)
-                raise exception.ExportTemplateFailed(id=id, msg=e)
-            #write  back the updated_resource 
-            self.resource_api.update_plan(context, id, {'updated_resources':resource_map_new,
-                                               'plan_status':plan_status.AVAILABLE})  
-        else:
-            #create template
+                                 the error is %s ' %(id, e.message)) 
+                raise exception.ExportTemplateFailed(id=id, msg=e.message)       
+        #create template
+        try:
             self._format_template(resource_map, id, expire_time, plan_type) 
-            self.resource_api.update_plan(context, id, {'plan_status':plan_status.AVAILABLE})       
+        except Exception as e:  
+            LOG.error('the generate template of plan %s failed',id)
+            raise exception.ExportTemplateFailed(id=id, msg=e.message)
+        
+        self.resource_api.update_plan(context, id, {'plan_status':plan_status.AVAILABLE})       
         
         LOG.debug("export clone template end in clone manager")
         return  resource_map, expire_time
@@ -551,6 +521,8 @@ class CloneManager(manager.Manager):
             if cb:
                 try:
                     resource_id = resource_map[key].id
+                    if not resource_id:
+                        continue
                     cb(context, resource_id)
                     LOG.debug(" resource %s exists", key)
                     # add parameters into template if exists
@@ -574,7 +546,7 @@ class CloneManager(manager.Manager):
 
                     _update_resource(template_resource)
                     template_resource.pop(key)
-                except novaclient_exceptions.NotFound, neutronclient_exceptions.NotFound:
+                except (novaclient_exceptions.NotFound, neutronclient_exceptions.NotFound):
                     pass
                 
         template = { "template":{
@@ -902,6 +874,8 @@ class CloneManager(manager.Manager):
                 cb = resource_callback_map.get( net_resource.type)
                 if cb:
                     try:
+                        if not net_resource_id:
+                            continue
                         cb(context, net_resource_id)
                         LOG.debug(" resource %s exists, remove the floatingip", floatingip_net_key) 
                         template_resource.pop(key) 
@@ -920,6 +894,8 @@ class CloneManager(manager.Manager):
             if cb:
                 try:
                     resource_id = resource_map[key].id
+                    if not resource_id:
+                        continue
                     cb(context, resource_id)
                     LOG.debug(" resource %s exists", key)  
                     # if the network exists,pop the ip_address
@@ -953,7 +929,7 @@ class CloneManager(manager.Manager):
 
                     _update_resource(template_resource)        
                     template_resource.pop(key)
-                except novaclient_exceptions.NotFound, neutronclient_exceptions.NotFound:
+                except (novaclient_exceptions.NotFound, neutronclient_exceptions.NotFound):
                     pass
                           
         template = { "template":{
@@ -997,7 +973,7 @@ class CloneManager(manager.Manager):
             cb(context, resource_id)
             LOG.debug('the resource %s exist' %resource_id)
             is_exist = True
-        except novaclient_exceptions.NotFound, neutronclient_exceptions.NotFound:
+        except (novaclient_exceptions.NotFound, neutronclient_exceptions.NotFound):
             pass
         return is_exist
     
@@ -1031,8 +1007,8 @@ class CloneManager(manager.Manager):
                 try:
                     port_id_new = self.neutron_api.create_port(context, {'port': port_params})
                     port_temp_map[port_key] = port_id_new
-                except neutronclient_exceptions.IpAddressInUseClient,\
-                                    neutronclient_exceptions.MacAddressInUseClient:
+                except (neutronclient_exceptions.IpAddressInUseClient,
+                                    neutronclient_exceptions.MacAddressInUseClient):
                     port_id_new = port_temp_map[port_key]
                 self.compute_api.interface_attach(context, server_id, None, port_id_new)
 

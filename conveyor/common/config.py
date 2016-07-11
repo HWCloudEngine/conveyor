@@ -203,7 +203,19 @@ global_opts = [
                 help='Interval in seconds for clearing expired plans.'),
     cfg.StrOpt('os_region_name',
                default='cloud.hybrid',
-               help='Region name of this node'),    
+               help='Region name of this node'),
+    cfg.StrOpt('config_path',
+               default='/etc/conveyor/conveyor.conf',
+               help='Region name of this node'),
+    cfg.DictOpt('migrate_net_map',
+                default={},
+                help='map of migrate net id of different az'),
+    cfg.DictOpt('vgw_ip_dict',
+                default={'az01.shenzhen--fusionsphere':'127.0.0.1'},
+                help='ip of vgw host for different az'),
+    cfg.DictOpt('vgw_id_dict',
+                default={'az01.shenzhen--fusionsphere':'e7fcd23e-f363-438b-bfec-cc40677d9d5b'},
+                help='ip of vgw host for different az')
 ]
 
 CONF.register_opts(global_opts)
