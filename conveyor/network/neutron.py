@@ -15,7 +15,7 @@
 #    under the License.
 
 """
-Handles all requests relating to volumes + cinder.
+Handles all requests relating to neutron.
 """
 
 from neutronclient.common import exceptions
@@ -169,3 +169,34 @@ class API(object):
             param['fixed_ip_address'] = fixed_address
         neutronclient(context).update_floatingip(floatingip_id,
                                          {'floatingip': param})
+    
+    
+    def list_pools(self, context, **_params):
+        return neutronclient(context).list_pools(**_params)
+    
+    def show_pool(self, context, pool, **_params):
+        
+        return neutronclient(context).show_pool(pool, **_params)
+    
+    def list_members(self, context, **_params):
+        
+        return neutronclient(context).list_members(**_params)
+    
+    def show_member(self, context, member, **_params):
+        
+        return neutronclient(context).show_member(member, **_params)
+    
+    def list_health_monitors(self, context, **_params):
+        
+        return neutronclient(context).list_health_monitors(**_params)
+    
+    def show_health_monitor(self, context, health_monitor, **_params):
+        
+        return neutronclient(context).show_health_monitor(health_monitor, **_params)
+    
+    def list_listeners(self, context, vip_id, retrieve_all=True, **_params):
+        return neutronclient(context).list_vip_listener(vip_id, retrieve_all=retrieve_all, **_params)
+
+    def show_listener(self, context, listener_id, vip_id, **_params):
+        return neutronclient(context).show_vip_listener(vip_id, listener_id, **_params)
+

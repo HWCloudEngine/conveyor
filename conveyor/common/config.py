@@ -210,12 +210,20 @@ global_opts = [
     cfg.DictOpt('migrate_net_map',
                 default={},
                 help='map of migrate net id of different az'),
-    cfg.DictOpt('vgw_ip_dict',
-                default={'az01.shenzhen--fusionsphere':'127.0.0.1'},
-                help='ip of vgw host for different az'),
-    cfg.DictOpt('vgw_id_dict',
-                default={'az01.shenzhen--fusionsphere':'e7fcd23e-f363-438b-bfec-cc40677d9d5b'},
-                help='ip of vgw host for different az')
+    cfg.StrOpt('vgw_info',
+                default="",
+                help='ip and id of vgw host for different az'),
+    cfg.StrOpt('data_transformer_procotol',
+                default="ftp",
+                help='protocol for data to transformer'),
+    cfg.ListOpt('trans_ports',
+                default=[12389],
+                help='A list of backend names to use. These backend names '
+                     'should be backed by a unique [CONFIG] group '
+                     'with its options'),
+    cfg.StrOpt('clone_migrate_type',
+                default='live',
+                help='code or live clone(migrate)')
 ]
 
 CONF.register_opts(global_opts)

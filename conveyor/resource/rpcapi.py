@@ -85,6 +85,12 @@ class ResourceAPI(object):
                           plan_id=plan_id, values=values)
     
     
+    def update_plan_resources(self, context, plan_id, resources):
+        cctxt = self.client.prepare(version='1.18')
+        return cctxt.call(context, 'update_plan_resources', 
+                          plan_id=plan_id, resources=resources)
+    
+    
     def get_plan_by_id(self, context, plan_id, detail=True):
         cctxt = self.client.prepare(version='1.18')
         return cctxt.call(context, 'get_plan_by_id', plan_id=plan_id, detail=detail)

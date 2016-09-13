@@ -28,6 +28,7 @@ CONF = cfg.CONF
 
 LOG = logging.getLogger(__name__)
 
+
 class CloneAPI(object):
     '''Client side of the volume rpc API.
 
@@ -45,41 +46,31 @@ class CloneAPI(object):
         self.client = rpc.get_client(target, '1.23', serializer=None)
 
     def start_template_clone(self, ctxt, template):
-        
         LOG.debug("Clone template start in Clone rpcapi mode")
         cctxt = self.client.prepare(version='1.18')
         cctxt.cast(ctxt, 'start_template_clone', template=template)
-        
-    def export_clone_template(self, ctxt, id, clone_element):
-        
+
+    def export_clone_template(self, ctxt, id):
         LOG.debug("start call rpc api export_clone_template")
         cctxt = self.client.prepare(version='1.18')
-        cctxt.cast(ctxt, 'export_clone_template',id=id,clone_element=clone_element)
+        cctxt.cast(ctxt, 'export_clone_template', id=id)
 
-    
-    def clone(self, ctxt, id, destination, update_resources):
-        
+    def clone(self, ctxt, id, destination):
         LOG.debug("start call rpc api clone")
         cctxt = self.client.prepare(version='1.18')
-        cctxt.cast(ctxt, 'clone', id=id, destination=destination, update_resources=update_resources)
-        
-        
+        cctxt.cast(ctxt, 'clone', id=id, destination=destination)
+
     def export_migrate_template(self, ctxt, id):
-        
         LOG.debug("start call rpc api export_migrate_template")
         cctxt = self.client.prepare(version='1.18')
         cctxt.cast(ctxt, 'export_migrate_template', id=id)
 
-    
     def migrate(self, ctxt, id, destination):
-        
         LOG.debug("start call rpc api migrate")
         cctxt = self.client.prepare(version='1.18')
         cctxt.cast(ctxt, 'migrate', id=id, destination=destination)
-        
+
     def download_template(self, ctxt, id):
-        
         LOG.debug("start call rpc api download_template")
         cctxt = self.client.prepare(version='1.18')
         return cctxt.call(ctxt, 'download_template', id=id)
-

@@ -19,16 +19,8 @@ from conveyor.db import api as db_api
 LOG = logging.getLogger(__name__)
 
 
-RESOURCE_TYPES = ['OS::Nova::Server',
-                 'OS::Cinder::Volume',
-                 'OS::Neutron::Net',
-                 'OS::Neutron::Router',
-                 'OS::Neutron::LoadBalancer',
-                 'OS::Heat::Stack']
-
 # instance_allowed_search_opts = ['reservation_id', 'name', 'status', 'image', 'flavor',
 #                                'tenant_id', 'ip', 'changes-since', 'all_tenants']
-
 
 class Resource(object):
     """Describes an OpenStack resource."""
@@ -40,6 +32,7 @@ class Resource(object):
         self.properties = properties or {}
         self.extra_properties = extra_properties or {}
         self.parameters = parameters or {}
+        self.extra_properties['id'] = self.id
 
     def add_parameter(self, name, description, parameter_type='string',
                       constraints=None, default=None):
@@ -61,13 +54,11 @@ class Resource(object):
         
     @property
     def template_resource(self):
-        extra_properties = copy.deepcopy(self.extra_properties) 
-        extra_properties['id'] = self.id
         return {
             self.name: {
                 'type': self.type,
                 'properties': self.properties,
-                'extra_properties':extra_properties
+                'extra_properties': self.extra_properties
             }
         }
         
@@ -109,6 +100,10 @@ class Resource(object):
                                            parameter_type=param.get('type', 'string'),
                                            constraints=param.get('constraints', ''),
                                            default=param.get('default', ''))
+                    else:
+                        msg = ("Parameter %s is invalid or not found." % value)
+                        LOG.error(msg)
+                        raise exception.ParameterNotFound(message=msg)
                 else:
                     get_params(properties[key])
             elif isinstance(properties, dict):
@@ -220,14 +215,14 @@ class Plan(object):
             return
         
         #if resource has not been modified, there is no need to update dependencies
-        if len(resources) == len(dependencies):
-            is_same = True
-            for res_name in resources.keys():
-                if res_name not in dependencies.keys():
-                    is_same = False
-                    break
-            if is_same:
-                return
+#         if len(resources) == len(dependencies):
+#             is_same = True
+#             for res_name in resources.keys():
+#                 if res_name not in dependencies.keys():
+#                     is_same = False
+#                     break
+#             if is_same:
+#                 return
         #begin to rebuild
         dependencies = {}
         for res in resources.values():

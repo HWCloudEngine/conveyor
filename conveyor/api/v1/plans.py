@@ -11,6 +11,7 @@ from conveyor.common import uuidutils
 from conveyor.common import template_format
 from conveyor.api.wsgi import wsgi
 from conveyor.common import log as logging
+from conveyor.common import plan_status as p_status
 from conveyor import exception
 from conveyor.resource import api as resource_api
 
@@ -71,6 +72,9 @@ class Controller(wsgi.Controller):
             res_type = res.get('type')
             if not res_id or not res_type:
                 msg = _('Type or id is empty')
+                raise exc.HTTPBadRequest(explanation=msg)
+            if not res_type in p_status.RESOURCE_TYPES:
+                msg = _('Type does not support')
                 raise exc.HTTPBadRequest(explanation=msg)
             resources.append({'id': res_id, 'type': res_type})
         

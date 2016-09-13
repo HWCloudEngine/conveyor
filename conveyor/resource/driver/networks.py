@@ -8,6 +8,9 @@ from conveyor.resource import resource
 from conveyor.resource.driver import base
 
 from conveyor.common import log as logging
+from conveyor.common import uuidutils
+
+from copy import deepcopy
 LOG = logging.getLogger(__name__)
 
 class NetworkResource(base.resource):
@@ -190,6 +193,10 @@ class NetworkResource(base.resource):
                 raise exception.ResourceNotFound(message=msg)
             
             subnet_id = subnet.get('id')
+            subnet_res = self._collected_resources.get(subnet_id)
+            if subnet_res:
+                continue
+                        
             properties = {
                 'name': subnet.get('name', ''),
                 'allocation_pools': subnet.get('allocation_pools', []),
@@ -265,8 +272,8 @@ class NetworkResource(base.resource):
             if port.get('binding:vnic_type') is not None:
                 value_specs['binding:vnic_type'] = port.get('binding:vnic_type')
                                
-            #if value_specs:
-            #    properties['value_specs'] = value_specs
+            if value_specs:
+                properties['value_specs'] = value_specs
             
             
             if port.get('security_groups'):
@@ -387,42 +394,46 @@ class NetworkResource(base.resource):
                 #dependencies.append(router_res[0].name)
              
             port_id = floatingip.get('port_id')
-            port_res = None
-            if port_id:
-                port_res = self.extract_ports([port_id])
-                properties['port_id'] = {'get_resource': port_res[0].name}
-                dependencies.append(port_res[0].name) 
-
-            fixed_id_addr = floatingip.get('fixed_ip_address')
-            if router_res and port_res and fixed_id_addr:
-                fixed_ips = port_res[0].properties.get('fixed_ips')
-                subnet_res_name = None
-                
-                if len(fixed_ips) == 1:
-                    subnet_res_name = fixed_ips[0].get('subnet_id', {}).get('get_resource')
-                elif len(fixed_ips) >= 2:
-                    for f in fixed_ips:
-                        if f.get('ip_address', '') == fixed_id_addr:
-                            subnet_res_name = f.get('subnet_id', {}).get('get_resource')
-                            #If port has multiple fixed ips, 
-                            #we have to specify the ip addr in floatingip properties
-                            ip_index = fixed_ips.index(f)
-                            properties['fixed_ip_address'] = {'get_attr': 
-                                                              [port_res[0].name, 
-                                                                'fixed_ips', 
-                                                                ip_index, 
-                                                                'ip_address']}
-                            
-                            break
-                
-                #build router interface
-                if subnet_res_name:
-                    subnet_res = self._get_resource_by_name(subnet_res_name)
-                    if subnet_res:
-                        self._extract_router_interface(router_res[0], subnet_res)
+#             port_res = None
+#             if port_id:
+#                 port_res = self.extract_ports([port_id])
+#                 properties['port_id'] = {'get_resource': port_res[0].name}
+#                 dependencies.append(port_res[0].name) 
+#  
+#             fixed_id_addr = floatingip.get('fixed_ip_address')
+#             if router_res and port_res and fixed_id_addr:
+#                 fixed_ips = port_res[0].properties.get('fixed_ips')
+#                 subnet_res_name = None
+#                  
+#                 if len(fixed_ips) == 1:
+#                     subnet_res_name = fixed_ips[0].get('subnet_id', {}).get('get_resource')
+#                 elif len(fixed_ips) >= 2:
+#                     for f in fixed_ips:
+#                         if f.get('ip_address', '') == fixed_id_addr:
+#                             subnet_res_name = f.get('subnet_id', {}).get('get_resource')
+#                             #If port has multiple fixed ips, 
+#                             #we have to specify the ip addr in floatingip properties
+#                             ip_index = fixed_ips.index(f)
+#                             properties['fixed_ip_address'] = {'get_attr': 
+#                                                               [port_res[0].name, 
+#                                                                 'fixed_ips', 
+#                                                                 ip_index, 
+#                                                                 'ip_address']}
+#                              
+#                             break
+#                  
+#                 #build router interface
+#                 if subnet_res_name:
+#                     subnet_res = self._get_resource_by_name(subnet_res_name)
+#                     if subnet_res:
+#                         self._extract_router_interface(router_res[0], subnet_res)
                 
             resource_type = "OS::Neutron::FloatingIP"
             resource_name = 'floatingip_%d' % self._get_resource_num(resource_type)
+
+            if port_id:
+                self._extract_associate(floatingip, router_res, port_id, resource_name)
+
             floatingip_res = resource.Resource(resource_name, resource_type,
                                                floatingip_id, properties=properties)
 
@@ -443,6 +454,69 @@ class NetworkResource(base.resource):
             raise exception.ResourceNotFound(message=msg)
         
         return floatingipResources
+    
+    def _extract_associate(self, floatingip, router_res, port_id, floatip_name):
+        
+        properties = {}
+        dependencies = []
+        port_res = self._collected_resources.get(port_id)
+        if not port_res:
+            port_res = self.extract_ports([port_id])
+            
+            if port_res:
+                port_res = port_res[0]
+            else:
+                LOG.error('Resource network driver query port failed, ID: %s',
+                          port_id)
+                return None
+        properties['port_id'] = {'get_resource': port_res.name}
+        properties['floatingip_id'] = {'get_resource': floatip_name}
+        dependencies.append(port_res.name)
+        dependencies.append(floatip_name)
+
+        fixed_id_addr = floatingip.get('fixed_ip_address')
+        if router_res and port_res and fixed_id_addr:
+            fixed_ips = port_res.properties.get('fixed_ips')
+            subnet_res_name = None
+                
+            if len(fixed_ips) == 1:
+                subnet_res_name = fixed_ips[0].get('subnet_id', {}).get('get_resource')
+            elif len(fixed_ips) >= 2:
+                for f in fixed_ips:
+                    if f.get('ip_address', '') == fixed_id_addr:
+                        subnet_res_name = f.get('subnet_id', {}).get('get_resource')
+                        # If port has multiple fixed ips, 
+                        # we have to specify the ip addr in floatingip properties
+                        ip_index = fixed_ips.index(f)
+                        properties['fixed_ip_address'] = {'get_attr': 
+                                                          [port_res.name,
+                                                           'fixed_ips', 
+                                                            ip_index, 
+                                                            'ip_address']}
+                            
+                        break
+
+            #build router interface
+            if subnet_res_name:
+                subnet_res = self._get_resource_by_name(subnet_res_name)
+                if subnet_res:
+                    self._extract_router_interface(router_res[0], subnet_res)
+        
+        
+        resource_type = "OS::Neutron::FloatingIPAssociation"
+        resource_name = 'FloatingIPAssiation_%d' % self._get_resource_num(resource_type)
+        resource_id = uuidutils.generate_uuid()      
+        association_res = resource.Resource(resource_name, resource_type,
+                                           resource_id, properties=properties)
+
+        # remove duplicate dependencies
+        dependencies = {}.fromkeys(dependencies).keys()
+        association_dep = resource.ResourceDependency(resource_id, '', 
+                                                    resource_name, resource_type,
+                                                    dependencies=dependencies)
+            
+        self._collected_resources[resource_id] = association_res
+        self._collected_dependencies[resource_id] = association_dep 
 
     def _extract_router_interface(self, router_res, subnet_res):
         LOG.debug("Extract resources of router interface connecting %s and %s.", 
@@ -634,10 +708,12 @@ class NetworkResource(base.resource):
     
     def extract_networks_resource(self, net_ids):
         
+        copy_net_ids = deepcopy(net_ids)
         for net_id in net_ids:
-            self.extract_network_resource(net_id)
+            copy_net_ids.remove(net_id)
+            self.extract_network_resource(net_id, copy_net_ids)
     
-    def extract_network_resource(self, net_id):
+    def extract_network_resource(self, net_id, other_net_ids):
         
         LOG.debug("Generate network resource start: %s", net_id)
         # generate net work resource
@@ -656,13 +732,13 @@ class NetworkResource(base.resource):
                 LOG.error("Subnet resource can not find, subnet id: %s", subnet)
                 return None
             
-            self._get_interface_info(subnet, subnet_res.name)
+            self._get_interface_info(subnet, subnet_res.name, other_net_ids)
             
         
         LOG.debug("Generate network resource end: %s", net_id)
             
             
-    def _get_interface_info(self, subnet_id, subnet_name):
+    def _get_interface_info(self, subnet_id, subnet_name, other_net_ids):
         
         try:
             interfaces = self.neutron_api.port_list(self.context, 
@@ -679,12 +755,14 @@ class NetworkResource(base.resource):
                 if fip.get("subnet_id", "") == subnet_id:
                     router_id = interface.get('device_id')
                     
-                    router_name = self._generate_router_resource(router_id)
+                    router_name = self._generate_router_resource(router_id, other_net_ids)
+                    if not router_name:
+                        return None
                     
                     self._generate_interface_resource(interface, subnet_name, router_name)
     
     
-    def _generate_router_resource(self, router_id):
+    def _generate_router_resource(self, router_id, other_net_ids):
         
         # 1. get router info from neutron api
         #routers = None
@@ -717,7 +795,25 @@ class NetworkResource(base.resource):
                 'admin_state_up': router.get('admin_state_up')
             }
         dependencies = []
+        external_gateway_info = router.get('external_gateway_info')
             
+        if external_gateway_info:
+            network = external_gateway_info.get('network_id')
+            if (network in other_net_ids):
+                if network:
+                    net_res = self.extract_nets([network], with_subnets=True)
+                    if net_res:
+                        properties['external_gateway_info'] = {'network': {'get_resource': net_res[0].name},
+                                                                'enable_snat': external_gateway_info.get('enable_snat')}
+                        dependencies.append(net_res[0].name)
+            else:
+                # if router relate public network not in clone list,
+                # do not copy router
+                return None
+        else:
+            # if router does not have public network, do not clone router
+            return None
+                    
         resource_type = "OS::Neutron::Router"
         resource_name = 'router_%d' % self._get_resource_num(resource_type)
         router_res = resource.Resource(resource_name, resource_type,
@@ -749,7 +845,7 @@ class NetworkResource(base.resource):
         
         dependencies = [router_name, subnet_name]
         resource_type = "OS::Neutron::RouterInterface"
-        resource_name = '%s_interface_0' % router_name
+        resource_name = '%s_interface_%s' % (router_name, uuidutils.generate_uuid())
         interface_res = resource.Resource(resource_name, resource_type,
                             interface_id, properties=properties)
          

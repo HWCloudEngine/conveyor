@@ -338,6 +338,9 @@ class PlanDeleteError(V2vException):
    
 class PlanUpdateError(V2vException):
     message = _("Plan updated failed. The key not found or unsupported to update.")
+    
+class PlanResourcesUpdateError(V2vException):
+    message = _("Plan resources updated failed.")
 
 class PlanFileOperationError(V2vException):
     message = _("Read or write plan file failed.")
@@ -391,16 +394,16 @@ class PlanCreateFailed(V2vException):
     message = _("Unable to create plan")
     
 class DownloadTemplateFailed(V2vException):
-    message = _("Download the plan <%(id)s> failed.%(msg)s")    
+    message = _("Download the plan <%(id)s> failed.%(msg)s")  
     
 class ExportTemplateFailed(V2vException): 
     message = _("export template of the plan <%(id)s> failed.%(msg)s") 
     
 class PlanCloneFailed(V2vException):
-    message = _("clone plan <%(id)s> failed.")
+    message = _("clone plan <%(id)s> failed.%(msg)s")
     
 class PlanMigrateFailed(V2vException):
-    message = _("migrate plan <%(id)s> failed.")
+    message = _("migrate plan <%(id)s> failed.%(msg)s")
     
 class TimeoutException(V2vException): 
     message = _("%(msg)s.")

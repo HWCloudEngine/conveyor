@@ -19,6 +19,7 @@
 
 
 import contextlib
+import ConfigParser 
 import datetime
 import hashlib
 import inspect
@@ -57,6 +58,58 @@ ISO_TIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
 PERFECT_TIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%f"
 
 synchronized = lockutils.synchronized_with_prefix('conveyor-')
+vgw_update_time = {}
+
+@synchronized('conveyor-config', external=True)
+def remove_vgw_info(vgw_id, config_key, config_vaule):
+
+    if not isinstance(config_vaule, dict):
+        LOG.error('Remove vgw  %s error: vgw info not dict', vgw_id)
+        return
+
+    # 1. remove vgw info from config_vaule
+    flag = False
+    for k, v in config_vaule.items():
+        if not v:
+            continue
+        for v_id, v_ip in v.items():
+            if v_id == vgw_id:
+                del v[vgw_id]
+                del vgw_update_time[v_id]
+                flag = True
+                break
+        
+        if flag:
+            if not config_vaule[k]:
+                del config_vaule[k]
+            break
+
+    # 2. transform config value to string
+    config_value_str = str(config_vaule)
+    if (len(config_value_str) > 2):
+        config_value_str = config_value_str[1:-1]
+    else:
+        config_value_str = ""
+
+    # 3. update config file 
+    config_ctl =  ConfigParser.ConfigParser()
+    filepath = CONF.config_path
+    
+    try:
+        config_ctl.read(filepath)
+        config_ctl.set('DEFAULT', config_key, config_value_str)
+        fh = open(filepath ,'w')
+        config_ctl.write(fh)
+    except Exception as e:
+        LOG.error("Remove vgw config info error: %s", e)
+        if fh:
+            fh.close()
+    finally:
+        if fh:
+            fh.close()
+    
+    LOG.debug('Remove vgw info end: update time list %(l)s, config %(c)s',
+              {'l': vgw_update_time, 'c': config_value_str})
 
 
 def find_config(config_path):

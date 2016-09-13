@@ -186,6 +186,12 @@ class API(object):
     def get_resource(self, context, stack_id, resource_name):
         return heatclient(context).resources.get(stack_id, resource_name)
     
+    def get_resource_type(self, context, resource_type):
+        return heatclient(context).resource_types.get(resource_type)
+    
+    def resource_type_list(self, context):
+        return heatclient(context).resource_types.list()
+    
     def events_list(self, context, stack_id):
         return heatclient(context).events.list(stack_id)
     

@@ -26,41 +26,51 @@ from conveyor.common import timeutils
 from conveyor.clone import api
 
 from conveyor.i18n import _
-
+from conveyor.resource import api as resource_api
 LOG = logging.getLogger(__name__)
 
-  
+
 class MigrateActionController(wsgi.Controller):
-    
+
     def __init__(self, ext_mgr=None, *args, **kwargs):
         super(MigrateActionController, self).__init__(*args, **kwargs)
         self.clone_api = api.API()
+        self._resource_api = resource_api.ResourceAPI()
         self.ext_mgr = ext_mgr
-    
-    
-    
+
     @wsgi.response(202)
     @wsgi.action('export_migrate_template')
-    def _export_migrate_template(self, req, id, body):  
+    def _export_migrate_template(self, req, id, body):
         LOG.debug(" start exporting migrate template in API")
         context = req.environ['conveyor.context']
+        plan = self._resource_api.get_plan_by_id(context, id)
+        expire_at = plan['expire_at']
+        expire_time = timeutils.parse_isotime(str(expire_at))
+        if timeutils.is_older_than(expire_time, 0):
+            msg = _("Template is out of time")
+            raise exc.HTTPBadRequest(explanation=msg)
         self.clone_api.export_migrate_template(context, id)
-        
-        
+
     @wsgi.response(202)
     @wsgi.action('migrate')
-    def _migrate(self, req, id, body):  
-        LOG.debug(" start execute migrate plan in API,the plan id is %s" %id)
+    def _migrate(self, req, id, body):
+        LOG.error('liuling begin time of migrate is %s'
+                  % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())))
+        LOG.debug(" start execute migrate plan in API,the plan id is %s" % id)
+        context = req.environ['conveyor.context']
         if not self.is_valid_body(body, 'migrate'):
             LOG.debug("migrate request body has not key:migrate")
-            raise exc.HTTPUnprocessableEntity() 
-          
+            raise exc.HTTPUnprocessableEntity()
+        plan = self._resource_api.get_plan_by_id(context, id)
+        expire_at = plan['expire_at']
+        expire_time = timeutils.parse_isotime(str(expire_at))
+        if timeutils.is_older_than(expire_time, 0):
+            msg = _("Template is out of time")
+            raise exc.HTTPBadRequest(explanation=msg)
         migrate_body = body['migrate']
         destination = migrate_body.get('destination')
         context = req.environ['conveyor.context']
         self.clone_api.migrate(context, id, destination)
-        
-        
 
 
 class Migrate(extensions.ExtensionDescriptor):
@@ -70,10 +80,10 @@ class Migrate(extensions.ExtensionDescriptor):
     alias = "conveyor-Migrate"
     namespace = "http://docs.openstack.org/conveyor/ext/migrate/api/v1"
     updated = "2016-01-29T00:00:00+00:00"
-    
-    
-    #extend exist resource
+
+    # extend exist resource
     def get_controller_extensions(self):
         controller = MigrateActionController(self.ext_mgr)
-        extension = extensions.ControllerExtension(self, 'migrates', controller)
-        return [extension]    
+        extension = extensions.ControllerExtension(self, 'migrates',
+                                                   controller)
+        return [extension]

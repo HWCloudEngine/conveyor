@@ -53,7 +53,8 @@ class VServiceManager(base.Manager):
         
         
     def clone_volume(self, src_dev_name, des_dev_name, src_dev_format,
-                     src_mount_point, src_gw_url, des_gw_url):
+                     src_mount_point, src_gw_url, des_gw_url,
+                     trans_protocol=None, trans_port=None):
         
         '''Clone volume data'''
         
@@ -65,6 +66,8 @@ class VServiceManager(base.Manager):
                            'src_mount_point': src_mount_point,
                            'src_gw_url': src_gw_url,
                            'des_gw_url': des_gw_url,
+                           'trans_protocol': trans_protocol,
+                           'trans_port': trans_port
                            }}
         
         

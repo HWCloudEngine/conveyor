@@ -4,7 +4,9 @@ Created on 2016
 @author: g00357909
 '''
 
+import six
 import copy
+import numbers
 from oslo.config import cfg
 
 from conveyor.common import log as logging
@@ -31,7 +33,7 @@ class ResourceAPI(object):
           
     def get_resource_types(self, context):
         LOG.info("Get resource types.")
-        return resource.RESOURCE_TYPES
+        return p_status.RESOURCE_TYPES
 
     def get_resources(self, context, search_opts=None, marker=None, limit=None):
         LOG.info("Get resources filtering by: %s", search_opts)
@@ -45,7 +47,7 @@ class ResourceAPI(object):
     
 
     def create_plan_by_template(self, context, template):
-        LOG.debug("Create plan by specified template.")
+        LOG.debug("Create plan by template. %s", template)
         
         #Simply verify basic fields
         standard_template = copy.deepcopy(template)
@@ -69,14 +71,17 @@ class ResourceAPI(object):
         
         stack_kwargs = dict(stack_name='stack_validate',
                             template=standard_template)
-        heat_api = heat.API()
         
-        try:
-            heat_api.preview_stack(context, **stack_kwargs)
-        except Exception as e:
-            msg = 'Template validate failed. %s' % unicode(e)
-            LOG.error(msg)
-            raise exception.TemplateValidateFailed(message=unicode(e))
+        is_skip_check = self._is_template_skip_heat_check(standard_template)
+        if not is_skip_check:
+            heat_api = heat.API()
+        
+            try:
+                heat_api.preview_stack(context, **stack_kwargs)
+            except Exception as e:
+                msg = 'Template validate failed. %s' % unicode(e)
+                LOG.error(msg)
+                raise exception.TemplateValidateFailed(message=unicode(e))
 
         #Generate a new plan and build a basic plan.
         plan_id = uuidutils.generate_uuid()
@@ -136,6 +141,75 @@ class ResourceAPI(object):
         return self.resource_rpcapi.update_plan(context, plan_id, values)
     
 
+    def update_plan_resources(self, context, plan_id, resources):
+        LOG.info("Update resources of plan <%s> with values: %s", plan_id, resources)
+        
+        if not isinstance(resources, list):
+            msg = "'resources' argument must be a list."
+            LOG.error(msg)
+            raise exception.PlanUpdateError(message=msg)
+        
+        #Verify plan
+        allowed_status = (p_status.INITIATING, p_status.CREATING, p_status.AVAILABLE)
+        try:
+            plan = db_api.plan_get(context, plan_id)
+            if plan['plan_status'] not in allowed_status:
+                msg = ("Plan resources are not allowed to be updated in %s status." 
+                       % plan['plan_status'])
+                LOG.error(msg)
+                raise exception.PlanUpdateError(message=msg)
+        except exception.PlanNotFoundInDb:
+            LOG.error('The plan <%s> could not be found.', plan_id)
+            raise exception.PlanNotFound(plan_id=plan_id)
+        
+        #Verify resources
+        for res in resources:
+            if not isinstance(res, dict):
+                msg = "Every resource to be updated must be a dict."
+                LOG.error(msg)
+                raise exception.PlanUpdateError(message=msg)
+            
+            action = res.get('action')
+            if not action or action not in ('add', 'edit', 'delete'):
+                msg = "%s action is unsupported." % action
+                LOG.error(msg)
+                raise exception.PlanUpdateError(message=msg)
+            
+            if action == 'add' and ('id' not in res.keys() or 
+                                    'resource_type' not in res.keys()):
+                msg = ("'id' and 'resource_type' of new resource "
+                       "must be provided when adding new resources.")
+                LOG.error(msg)
+                raise exception.PlanUpdateError(message=msg)
+            elif action == 'edit' and (len(res) < 2 or 
+                                       'resource_id' not in res.keys()):
+                msg = ("'resource_id' and the fields to be edited "
+                       "must be provided when editing resources.")
+                LOG.error(msg)
+                raise exception.PlanUpdateError(message=msg)
+            elif action == 'delete' and 'resource_id' not in res.keys():
+                msg = "'resource_id' must be provided when deleting resources."
+                LOG.error(msg)
+                raise exception.PlanUpdateError(message=msg)
+            
+            #Simply parse value.
+            for k, v in res.items():
+                if v == 'true':
+                    res[k] = True
+                elif v == 'false':
+                    res[k] = False
+                elif isinstance(v, six.string_types):
+                    try:
+                        new_value = eval(v)
+                        if type(new_value) in (dict, list, numbers.Number):
+                            res[k] = new_value
+                    except Exception:
+                        pass
+        
+        return self.resource_rpcapi.update_plan_resources(context, 
+                                                          plan_id, resources)
+
+
     def get_plans(self, context, search_opts=None):
         LOG.info("Get all plans.")
         plan_list = db_api.plan_get_all(context)
@@ -164,5 +238,28 @@ class ResourceAPI(object):
             raise exception.PlanNotFound(plan_id=plan_id)
         
         LOG.info("Begin to delete plan with id of %s", plan_id)
+        resource.update_plan_to_db(context, plan_file_dir, plan_id, 
+                                   {'plan_status': p_status.DELETING})
         return self.resource_rpcapi.delete_plan(context, plan_id)
     
+    def _is_template_skip_heat_check(self, template):
+        ''' template has resources that heat does not exist,
+         template skip heat api check'''
+
+        LOG.debug('Resouce api check template start.')
+        RESORCE_TYPE_LIST = ["OS::Neutron::Vip", 
+                             "OS::Neutron::Listener",
+                             "OS::Cinder::VolumeType"]
+        
+        template_res = template.get('resources')
+        if not template_res:
+            return True
+
+        for res_name, res in template_res.items():
+            res_type = res.get('type', None)
+            if res_type in RESORCE_TYPE_LIST:
+                LOG.debug('Resouce api template has spec type.  %s', res_type)
+                return True
+
+        LOG.debug('Resouce api check template end. no spec type')
+        return False

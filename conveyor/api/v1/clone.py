@@ -61,9 +61,7 @@ class CloneController(wsgi.Controller):
     def detail(self, req):
         """Returns a detailed list of resource."""
         LOG.debug("Detail is start.")
-        cs = client.get_birdiegateway_client("162.3.140.33", "9998")
-        out = cs.vservices.get_disk_format("/dev/vdb")
-        LOG.debug("Detail is end: %s.", out)
+        return
 
     def create(self, req, body):
         """Creates a new resource."""

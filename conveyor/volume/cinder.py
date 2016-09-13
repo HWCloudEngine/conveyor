@@ -111,6 +111,7 @@ def _untranslate_volume_summary_view(context, vol):
     d = {}
     d['id'] = vol.id
     d['status'] = vol.status
+    d['shareable'] = vol.shareable
     d['size'] = vol.size
     d['availability_zone'] = vol.availability_zone
     d['created_at'] = vol.created_at
@@ -158,7 +159,16 @@ def _untranslate_volume_type_summary_view(vtype):
     type_dict['id'] = vtype.id
     type_dict['name'] = vtype.name
     type_dict['extra_specs'] = vtype.extra_specs
+    type_dict['qos_specs_id'] = vtype.qos_specs_id
     return type_dict
+
+def _untranslate_qos_summary_view(qos):
+    """Maps keys for volume types summary view."""
+    qos_dict = {}
+    qos_dict['id'] = qos.id
+    qos_dict['name'] = qos.name
+    qos_dict['specs'] = qos.specs
+    return qos_dict
 
 
 def translate_volume_exception(method):
@@ -331,17 +341,27 @@ class API(object):
             return _untranslate_volume_type_summary_view(type_obj)
         
         return type_obj
-                  
-    def qos_specs_list(self, context):
-        return cinderclient(context).qos_specs.list()
+
+    def get_consisgroup(self, context, consisgroup_id):
+        return cinderclient(context).consistencygroups.get(consisgroup_id)
+
+    def qos_specs_list(self, context, trans_map=True):
+        qoses = cinderclient(context).qos_specs.list()
+        if trans_map:
+            qos_list = []
+            for qos in qoses:
+                qos_list.append( _untranslate_qos_summary_view(qos))
+            return qos_list
+        return qoses
             
-    def get_qos_specs(self, context, qos_specs_id):
-        return cinderclient(context).qos_specs.get(qos_specs_id)
+    def get_qos_specs(self, context, qos_specs_id, trans_map=True):
+        qos = cinderclient(context).qos_specs.get(qos_specs_id)
+        if trans_map:
+            return _untranslate_qos_summary_view(qos)
+        return qos
             
     def get_qos_associations(self, context, qos_specs_id):
         return cinderclient(context).qos_specs.get_associations(qos_specs_id)
     
     def delete(self, context, volume_id):
         return cinderclient(context).volumes.delete(volume_id)
-
- 

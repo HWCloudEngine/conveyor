@@ -24,10 +24,8 @@ from conveyor.common import log as logging
 from conveyor.api import extensions
 import conveyor.api.wsgi
 
-from conveyor.api.v1 import clone
-from conveyor.api.v1 import resources
-from conveyor.api.v1 import plans
-from conveyor.api.v1 import migrate
+
+from conveyor.api.v1.configure import configuration
 
 
 LOG = logging.getLogger(__name__)
@@ -38,28 +36,8 @@ class APIRouter(conveyor.api.wsgi.APIRouter):
     ExtensionManager = extensions.ExtensionManager
 
     def _setup_routes(self, mapper, ext_mgr):
-        self.resources['clones'] = clone.create_resource(ext_mgr)
-        mapper.resource("clone", "clones",
-                        controller=self.resources['clones'],
+        self.resources['configurations'] = configuration.create_resource(ext_mgr)
+        mapper.resource("configurations", "configurations",
+                        controller=self.resources['configurations'],
                         collection={'detail': 'GET'},
                         member={'action': 'POST'})
-
-        self.resources['migrates'] = migrate.create_resource(ext_mgr)
-        mapper.resource("migrate", "migrates",
-                        controller=self.resources['migrates'],
-                        collection={'detail': 'GET'},
-                        member={'action': 'POST'})
-
-        self.resources['resources'] = resources.create_resource(ext_mgr)
-        mapper.resource("resource", "resources",
-                        controller=self.resources['resources'],
-                        collection={'detail': 'GET', 'types': 'GET'},
-                        member={'action': 'POST'})
-
-        self.resources['plans'] = plans.create_resource(ext_mgr)
-        mapper.resource("plan", "plans",
-                        controller=self.resources['plans'],
-                        collection={'detail': 'GET',
-                                    'create_plan_by_template': 'POST'},
-                        member={'action': 'POST'})
-

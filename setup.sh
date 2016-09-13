@@ -38,6 +38,16 @@ API_REGISTER_SERVICE_NAME=conveyor
 #conveyor service register service type
 API_REGISTER_SERVICE_TYPE=conveyor
 
+
+#conveyor config service register user name
+CONFIG_REGISTER_USER_NAME=conveyorConfig
+
+#conveyor config service register service name
+CONFIG_REGISTER_SERVICE_NAME=conveyorConfig
+
+#conveyor config service register service type
+CONFIG_REGISTER_SERVICE_TYPE=conveyorConfig
+
 TIME_CMD=`date '+%Y-%m-%d %H:%M:%S'`
 BOOL_TRUE_INT=0
 BOOL_FALSE_INT=1
@@ -59,6 +69,22 @@ export_openstack_evn() {
 
 export_openstack_evn
 
+clean_config_register_info()
+{
+   #clean  service register info
+   keystone user-delete ${CONFIG_REGISTER_USER_NAME}
+   keystone user-role-remove --user=${CONFIG_REGISTER_USER_NAME} --role=${API_REGISTER_ROLE_NAME} --tenant=${API_REGISTER_TENANT_NAME}
+   
+   #remove endpoint
+   for api_service_id in $(keystone service-list | awk '/ '${CONFIG_REGISTER_SERVICE_NAME}' / {print $2}') ; do 
+       api_endpoint_id=$(keystone endpoint-list | awk '/ '$api_service_id' /{print $2}')
+       api_endpoint_id=$(keystone endpoint-list | awk '/ '$api_service_id' /{print $2}')
+       [ -n "$api_endpoint_id" ] && keystone endpoint-delete $api_endpoint_id
+       #remove service
+       keystone service-delete $api_service_id
+   done
+}
+
 clean_register_info()
 {
    
@@ -75,6 +101,9 @@ clean_register_info()
        keystone service-delete $api_service_id
    done
    
+   # clean config register info
+   clean_config_register_info
+   
 }
 
  
@@ -82,12 +111,12 @@ clean_register_info()
 #######################################################################
 check_register_user_exist()
 {
-    
-    user=$(keystone user-list | awk '/ '${API_REGISTER_USER_NAME}' / {print $2}')
+    user_name=$0
+    user=$(keystone user-list | awk '/ '${user_name}' / {print $2}')
 	
 	if [ $? -ne 0 ]; then
 	   echo ${TIME_CMD} "check v2v api register user error."
-	   keystone user-list | awk '/ '${API_REGISTER_USER_NAME}' / {print $2}'
+	   keystone user-list | awk '/ '${user_name}' / {print $2}'
 	   return ${ERROR_INT}
 	fi
 	
@@ -134,8 +163,62 @@ copy_files_to_dir()
 
     #copy config file to /etc/conveyor
     cp -r ./etc/conveyor/* ${CONFIG_DIR}
+    chown -R openstack:openstack ${CONFIG_DIR}
 }
 
+#####################################################################
+# Function: register_config_service
+# Description: register api services info to keystone
+# Parameter:
+# input:
+# $1 -- NA 
+# $2 -- NA
+# output: NA
+# Return:
+# RET_OK
+# Since: 
+#
+# Others:NA
+#######################################################################
+register_config_service()
+{
+    #check user is register or not
+    user_name=${CONFIG_REGISTER_USER_NAME}
+	check_register_user_exist ${user_name}
+	ret=$?
+	if [ $ret -eq ${ERROR_INT} ]; then
+	   echo  ${TIME_CMD} "error: v2v api register user"
+	   return ${ERROR_INT}	   
+	fi
+	if [ $ret -eq ${BOOL_TRUE_INT} ]; then
+        #register the user of v2v service 
+        keystone user-create --name=${CONFIG_REGISTER_USER_NAME} --pass=${API_REGISTER_USER_PASSWD} --email=admin@example.com
+
+        #register v2v user and tenant relation (eg: service Tenant / admin Role)
+        keystone user-role-add --user=${CONFIG_REGISTER_USER_NAME} --tenant=${API_REGISTER_TENANT_NAME} --role=${API_REGISTER_ROLE_NAME}
+	else
+	   echo  ${TIME_CMD} "warning: v2v api register user exist. there not register. user name: " "${API_REGISTER_USER_NAME}"
+	fi
+	
+	keystone service-list | grep -w ${CONFIG_REGISTER_USER_NAME} >/dev/null || {
+	    #register v2v service 
+	    keystone service-create --name=${CONFIG_REGISTER_SERVICE_NAME} --type=${CONFIG_REGISTER_SERVICE_TYPE} --description="Hybrid conveyor service"
+	        
+	    #register v2v endpoint
+	    serviceId=$(keystone service-list | awk '/ '${CONFIG_REGISTER_SERVICE_NAME}' / {print $2}')
+
+            echo ${TIME_CMD} "begin create endpoint"
+	    keystone endpoint-create --region=$OS_REGION_NAME --service-id=${serviceId} \
+		--publicurl=http://${API_SERVICE_IP}:${API_SERVICE_PORT}/v1/config/$\(tenant_id\)s \
+		--adminurl=http://${API_SERVICE_IP}:${API_SERVICE_PORT}/v1/config/$\(tenant_id\)s \
+		--internalurl=http://${API_SERVICE_IP}:${API_SERVICE_PORT}/v1/config/$\(tenant_id\)s
+		
+		if [ $? -ne 0 ]; then
+		   echo "create config endpoint failed"
+		   return ${ERROR_INT}
+		fi 
+	}
+}
 #####################################################################
 # Function: register_api_services
 # Description: register api services info to keystone
@@ -154,7 +237,8 @@ register_services()
 {
      
     #check user is register or not
-	check_register_user_exist
+        user_name=${API_REGISTER_USER_NAME}
+	check_register_user_exist ${user_name}
 	ret=$?
 	if [ $ret -eq ${ERROR_INT} ]; then
 	   echo  ${TIME_CMD} "error: v2v api register user"
@@ -188,6 +272,14 @@ register_services()
 		   return ${ERROR_INT}
 		fi 
 	}
+	
+	# register config info
+	register_config_service
+	
+	if [ $? -ne 0 ]; then
+	   echo "create config endpoint failed"
+	   return ${ERROR_INT}
+	fi
 }
 
 clear_files()

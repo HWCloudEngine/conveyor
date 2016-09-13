@@ -20,45 +20,34 @@ from conveyor.clone import rpcapi
 CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
 
-class API(object):
-    
-    def __init__(self):
-        
-        self.clone_rpcapi = rpcapi.CloneAPI();
 
+class API(object):
+
+    def __init__(self):
+        self.clone_rpcapi = rpcapi.CloneAPI()
         super(API, self).__init__()
-        
-    
-    
+
     def start_template_clone(self, context, template):
-        
         LOG.debug("Clone template start in Clone api mode")
         self.clone_rpcapi.start_template_clone(context, template)
-        
-        
-    def export_clone_template(self, context, id, clone_element):
-        
+
+    def export_clone_template(self, context, id):
         LOG.debug("export clone template of elements")
-        self.clone_rpcapi.export_clone_template(context, id, clone_element)
-        
-    def clone(self, context, id, destination, update_resources):
-        
+        self.clone_rpcapi.export_clone_template(context, id)
+
+    def clone(self, context, id, destination):
+
         LOG.debug("execute clone plan in clone api")
-        self.clone_rpcapi.clone(context, id, destination, update_resources)
-        
+        self.clone_rpcapi.clone(context, id, destination)
+
     def export_migrate_template(self, context, id):
-        
-        LOG.debug("export migrate template of plan %s" %id)
+        LOG.debug("export migrate template of plan %s" % id)
         self.clone_rpcapi.export_migrate_template(context, id)
-        
+
     def migrate(self, context, id, destination): 
-        LOG.debug("execute migrate plan %s in  api" %id)
+        LOG.debug("execute migrate plan %s in  api" % id)
         self.clone_rpcapi.migrate(context, id, destination)
-        
+
     def download_template(self, context, id):
-        LOG.debug("download template of plan %s" %id)
+        LOG.debug("download template of plan %s" % id)
         return self.clone_rpcapi.download_template(context, id)
-        
-        
-    
-    

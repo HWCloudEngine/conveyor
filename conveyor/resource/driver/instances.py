@@ -29,24 +29,26 @@ class InstanceResource(base.resource):
 
     def extract_instances(self, instance_ids=None):
 
+        instance_reses = []
         servers = []
         if not instance_ids:
             LOG.info('Get resources of all instances.')
             servers = self.nova_api.get_all_servers(self.context)
         else:
             LOG.info('Get resources of instance: %s', instance_ids)
-            for id in instance_ids:
+            for instance_id in instance_ids:
                 try:
-                    server = self.nova_api.get_server(self.context, id)
+                    server = self.nova_api.get_server(self.context, instance_id)
                     servers.append(server)
                 except Exception as e:
                     msg = "Instance resource <%s> could not be found. %s" \
-                            % (id, unicode(e))
+                            % (instance_id, unicode(e))
                     LOG.error(msg)
                     raise exception.ResourceNotFound(message=msg)
 
         for server in servers:
-            self._extract_single_instance(server)
+            res = self._extract_single_instance(server)
+            instance_reses.append(res)
 
     def _extract_single_instance(self, server):
         
@@ -59,7 +61,7 @@ class InstanceResource(base.resource):
         #If this server resource has been extracted, ignore it.
         instance_resources = self._collected_resources.get(instance_id)
         if instance_resources:
-            return
+            return instance_resources
         
         resource_type = "OS::Nova::Server"
         resource_name = "server_%d" % self._get_resource_num(resource_type)
@@ -73,9 +75,9 @@ class InstanceResource(base.resource):
         instance_resources.add_property('availability_zone', getattr(server, 'OS-EXT-AZ:availability_zone', ''))
         
         #extract metadata parameter. If metadata is None, ignore this parameter.
-        #metadata = getattr(server, 'metadata', {})
-        #if metadata:
-        #    instance_resources.add_property('metadata', metadata)
+        metadata = getattr(server, 'metadata', {})
+        if metadata:
+            instance_resources.add_property('metadata', metadata)
          
         #extract userdata parameter. If userdata is None, ignore this parameter.
         user_data = getattr(server, 'OS-EXT-SRV-ATTR:user_data', '')
@@ -88,7 +90,7 @@ class InstanceResource(base.resource):
         if flavor and flavor.get('id'):
             flavor_id = flavor.get('id')
             try:
-                flavor_res = self._extract_flavors([flavor_id])
+                flavor_res = self.extract_flavors([flavor_id])
                 instance_resources.add_property('flavor', {'get_resource': flavor_res[0].name})
                 instance_dependencies.add_dependency(flavor_res[0].name)
             except Exception as e:
@@ -101,12 +103,13 @@ class InstanceResource(base.resource):
         keypair_name = getattr(server, 'key_name', '')
         if keypair_name:
             try:
-                keypair_res = self._extract_keypairs([keypair_name])
+                keypair_res = self.extract_keypairs([keypair_name])
                 instance_resources.add_property('key_name', {'get_resource': keypair_res[0].name})
                 instance_dependencies.add_dependency(keypair_res[0].name)
             except Exception as e:
                 msg = "Instance keypair resource extracted failed. %s" % unicode(e)
                 LOG.error(msg)
+                raise exception.ResourceNotFound(message=msg)
         
         #extract image parameter
         image = getattr(server, 'image', '')
@@ -148,7 +151,9 @@ class InstanceResource(base.resource):
         self._collected_resources[instance_id] = instance_resources
         self._collected_dependencies[instance_id] = instance_dependencies
         
-    def _extract_flavors(self, flavor_ids):
+        return instance_resources
+        
+    def extract_flavors(self, flavor_ids):
         
         flavor_objs = []
         flavorResources = []
@@ -210,7 +215,7 @@ class InstanceResource(base.resource):
         
         return flavorResources
     
-    def _extract_keypairs(self, keypair_ids):
+    def extract_keypairs(self, keypair_ids):
         
         keypair_objs = []
         keypairResources = []
@@ -278,12 +283,12 @@ class InstanceResource(base.resource):
         
         for sec in secgroup_objs:
             secgroup_id_list.append(sec.id)
-        
+
         nr = NetworkResource(self.context, 
                              collected_resources = self._collected_resources,
                              collected_parameters = self._collected_parameters,
                              collected_dependencies = self._collected_dependencies)
-        
+
         try:
             secgroups__res = nr.extract_secgroups(secgroup_id_list)
             sec_property = []
@@ -322,8 +327,10 @@ class InstanceResource(base.resource):
         
         #TODO  get bdm from nova api
         for v in volume_res:
+            index = volume_res.index(v) + 1
+            boot_index = v.extra_properties.get('boot_index', index)
             properties = {'volume_id': {'get_resource': v.name},
-                          'boot_index': volume_res.index(v) + 1}
+                          'boot_index': boot_index}
             
             instance_dependencies.add_dependency(v.name)
             
@@ -355,9 +362,9 @@ class InstanceResource(base.resource):
             for addr_info in addrs:
                 addr = addr_info.get('addr')
                 mac = addr_info.get('OS-EXT-IPS-MAC:mac_addr') 
-                type = addr_info.get('OS-EXT-IPS:type')
+                ip_type = addr_info.get('OS-EXT-IPS:type')
                 
-                if not addr or not mac or not type:
+                if not addr or not mac or not ip_type:
                     msg = "Instance addresses information is abnormal. \
                             'addr' or 'mac' or 'type' attribute is None"
                     LOG.error(msg)
@@ -368,7 +375,7 @@ class InstanceResource(base.resource):
                                      collected_parameters = self._collected_parameters,
                                      collected_dependencies = self._collected_dependencies)
                 
-                if type == 'fixed':
+                if ip_type == 'fixed':
                     #Avoid the port with different ips was extract many times.
                     if mac in fixed_ip_macs:
                         continue
@@ -388,7 +395,7 @@ class InstanceResource(base.resource):
                     network_properties.append({"port": {"get_resource": port_res[0].name}})
                     instance_dependencies.add_dependency(port_res[0].name)
                 
-                elif type == 'floating':
+                elif ip_type == 'floating':
                     floatingip = self.neutron_api.floatingip_list(self.context,
                                                                   floating_ip_address=addr)
                     if not floatingip:

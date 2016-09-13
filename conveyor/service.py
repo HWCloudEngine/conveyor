@@ -29,6 +29,7 @@ from oslo.utils import importutils
 import osprofiler.notifier
 from osprofiler import profiler
 import osprofiler.web
+from conveyor import utils
 
 from conveyor.common import processutils
 from conveyor.common import log as logging
@@ -42,6 +43,7 @@ from conveyor.common import service
 from conveyor import rpc
 from conveyor import version
 from conveyor import wsgi
+from conveyor.common import timeutils
 
 
 
@@ -137,8 +139,8 @@ class Service(service.Service):
         self.manager = manager_class(host=self.host,
                                      *args, **kwargs)
         self.report_interval = report_interval
-        self.periodic_interval = periodic_interval
-        self.periodic_fuzzy_delay = periodic_fuzzy_delay
+        self.periodic_interval = periodic_interval or 10
+        self.periodic_fuzzy_delay = periodic_fuzzy_delay or 5
         self.basic_config_check()
         self.saved_args, self.saved_kwargs = args, kwargs
         self.timers = []
@@ -197,6 +199,7 @@ class Service(service.Service):
         #                   initial_delay=initial_delay)
         #    self.timers.append(periodic)
 
+                
     def basic_config_check(self):
         """Perform basic config checks before starting service."""
         # Make sure report interval is less than service down time
@@ -370,6 +373,9 @@ class WSGIService(object):
                                   self.app,
                                   host=self.host,
                                   port=self.port)
+        self.periodic_fuzzy_delay = None
+        self.periodic_interval = 10
+
 
     def _get_manager(self):
         """Initialize a Manager object appropriate for this service.
@@ -405,6 +411,26 @@ class WSGIService(object):
             self.manager.init_host()
         self.server.start()
         self.port = self.server.port
+        if self.periodic_fuzzy_delay:
+            initial_delay = random.randint(0, self.periodic_fuzzy_delay)
+        else:
+            initial_delay = None
+
+        periodic = loopingcall.FixedIntervalLoopingCall(self._update_vgw)
+        periodic.start(interval=self.periodic_interval,
+                       initial_delay=initial_delay)
+        #self.timers.append(periodic)
+        
+    def _update_vgw(self):
+        config_vaule = CONF.vgw_info
+        config_value_str = '{' + config_vaule + '}'
+        config_value_dict = eval(config_value_str)
+        LOG.debug('begin update vgw_info')
+        for key, value in utils.vgw_update_time.items():
+            update_time = timeutils.parse_isotime(str(value))
+            if timeutils.is_older_than(update_time, 20):
+                LOG.debug('the server %s too long not updated' %key)
+                utils.remove_vgw_info(key, 'vgw_info', config_value_dict)
 
     def stop(self):
         """Stop serving this API.

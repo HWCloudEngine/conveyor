@@ -28,9 +28,10 @@ STATE_MAP = {
     'CREATE_IN_PROGRESS': 'cloning',
     'CREATE_COMPLETE': 'cloning',
     'DATA_TRANSFORMING': 'cloning',
-    'DATA_TRANS_FINISHED': 'finished',
+    'DATA_TRANS_FINISHED': 'cloning',
     'CREATE_FAILED': 'error',
-    'DATA_TRANS_FAILED': 'error'
+    'DATA_TRANS_FAILED': 'error',
+    'FINISHED': 'finished',
 }
 
 MIGRATE_STATE_MAP = {
@@ -42,3 +43,13 @@ MIGRATE_STATE_MAP = {
     'DATA_TRANS_FAILED': 'error',
     'MIGRATE_FINISH': 'finished'
 }
+
+
+RESOURCE_TYPES = ['OS::Nova::Server',
+                 'OS::Cinder::Volume',
+                 'OS::Neutron::Net',
+                 'OS::Neutron::LoadBalancer',
+                 'OS::Heat::Stack',
+                 'OS::Neutron::FloatingIP',
+                 'OS::Neutron::SecurityGroup',
+                 'OS::Neutron::Pool']
