@@ -31,14 +31,13 @@ class API(object):
         LOG.debug("Clone template start in Clone api mode")
         self.clone_rpcapi.start_template_clone(context, template)
 
-    def export_clone_template(self, context, id):
+    def export_clone_template(self, context, id, sys_clone):
         LOG.debug("export clone template of elements")
-        self.clone_rpcapi.export_clone_template(context, id)
+        self.clone_rpcapi.export_clone_template(context, id, sys_clone)
 
-    def clone(self, context, id, destination):
-
+    def clone(self, context, id, destination, sys_clone):
         LOG.debug("execute clone plan in clone api")
-        self.clone_rpcapi.clone(context, id, destination)
+        self.clone_rpcapi.clone(context, id, destination, sys_clone)
 
     def export_migrate_template(self, context, id):
         LOG.debug("export migrate template of plan %s" % id)

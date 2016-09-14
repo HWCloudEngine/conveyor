@@ -147,7 +147,7 @@ class StackTemplateCloneDriver(object):
             # if volume id is string, this volume is using exist volume,
             # so does not copy data
             vol_res_id = volume.get('volume_id')
-            if isinstance(vol_res_id, str):
+            if isinstance(vol_res_id, str) or vol_res_id.get('get_param'):
                 _msg="Instance clone warning: volume does not copy data: %s" \
                      % vol_res_id
                 LOG.debug(_msg)
@@ -172,7 +172,8 @@ class StackTemplateCloneDriver(object):
                     volume['device_name'] = vol_sys_dev
             bdms.append(volume)
             
-            
+        if not bdms:
+            return {} 
         #4. create transform data port to new instances
         server_az = server._info.get('OS-EXT-AZ:availability_zone')
         

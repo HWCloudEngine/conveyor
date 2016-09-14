@@ -365,3 +365,12 @@ class API(object):
     
     def delete(self, context, volume_id):
         return cinderclient(context).volumes.delete(volume_id)
+    
+    def set_volume_bootable(self, context, volume_id, flag):
+        try:
+            item = cinderclient(context).volumes.get(volume_id)
+            cinderclient(context).volumes.set_bootable(item, flag)
+        except cinder_exception.BadRequest as e:
+            raise exception.InvalidInput(reason=unicode(e)) 
+
+ 

@@ -75,7 +75,9 @@ class CloneActionController(wsgi.Controller):
         if timeutils.is_older_than(expire_time, 0):
             msg = _("Template is out of time")
             raise exc.HTTPBadRequest(explanation=msg)
-        self.clone_api.export_clone_template(context, id)
+        clone_body = body['export_clone_template']
+        sys_clone = clone_body.get('sys_clone')
+        self.clone_api.export_clone_template(context, id, sys_clone)
 
     @wsgi.response(202)
     @wsgi.action('clone')
@@ -95,8 +97,9 @@ class CloneActionController(wsgi.Controller):
             raise exc.HTTPBadRequest(explanation=msg)
         clone_body = body['clone']
         destination = clone_body.get('destination')
+        sys_clone = clone_body.get('sys_clone')
         context = req.environ['conveyor.context']
-        self.clone_api.clone(context, id, destination)
+        self.clone_api.clone(context, id, destination, sys_clone)
 
 
 class Clone(extensions.ExtensionDescriptor):

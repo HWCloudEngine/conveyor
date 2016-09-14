@@ -74,11 +74,13 @@ class VolumeCloneDriver(object):
         vgw_id, vgw_ip = self._get_next_vgw(volume_az)
         LOG.debug('Clone volume driver vgw info: id: %(id)s,ip: %(ip)s',
                   {'id':vgw_id, 'ip': vgw_ip})
-
+        
+        des_dev_name = None
         try:
-            self.compute_api.attach_volume(context, vgw_id, volume_id, None)
+            attach_resp = self.compute_api.attach_volume(context, vgw_id, volume_id, None)
             if volume_wait_fun:
                 volume_wait_fun(context, volume_id, 'in-use')
+            des_dev_name = attach_resp._info.get('device')
         except Exception as e:
             LOG.error('Volume clone error: attach volume failed:%(id)s,%(e)s',
                       {'id': volume_id, 'e': e})
@@ -88,7 +90,7 @@ class VolumeCloneDriver(object):
         
         # 4. copy data
         try:
-            result = self._copy_volume_data(context, resource_name, vgw_ip, template)
+            result = self._copy_volume_data(context, resource_name, vgw_ip, template, des_dev_name)
 
             des_gw_ip = result.get('des_ip')
             des_port = result.get('des_port')
@@ -113,7 +115,7 @@ class VolumeCloneDriver(object):
                           {'id': volume_id, 'e': e})
     
     
-    def _copy_volume_data(self, context, resource_name, des_gw_ip, template):
+    def _copy_volume_data(self, context, resource_name, des_gw_ip, template, dev_name):
 
         LOG.debug('Clone volume driver copy data start for %s', resource_name)
         resources = template.get('resources')
@@ -150,14 +152,17 @@ class VolumeCloneDriver(object):
             # volume dev name in system
             src_vol_sys_dev = volume_ext_properties.get('sys_dev_name')
             
-            des_dev_name = src_vol_sys_dev
+            if dev_name:
+                des_dev_name = dev_name
+            else:
+                des_dev_name = src_vol_sys_dev
         
         if not src_dev_format:
             client = birdiegatewayclient.get_birdiegateway_client(src_gw_ip, src_gw_port)
             src_dev_format = client.vservices.get_disk_format(src_vol_sys_dev).get('disk_format')
         
         # if disk does not format, then no data to copy
-        if not src_dev_format:
+        if not src_dev_format and  data_trans_protocol == 'ftp':
             rsp = {'volume_id': volume_id,
                     'des_ip': None,
                     'des_port': None,

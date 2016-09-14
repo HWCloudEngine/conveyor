@@ -710,7 +710,6 @@ class NetworkResource(base.resource):
         
         copy_net_ids = deepcopy(net_ids)
         for net_id in net_ids:
-            copy_net_ids.remove(net_id)
             self.extract_network_resource(net_id, copy_net_ids)
     
     def extract_network_resource(self, net_id, other_net_ids):

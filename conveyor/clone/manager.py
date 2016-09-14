@@ -197,9 +197,10 @@ class CloneManager(manager.Manager):
         #(1. TODO: resolute template,and generate the dependences topo) 
         #(2.TODO: generate TaskFlow according to dependences topo(first, execute leaf node resource))
         clone_type = CONF.clone_migrate_type
-        if 'code' == clone_type:
-            self._code_clone(context, template, plan_status.STATE_MAP)
-            return
+        if 'cold' == clone_type:
+            template = self._cold_clone(context, template, plan_status.STATE_MAP)
+        else:
+            template = self._live_clone(context, template, plan_status.STATE_MAP)
         #1. remove the self-defined keys in template to generate heat template
         src_template = copy.deepcopy(template.get('template'))
         try:
@@ -287,8 +288,7 @@ class CloneManager(manager.Manager):
         return stack_info['id']
         LOG.debug("Clone resources end in clone manager")
         
-    def _export_template(self, context, id):
-        self.resource_api.update_plan(context, id, {'plan_status':plan_status.AVAILABLE})
+    def _export_template(self, context, id, sys_clone=False):
         # get migrate net map
         migrate_net_map = CONF.migrate_net_map
         # get plan info
@@ -306,7 +306,7 @@ class CloneManager(manager.Manager):
         if resource_map:
             try:
                 self._add_extra_properties(context, resource_map,
-                                          migrate_net_map)
+                                          migrate_net_map, sys_clone)
             except Exception as e:
                 LOG.exception('add extra_properties for resource in this plan %s failed,\
                                  the error is %s ' % (id, e.message)) 
@@ -317,12 +317,13 @@ class CloneManager(manager.Manager):
         except Exception as e:
             LOG.error('the generate template of plan %s failed',id)
             raise exception.ExportTemplateFailed(id=id, msg=e.message)
+        self.resource_api.update_plan(context, id, {'plan_status':plan_status.AVAILABLE})
         LOG.debug("export template end in clone manager")
         return resource_map, expire_time
 
-    def export_clone_template(self, context, id):
+    def export_clone_template(self, context, id, sys_clone):
         LOG.debug("export clone template start in clone manager")
-        return self._export_template(context, id)
+        return self._export_template(context, id, sys_clone)
 
     def _format_template(self, resource_map, id, expire_time, plan_type):
         with open(CONF.plan_file_path + id + '.template', 'w+') as f:
@@ -358,7 +359,7 @@ class CloneManager(manager.Manager):
             brules.append(rule)
         return brules
     
-    def _add_extra_properties(self, context, resource_map, migrate_net_map):
+    def _add_extra_properties(self, context, resource_map, migrate_net_map, sys_clone):
         for key, value in resource_map.items():
             resource_type = value.type
             if resource_type == 'OS::Nova::Server':
@@ -374,6 +375,7 @@ class CloneManager(manager.Manager):
                             raise exception.V2vException(message='no vgw host found')
                         gw_url =  gw_ip + ':' + str(CONF.v2vgateway_api_listen_port) 
                         value.extra_properties.update({"gw_url": gw_url, "gw_id": gw_id})
+                        value.extra_properties['sys_clone'] = sys_clone
                         continue
                     server_id = value.id
                     if migrate_net_map:
@@ -398,6 +400,7 @@ class CloneManager(manager.Manager):
                             extra_properties['gw_url'] = gw_url
                             extra_properties['migrate_port_id'] = migrate_port_id
                             value.extra_properties.update(extra_properties)
+                            value.extra_properties['sys_clone'] = sys_clone
                             #waiting port attach finished, and can ping this vm
                             self._await_port_status(context, migrate_port_id, migrate_fix_ip)
                     else:
@@ -416,6 +419,7 @@ class CloneManager(manager.Manager):
                         extra_properties ={}
                         extra_properties['gw_url'] = gw_url
                         value.extra_properties.update(extra_properties)
+                        value.extra_properties['sys_clone'] = sys_clone
                         #self._await_port_status(context, None, host_ip)
                 block_device_mapping = server_properties.get('block_device_mapping_v2')
                 if block_device_mapping:
@@ -425,10 +429,18 @@ class CloneManager(manager.Manager):
                         device_name = block_device.get('device_name')
                         volume_name = block_device.get('volume_id').get('get_resource')
                         volume_resource = resource_map.get(volume_name)
+                        boot_index = block_device.get('boot_index')
+                        if boot_index == 0 or boot_index == '0':
+                            volume_resource.extra_properties['sys_clone'] = sys_clone
                         src_dev_format = client.vservices.get_disk_format(device_name).get('disk_format')
                         src_mount_point = client.vservices.get_disk_mount_point(device_name).get('mount_point')
                         volume_resource.extra_properties['guest_format'] = src_dev_format
                         volume_resource.extra_properties['mount_point'] = src_mount_point
+                        volume_resource.extra_properties['gw_url'] = gw_url
+                        sys_dev_name = client.vservices.get_disk_name(volume_resource.id).get('dev_name')
+                        if not sys_dev_name:
+                            sys_dev_name = device_name
+                        volume_resource.extra_properties['sys_dev_name'] = sys_dev_name
             elif resource_type == 'OS::Cinder::Volume':
                 clone_along_with_vm = False
                 for name in resource_map:
@@ -643,7 +655,7 @@ class CloneManager(manager.Manager):
                     self._wait_for_volume_status(context, volume_id, 'available')
                     self.volume_api.delete(context, volume_id)
 
-    def clone(self, context, id, destination):
+    def clone(self, context, id, destination, sys_clone):
         LOG.debug("execute clone plan in clone manager")
         self.resource_api.update_plan(context, id,
                                       {'plan_status': plan_status.CLONING})
@@ -651,7 +663,7 @@ class CloneManager(manager.Manager):
         resource_map = None
         expire_time = None
         try:
-            resource_map, expire_time = self.export_clone_template(context, id)
+            resource_map, expire_time = self.export_clone_template(context, id,sys_clone)
         except (exception.ExportTemplateFailed, exception.PlanNotFound):
             self.resource_api.update_plan(context, id,
                                           {'plan_status': plan_status.ERROR})
@@ -1510,7 +1522,7 @@ class CloneManager(manager.Manager):
                  'resources' : new_resources
                }
 
-    def _code_clone(self, context, template, state_map):
+    def _cold_clone(self, context, template, state_map):
         ''' volume dependence volume type, consistencygroup'''
         ''' and volume type dependence qos '''
 
@@ -1533,30 +1545,29 @@ class CloneManager(manager.Manager):
         parameter = stack_template.get('parameters', {})
         resources = deepcopy(volume_resources)
         vol_res_name = []
-        
+        sys_vol_name = []
         # 2. generate volumes template
         for k, res in resources.items():
             res_type = res.get('type')
 
             # remove not volume needed resource
             if res_type not in volume_res_type:
-                volume_resources.pop(k)
-                # if clone system volume, remove volume
-                # image info
-                if 'OS::Cinder::Volume' == res_type:
-                    ext_properties = res.get('extra_properties')
-                    sys_clone = ext_properties.get('sys_clone')
-                    if sys_clone:
-                        properties = res.get('properties', {})
-                        properties.pop('image', None)
-                        
+                volume_resources.pop(k) 
             else:
                 # remove volume related resource from template
                 stack_resources.pop(k)
-                parameter[k] = default_parameter
+                parameter[k] = deepcopy(default_parameter)
                 vol_res_name.append(k)
-        
-
+            # if clone system volume, remove volume
+                # image info   
+            if 'OS::Cinder::Volume' == res_type:
+                    ext_properties = res.get('extra_properties')
+                    sys_clone = ext_properties.get('sys_clone')
+                    if sys_clone:
+                        properties = volume_resources.get(k).get('properties', {})
+                        properties.pop('image', None)
+                        sys_vol_name.append(k)
+        origin_template = deepcopy(volume_template)
         for key, res in volume_resources.items():
             if 'extra_properties' in res:
                 res.pop('extra_properties')        
@@ -1569,10 +1580,14 @@ class CloneManager(manager.Manager):
                                                    volume_template,
                                                    state_map)
             # 4. copy data
-            stack_id = stack.get('id')
+            stack_id = stack.get('stack').get('id')
             self._afther_resource_created_handler(context,
-                                              volume_template,
+                                              origin_template,
                                               stack_id)
+            for sys_vol in sys_vol_name:
+                heat_resource = self.heat_api.get_resource(context, stack_id, sys_vol)
+                res_id = heat_resource.physical_resource_id
+                self.volume_api.set_volume_bootable(context, res_id, True)
         except Exception as e:
             LOG.error('Code clone error: %s', e)
             raise
@@ -1581,7 +1596,7 @@ class CloneManager(manager.Manager):
         for name in vol_res_name:
             heat_resource = self.heat_api.get_resource(context, stack_id, name)
             res_id = heat_resource.physical_resource_id
-            parameter.get(name).setdefault('default', res_id)
+            parameter.get(name)['default'] = res_id
             
             for r_n, res in stack_resources.items():
                 res_type = res.get('type')
@@ -1621,7 +1636,7 @@ class CloneManager(manager.Manager):
         stack_resources = stack_template.get('resources', {})
         sys_volumes = self._system_volumes_to_clone(stack_resources)
         if not sys_volumes:
-            return
+            return template
 
         volume_template = deepcopy(template)
         volume_resources = volume_template['template'].get('resources', {})
@@ -1643,7 +1658,7 @@ class CloneManager(manager.Manager):
             
             # remove volume in source template
             stack_resources.pop(volume)
-            parameter[volume] = default_parameter
+            parameter[volume] = deepcopy(default_parameter)
             # change 'get_resource' to get_param'
             self._change_resource_to_param(template, volume)
             
@@ -1663,7 +1678,7 @@ class CloneManager(manager.Manager):
                         
                         # remove volume type in source template
                         stack_resources.pop(type_name)
-                        parameter[type_name] = default_parameter
+                        parameter[type_name] = deepcopy(default_parameter)
                         # change 'get_resource' to 'get_param'
                         self._change_resource_to_param(template, type_name)
                         
@@ -1679,26 +1694,30 @@ class CloneManager(manager.Manager):
                                     vol_res_name.append(qos_name)
                                     # remove qos in source template
                                     stack_resources.pop(qos_name)
-                                    parameter[qos_name] = default_parameter
+                                    parameter[qos_name] = deepcopy(default_parameter)
                                     # change 'get_resource' to 'get_param'
                                     self._change_resource_to_param(template, qos_name)
-
+        volume_template['template']['resources'] = sys_resources
+        LOG.debug('Code clone volume for %s', volume_template)
+        origin_template = deepcopy(volume_template)
         for key, res in volume_resources.items():
             if 'extra_properties' in res:
-                res.pop('extra_properties')        
-
-        LOG.debug('Code clone volume for %s', volume_template)
-
+                res.pop('extra_properties')
         try:
             # 3. deploy new(volumes) template
             stack = self._create_resource_by_heat(context,
                                                    volume_template,
                                                    state_map)
             # 4. copy data
-            stack_id = stack.id
+            stack_id = stack.get('stack').get('id')
             self._afther_resource_created_handler(context,
-                                              volume_template,
+                                              origin_template,
                                               stack_id)
+            for k,v in sys_volumes.items():
+                heat_resource = self.heat_api.get_resource(context, stack_id, v)
+                res_id = heat_resource.physical_resource_id
+                self.volume_api.set_volume_bootable(context, res_id, True)
+
         except Exception as e:
             LOG.error('Live clone error: %s', e)
             raise
@@ -1709,7 +1728,7 @@ class CloneManager(manager.Manager):
         for res_name in vol_res_name:
             heat_resource = self.heat_api.get_resource(context, stack_id, res_name)
             res_id = heat_resource.physical_resource_id
-            parameter.get(res_name).setdefault('default', res_id)
+            parameter.get(res_name)['default'] = res_id
 
         # 6. return modify
         LOG.debug('Live clone template for finishing volumes: %s', template)

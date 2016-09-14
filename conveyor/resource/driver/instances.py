@@ -326,9 +326,14 @@ class InstanceResource(base.resource):
         volume_res = vr.extract_volumes(volume_ids)
         
         #TODO  get bdm from nova api
+        index = 0
         for v in volume_res:
-            index = volume_res.index(v) + 1
-            boot_index = v.extra_properties.get('boot_index', index)
+            sys_boot_index = v.extra_properties.get('boot_index', None)
+            if sys_boot_index == 0 or sys_boot_index == '0':
+                boot_index = sys_boot_index
+            else:
+                boot_index = index+1
+                index += 1
             properties = {'volume_id': {'get_resource': v.name},
                           'boot_index': boot_index}
             

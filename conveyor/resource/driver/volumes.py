@@ -415,11 +415,11 @@ class VolumeType(base.resource):
                                      self._collected_dependencies)
             
             qos_res = qos_driver.extract_qos(qos_id)
-            properties['qos_specs_id'] = {'get_resource': qos_res.name}
-            dependencies.append(qos_res.name)
             self._collected_resources = qos_driver.get_collected_resources()
             self._collected_dependencies = qos_driver.get_collected_dependencies()
-        
+            properties['qos_specs_id'] = {'get_resource': qos_res.name}
+            dependencies.append(qos_res.name)
+
         # 3. bulid volume type resource
         properties['name'] = volume_type.get('name')
         
@@ -458,7 +458,12 @@ class QosResource(base.resource):
 
         LOG.debug('Create qos resource start: %s', qos_id)
         properties = {}
-        # 1 query qos info
+        # 1 check qos resource is existing or not
+        qos_res = self._collected_resources.get(qos_id, None)
+        if qos_res:
+            LOG.debug('Create qos resource exist:  %s', qos_id)
+            return qos_res
+        # 2 query qos info
         try:
             qos_info = self.cinder_api.get_qos_specs(self.context, qos_id)
         except Exception as e:

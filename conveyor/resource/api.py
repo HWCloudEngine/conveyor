@@ -249,7 +249,8 @@ class ResourceAPI(object):
         LOG.debug('Resouce api check template start.')
         RESORCE_TYPE_LIST = ["OS::Neutron::Vip", 
                              "OS::Neutron::Listener",
-                             "OS::Cinder::VolumeType"]
+                             "OS::Cinder::VolumeType",
+                             "OS::Nova::Flavor"]
         
         template_res = template.get('resources')
         if not template_res:
