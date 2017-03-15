@@ -24,6 +24,8 @@ from conveyor.api import extensions
 
 from conveyor.common import timeutils
 from conveyor.clone import api
+from conveyor.resource import api as resource_api
+from conveyor.common import plan_status as p_status
 
 from conveyor.i18n import _
 
@@ -35,18 +37,41 @@ class PlansActionController(wsgi.Controller):
     def __init__(self, ext_mgr=None, *args, **kwargs):
         super(PlansActionController, self).__init__(*args, **kwargs)
         self.clone_api = api.API()
+        self.resource_api = resource_api.ResourceAPI()
         self.ext_mgr = ext_mgr
     
     @wsgi.response(202)
     @wsgi.action('download_template')
     def _download_template(self, req, id, body):
-        
-        LOG.debug("download_template start in API from template")
-  
+        LOG.debug("download template of plan %s start in API from template", id)
+        plan = self.resource_api.get_plan_by_id(context, id)
+        plan_status = plan['plan_status']
+        if plan_status not in (p_status.AVAILABLE, p_status.CLONING,
+                               p_status.MIGRATING, p_status.FINISHED):
+            msg = _("the plan %(plan_id)s in state %(state)s can't download template") % {
+                    'plan_id': id,
+                    'state': plan_status,
+                }
+            raise exc.HTTPBadRequest(explanation=msg)
         context = req.environ['conveyor.context']
         content = self.clone_api.download_template(context, id)
         LOG.debug('the content is %s' %content)
         return content
+
+    @wsgi.response(202)
+    @wsgi.action('os-reset_state')
+    def _reset_state(self, req, id, body):
+        
+        LOG.debug("Start reset plan state in API for plan: %s", id)
+        if not self.is_valid_body(body, 'os-reset_state'):
+            LOG.debug("Reset plan state request body has not key:\
+                       os-reset_state")
+            raise exc.HTTPUnprocessableEntity()
+        context = req.environ['conveyor.context']
+        update = body.get('os-reset_state')
+        self.resource_api.update_plan(context, id, update)
+        LOG.debug("End reset plan state in API for plan: %s", id)
+        return {'plan_id': id, 'plan_status': update.get('plan_status')}
   
 class Plan(extensions.ExtensionDescriptor):
     """Enable admin actions."""

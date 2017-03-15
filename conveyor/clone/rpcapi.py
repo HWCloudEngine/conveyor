@@ -74,3 +74,13 @@ class CloneAPI(object):
         LOG.debug("start call rpc api download_template")
         cctxt = self.client.prepare(version='1.18')
         return cctxt.call(ctxt, 'download_template', id=id)
+    
+    def export_template_and_clone(self, ctxt, id, destination,
+                                  update_resources={},
+                                  sys_clone=False):
+        LOG.debug("start call rpc api export_template_and_clone")
+        cctxt = self.client.prepare(version='1.18')
+        return cctxt.cast(ctxt, 'export_template_and_clone', id=id,
+                          destination=destination,
+                          update_resources=update_resources,
+                          sys_clone=sys_clone)

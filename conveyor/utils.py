@@ -25,6 +25,7 @@ import hashlib
 import inspect
 import os
 import pyclbr
+import random
 import re
 import shutil
 import stat
@@ -59,6 +60,40 @@ PERFECT_TIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%f"
 
 synchronized = lockutils.synchronized_with_prefix('conveyor-')
 vgw_update_time = {}
+
+vgw_dict = {}
+# vgw_index is {'az01':1}
+vgw_index = {}
+
+vgw_id_dict = {}
+
+
+def get_next_vgw(region):
+    global vgw_dict, vgw_index, vgw_id_dict
+    """ return next available (vgw_id, vgw_ip) given region. """
+    if region not in vgw_index:
+        if not vgw_dict:
+            # vgw_ip_dict value is vgw_id0:vgw_ip0,vwg_id1:vgw_ip1
+            # _vgw_dict is {'az01':{'111111':'162.3.110.2','222222':162.3.110.3}}
+            try:
+                vgw_str = '{' + CONF.vgw_info + '}'
+                vgw_dict = eval(vgw_str)
+            except Exception as e:
+                LOG.error('read the vgw info error: %s' ,e)
+                raise
+            vgw_id_dict = dict([(_r, list(v))
+                                for _r, v in vgw_dict.items()
+                                ])
+        vgw_index[region] = random.randint(
+            0, len(vgw_id_dict[region])-1
+        )
+    else:
+        vgw_index[region] = (vgw_index[region] + 1) % \
+            len(vgw_id_dict[region])
+    idx = vgw_index[region]
+    vgw_id = vgw_id_dict[region][idx]
+    return vgw_id, vgw_dict[region][vgw_id]
+    
 
 @synchronized('conveyor-config', external=True)
 def remove_vgw_info(vgw_id, config_key, config_vaule):

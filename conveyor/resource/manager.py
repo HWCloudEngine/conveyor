@@ -2,14 +2,21 @@
 @author: g00357909
 '''
 import os
+import time
 import yaml
 import copy
+import json
 import six
 import numbers
 import netaddr
 import random
 from oslo.config import cfg
 import oslo.messaging as messaging
+from cinderclient import exceptions as cinderclient_exceptions
+from novaclient import exceptions as novaclient_exceptions
+from keystoneclient.v2_0 import client as kc
+from keystoneclient import service_catalog
+from conveyor.conveyoragentclient.v1 import client as birdiegatewayclient
 
 from conveyor.common import plan_status as p_status
 from conveyor.common import template_format
@@ -40,6 +47,7 @@ from conveyor.resource.driver.secgroup import SecGroup
 from conveyor.resource.driver.volumes import VolumeType
 from conveyor.resource.driver.volumes import QosResource
 from conveyor.resource.driver.volumes import Volume
+from conveyor.resource.driver.stacks import StackResource
 from conveyor.resource.resource import Resource
 
 
@@ -49,6 +57,7 @@ LOG = logging.getLogger(__name__)
                         
 CONF.import_opt('clear_expired_plan_interval', 'conveyor.common.config')
 CONF.import_opt('plan_file_path', 'conveyor.common.config')
+CONF.import_group('keystone_authtoken', 'conveyor.common.config')
 
 plan_file_dir = CONF.plan_file_path
 
@@ -73,7 +82,25 @@ class ResourceManager(manager.Manager):
         self.db_api = db_api
         
         #Start periodic task to clear expired plan
-        context = ctxt.get_admin_context()
+        # context = ctxt.get_admin_context()
+        kwargs = {
+            'username': CONF.keystone_authtoken.conveyor_admin_user,
+            'password': CONF.keystone_authtoken.admin_password,
+            'tenant_name': CONF.keystone_authtoken.conveyor_admin_tenant_name,
+            'auth_url': CONF.keystone_authtoken.auth_url,
+            'insecure': True,
+        }
+        cs = kc.Client(**kwargs)
+        cs.authenticate()    
+        user_id = cs.auth_ref['user']['id']
+        project_id = cs.auth_ref['token']['tenant']['id']
+        auth_token = cs.auth_ref['token']['id']
+        sc = service_catalog.ServiceCatalog.factory(cs.auth_ref)
+        service_catalog = sc.get_data()
+        context = ctxt.RequestContext(user_id,
+                                     project_id,
+                                     auth_token=auth_token,
+                                     service_catalog=service_catalog)
         timer = loopingcall.FixedIntervalLoopingCall(self._clear_expired_plan, context)
         timer.start(interval=CONF.clear_expired_plan_interval)
         
@@ -281,6 +308,13 @@ class ResourceManager(manager.Manager):
             new_resources = vol.get_collected_resources()
             new_dependencies = vol.get_collected_dependencies()
 
+        if stack_ids:
+            stack = StackResource(context,
+                                  collected_resources=new_resources,
+                                  collected_dependencies=new_dependencies)
+            stack.extract_stacks(stack_ids)
+            new_resources = stack.get_collected_resources()
+            new_dependencies = stack.get_collected_dependencies()
 
         plan_id = uuidutils.generate_uuid()
         ori_res = self._actual_id_to_resource_id(new_resources)
@@ -417,17 +451,28 @@ class ResourceManager(manager.Manager):
             
 
     def delete_plan(self, context, plan_id):
-        
+        @utils.synchronized(plan_id)
+        def _lock_do_delete_plan(context, plan_id, ):
+            self._delete_plan(context, plan_id)
+        _lock_do_delete_plan(context, plan_id)
+
+    def _delete_plan(self, context, plan_id):
         LOG.info("Begin to delete plan with id of %s", plan_id)
-            
-        #Delete plan in memory
-        _plans.pop(plan_id, None)
     
         field_name = ['original_resources', 'updated_resources']
-        
+        plan = self.get_plan_by_id(context, plan_id)
+        if not plan:
+            LOG.error('get plan %s failed' % plan_id)
+            raise exception.PlanNotFound(plan_id=plan_id)
+        plan_status = plan['plan_status'] 
+        resource.update_plan_to_db(context, plan_file_dir, plan_id,
+                                   {'plan_status': p_status.DELETING})
+        resources = plan.get('updated_resources', {})
         try:
-            #Detach temporary port of servers.
-            self._detach_server_temporary_port(context, plan_id)
+            if plan_status not in (p_status.INITIATING, p_status.EXPIRED):
+                # reset state Detach temporary port of servers and handle volume.
+                self._reset_resources_state(context, resources)
+                self._handle_resources_after_clone(context, resources)
             
             #Delete template files
             fileutils.delete_if_exists(plan_file_dir + plan_id + '.template')
@@ -443,6 +488,9 @@ class ResourceManager(manager.Manager):
             resource.update_plan_to_db(context, plan_file_dir, plan_id, 
                                        {'plan_status': p_status.ERROR_DELETING})
             raise exception.PlanDeleteError(message=msg)
+        
+        #Delete plan in memory
+        _plans.pop(plan_id, None)
         
         #Set deleted status in database
         values = {'plan_status': p_status.DELETED, 'deleted': True,
@@ -1345,12 +1393,15 @@ class ResourceManager(manager.Manager):
             if self._has_expired(plan):
                 exist_expired_plan = True
                 plan_id = plan['plan_id']
+                tpl_file_path = plan_file_dir + plan_id + '.template'
                 LOG.debug('Plan <%s> has expired.', plan_id)
-                
+                plan = self.get_plan_by_id(context, plan_id)
+                resources = plan.get('updated_resources', {})
                 #Detach temporary port
                 if plan['plan_status'] not in (p_status.INITIATING):
-                    self._detach_server_temporary_port(context, plan_id)
-                
+                    self._reset_resources_state(context, resources)
+                    self._handle_resources_after_clone(context, resources)
+                    
                 #Change plan status to expired.
                 resource.update_plan_to_db(context, plan_file_dir, plan_id,
                                            {'plan_status': p_status.EXPIRED})
@@ -1360,34 +1411,195 @@ class ResourceManager(manager.Manager):
         else:
             LOG.debug("Complete to clearing expired plan.")
 
+    def _reset_resources_state(self, context, resources):
+        for key, value in resources.items():
+            try:
+                resource_type = value.get('type')
+                resource_id = value.get('extra_properties', {}).get('id')
+                if resource_type == 'OS::Nova::Server':
+                    vm_state = value.get('extra_properties', {}).get('vm_state')
+                    self.nova_api.reset_state(context, resource_id, vm_state)
+                elif resource_type == 'OS::Cinder::Volume':
+                    volume_state = value.get('extra_properties', {}).get('status')
+                    self.cinder_api.reset_state(context, resource_id, volume_state)
+                elif resource_type == 'OS::Heat::Stack':
+                    self._reset_resources_state_for_stack(context, value)
+            except Exception as e:
+                LOG.warn('reset resource state error, error is %s', e.msg)
 
-    def _detach_server_temporary_port(self, context, plan_id):
-        #Read template file of this plan
-        tpl_file_path = plan_file_dir + plan_id + '.template'
-        try:
-            with fileutils.file_open(tpl_file_path, 'r') as fp:
-                template = template_format.parse(fp.read())
-        except Exception as e:
-            LOG.warn("Plan template not found. %s" % unicode(e))
-            return
+    def _reset_resources_state_for_stack(self, context, stack_res):
+        template_str = stack_res.get('properties', {}).get('template')
+        template = json.loads(template_str)
 
-        resources = template.get('resources', {})
-        for res in resources.values():
+        def _reset_state(template):
+            temp_res = template.get('resources')
+            for key, value in temp_res.items():
+                res_type = value.get('type')
+                if res_type == 'OS::Cinder::Volume':
+                    vid = value.get('extra_properties', {}).get('id')
+                    v_state = value.get('extra_properties', {}).get('status')
+                    if vid:
+                        self.cinder_api.reset_state(context, vid, v_state) 
+                elif res_type == 'OS::Nova::Server':
+                    sid = value.get('extra_properties', {}).get('id')
+                    s_state = value.get('extra_properties', {}).get('vm_state')
+                    if sid:
+                        self.nova_api.reset_state(context, sid, s_state)
+                elif res_type and res_type.startswith('file://'):
+                    son_template = value.get('content')
+                    son_template = json.loads(son_template)
+                    _reset_state(son_template)
+        _reset_state(template)
+
+    def _handle_resources_after_clone(self, context, resources):
+        for key, res in resources.items():
             if res['type'] == 'OS::Nova::Server':
-                server_id = res.get('extra_properties', {}).get('id')
-                migrate_port = res.get('extra_properties', {}).get('migrate_port_id')
-                
-                if not server_id or not migrate_port:
-                    continue
-                
+                self._detach_server_temporary_port(context, res)
+                extra_properties = res.get('extra_properties', {})
+                vm_state = extra_properties.get('vm_state')
+                if vm_state == 'stopped':
+                    self._handle_volume_for_svm_after_clone(context, res, resources)
+            elif res['type'] == 'OS::Heat::Stack':
+                template_str = res.get('properties', {}).get('template')
+                template = json.loads(template_str)
+                self._handle_volume_for_stack_after_clone(context, template)
+            elif res['type'] == 'OS::Cinder::Volume':
+                clone_along_with_vm = False
+                for k, v in resources.items():
+                    if v['type'] == 'OS::Nova::Server':
+                        for p in v['properties'].get('block_device_mapping_v2', []):
+                            volume_key = p.get('volume_id', {}).get('get_resource')
+                            if volume_key and key == volume_key:
+                                clone_along_with_vm = True
+                                # value.extra_properties['clone_along_with_vm'] = clone_along_with_vm
+                                break
+                    if clone_along_with_vm:
+                        break
+                if not clone_along_with_vm:
+                    self._handle_dep_volume_after_clone(context, res)
+        return resources
+    
+    def _handle_volume_for_svm_after_clone(self, context, server_resource, resources):
+        bdms = server_resource['properties'].get('block_device_mapping_v2', [])
+        vgw_id = server_resource.get('extra_properties', {}).get('gw_id')
+        for bdm in bdms:
+            volume_key = bdm.get('volume_id', {}).get('get_resource')
+            boot_index = bdm.get('boot_index')
+            device_name = bdm.get('device_name')
+            volume_res = resources.get(volume_key)
+            try:
+                if volume_res.get('extra_properties', {}).get('is_deacidized'):
+                    volume_id = volume_res.get('extra_properties', {}).get('id')
+                    vgw_url = volume_res.get('extra_properties', {}).get('gw_url')
+                    sys_clone = volume_res.get('extra_properties', {}).get('sys_clone')
+                    vgw_ip = vgw_url.split(':')[0]
+                    client = birdiegatewayclient.get_birdiegateway_client(vgw_ip,
+                                                                        str(CONF.v2vgateway_api_listen_port))
+                    client.vservices._force_umount_disk("/opt/" + volume_id)
+                    if boot_index in ['0', 0]:
+                        if sys_clone:
+                            self.nova_api.detach_volume(context, vgw_id, volume_id)
+                            self._wait_for_volume_status(context, volume_id,vgw_id, 'available')
+                            self.cinder_api.set_volume_shareable(context, volume_id, False)
+                    else:
+                        self.nova_api.detach_volume(context, vgw_id, volume_id)
+                        self._wait_for_volume_status(context, volume_id,vgw_id, 'available')
+                        server_id = server_resource.get('extra_properties', {}).get('id')
+                        self.nova_api.attach_volume(context, server_id, volume_id,
+                                                    device_name) 
+                        self._wait_for_volume_status(context, volume_id,server_id, 'in-use')
+            except novaclient_exceptions.NotFound as e:
+                LOG.warn('handle the volume %s after clone error, error is %s',
+                         volume_id, e.msg)
                 try:
-                    self.nova_api.migrate_interface_detach(context, 
-                                                           server_id, 
-                                                           migrate_port)
-                    LOG.debug("Detach migrate port of server <%s> succeed.", server_id)
+                    volume = self.cinder_api.get(context, volume_id)
+                    volume_status = volume['status']
+                    shareable = volume['shareable']
+                    if volume_status == 'available' or shareable == 'true':
+                        self.nova_api.attach_volume(context, server_id,
+                                                    volume_id,
+                                                    device_name)
                 except Exception as e:
-                    LOG.error("Fail to detach migrate port of server <%s>. %s", 
-                              server_id, unicode(e))
+                    LOG.debug('try to attach volume %s back to server %s error failed',
+                              volume_id, server_id )
+            except novaclient_exceptions.BadRequest as e:
+                LOG.warn('handle the volume %s after clone error, error is %s',
+                         volume_id, e.msg)
+            except exception.TimeoutException:
+                LOG.error('detach the volume %s from vgw %s error or attach volume or \
+                          attach the volume %s to server %s error')
+                raise exception.V2vException('handle independent volume error')
+
+    def _handle_dep_volume_after_clone(self, context, resource):
+        volume_id = resource.get('extra_properties', {}).get('id')
+        if resource.get('extra_properties', {}).get('is_deacidized'):
+            extra_properties = resource.get('extra_properties', {})
+            vgw_id = extra_properties.get('gw_id')
+            if vgw_id:
+                try:
+                    mount_point = resource.get('extra_properties', {}).get('mount_point')
+                    if mount_point:
+                        vgw_url = resource.get('extra_properties', {}).get('gw_url')
+                        vgw_ip = vgw_url.split(':')[0]
+                        client = birdiegatewayclient.get_birdiegateway_client(vgw_ip,
+                                                                            str(CONF.v2vgateway_api_listen_port))
+                        client.vservices._force_umount_disk("/opt/" + volume_id)
+                    self.nova_api.detach_volume(context,
+                                                   vgw_id,
+                                                   volume_id)
+                    self._wait_for_volume_status(context, volume_id,vgw_id,
+                                                'available')
+                except novaclient_exceptions.NotFound:
+                    LOG.warn('detach the volume %s from vgw %s error,the volume not attached to vgw',
+                             volume_id, vgw_id)
+                    return
+                
+                except exception.TimeoutException:
+                    LOG.error('detach the volume %s from vgw %s error')
+                    raise exception.V2vException('handle independent volume error')
+
+    def _handle_volume_for_stack_after_clone(self, context, template):
+        try:
+            resources = template.get('resources')
+            for key, res in resources.items():
+                res_type = res.get('type')
+                if res_type == 'OS::Cinder::Volume':
+                    try:
+                        if res.get('extra_properties', {}).get('is_deacidized'):
+                            set_shareable = res.get('extra_properties', {}).get('set_shareable')
+                            volume_id = res.get('extra_properties', {}).get('id')
+                            vgw_id = res.get('extra_properties').get('gw_id')
+                            self._detach_volume(context, vgw_id, volume_id)
+                            if set_shareable:
+                                self.cinder_api.set_volume_shareable(context, volume_id, False)
+                    except novaclient_exceptions.NotFound:
+                        LOG.warn('detach the volume %s from vgw %s error,the volume not attached to vgw',
+                                         volume_id, vgw_id)
+                    except exception.TimeoutException:
+                        LOG.error('detach the volume %s from vgw %s error')
+                        raise exception.V2vException('handle volume of stack error')
+                elif res_type and res_type.startswith('file://'):
+                    son_template = json.loads(res.get('content'))
+                    self._handle_volume_for_stack_after_clone(context, son_template)
+        except cinderclient_exceptions.NotFound:
+            LOG.warn('detach the volume %s from vgw %s error,the volume not attached to vgw',
+                             volume_id, vgw_id)
+            
+    def _detach_server_temporary_port(self, context, server_res):
+        #Read template file of this plan
+        server_id = server_res.get('extra_properties', {}).get('id')
+        migrate_port = server_res.get('extra_properties', {}).get('migrate_port_id')
+        if server_res.get('extra_properties', {}).get('is_deacidized'):
+            if not server_id or not migrate_port:
+                return
+            try:
+                self.nova_api.migrate_interface_detach(context, 
+                                                       server_id, 
+                                                       migrate_port)
+                LOG.debug("Detach migrate port of server <%s> succeed.", server_id)
+            except Exception as e:
+                LOG.error("Fail to detach migrate port of server <%s>. %s", 
+                          server_id, unicode(e))
 
   
     def _has_expired(self, plan):
@@ -1407,4 +1619,62 @@ class ResourceManager(manager.Manager):
                 return True
 
         return False
+    
+    def _detach_volume(self, context, server_id, volume_id):
+        self.nova_api.detach_volume(context, server_id,
+                                        volume_id)
+        self._wait_for_volume_status(context, volume_id, server_id,
+                                      'available')
 
+    def _attach_volume(self, context, server_id, volume_id, device):
+        self.nova_api.attach_volume(context, server_id, volume_id,
+                                       device)
+        self._wait_for_volume_status(context, volume_id, server_id,'in-use')
+    
+    def _wait_for_volume_status(self, context, volume_id, server_id, status):
+        volume = self.cinder_api.get(context, volume_id)
+        volume_status = volume['status']
+        start = int(time.time())
+        v_shareable = volume['shareable']
+        volume_attachments = volume['attachments']
+        attach_flag = False
+        end_flag  = False
+        for vol_att in volume_attachments:
+            if vol_att.get('server_id') == server_id:
+                attach_flag = True
+        if status == 'in-use' and attach_flag:
+            end_flag = True
+        elif status == 'available' and  not attach_flag:
+            end_flag = True
+        if v_shareable == 'false':
+            while volume_status != status :
+                time.sleep(CONF.check_interval)
+                volume = self.cinder_api.get(context, volume_id)
+                volume_status = volume['status']
+                if volume_status == 'error':
+                    raise exception.VolumeErrorException(id=volume_id)
+                if int(time.time()) - start >= CONF.check_timeout:
+                    message = ('Volume %s failed to reach %s status (current %s) '
+                               'within the required time (%s s).' %
+                               (volume_id, status, volume_status,
+                                CONF.check_timeout))
+                    raise exception.TimeoutException(msg=message)
+        else:
+            while not end_flag:
+                attach_flag = False
+                time.sleep(CONF.check_interval)
+                volume = self.cinder_api.get(context, volume_id)
+                volume_attachments = volume['attachments']
+                for vol_att in volume_attachments:
+                    if vol_att.get('server_id') == server_id:
+                        attach_flag = True
+                if status == 'in-use' and attach_flag:
+                    end_flag = True
+                elif status == 'available' and not attach_flag:
+                    end_flag = True
+                if int(time.time()) - start >= CONF.check_timeout:
+                    message = ('Volume %s failed to reach %s status (server %s) '
+                               'within the required time (%s s).' %
+                               (volume_id, status, server_id,
+                                CONF.check_timeout))
+                    raise exception.TimeoutException(msg=message)

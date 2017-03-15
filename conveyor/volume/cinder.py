@@ -372,5 +372,19 @@ class API(object):
             cinderclient(context).volumes.set_bootable(item, flag)
         except cinder_exception.BadRequest as e:
             raise exception.InvalidInput(reason=unicode(e)) 
+        
+    def set_volume_shareable(self, context, volume_id, flag):
+        try:
+            item = cinderclient(context).volumes.get(volume_id)
+            cinderclient(context).volumes.set_shareable(item, flag)
+        except cinder_exception.BadRequest as e:
+            raise exception.InvalidInput(reason=unicode(e))
+
+    def reset_state(self, context, volume_id, state):
+        try:
+            item = cinderclient(context).volumes.get(volume_id)
+            cinderclient(context).volumes.reset_state(item, state)
+        except cinder_exception.BadRequest as e:
+            raise exception.InvalidInput(reason=unicode(e))
 
  

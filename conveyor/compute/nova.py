@@ -289,4 +289,8 @@ class API(object):
     def availability_zone_list(self, context, detailed=True):
         return novaclient(context, admin=True).availability_zones.list(detailed=detailed)
     
+    def reset_state(self, context, server_id, state):
+        client = novaclient(context, admin=True)
+        server = client.servers.get(server_id)
+        return novaclient(context, admin=True).servers.reset_state(server, state)
         

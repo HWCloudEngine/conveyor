@@ -16,6 +16,7 @@
 #    under the License.
 
 import random
+import time
 
 from oslo.config import cfg
 
@@ -25,7 +26,7 @@ from conveyor.conveyoragentclient.v1 import client as birdiegatewayclient
 from conveyor import exception
 from conveyor import volume
 from conveyor import compute
-
+from conveyor import utils
 
 CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
@@ -35,15 +36,11 @@ class VolumeCloneDriver(object):
     def __init__(self):
         self.cinder_api = volume.API()
         self.compute_api = compute.API()
-        self._vgw_dict = None
-        self._vgw_index = {}
-    
-    
+
     def start_volume_clone(self, context, resource_name, template,
                            trans_data_wait_fun=None,
                            volume_wait_fun=None,
                            set_plan_state=None):
-        
         resources = template.get('resources')
         volume_res = resources.get(resource_name)
         volume_id = volume_res.get('id')
@@ -67,20 +64,30 @@ class VolumeCloneDriver(object):
             LOG.error("Clone volume driver get volume %(id)s error: %(error)s",
                       {'id': volume_id, 'error': e})
             raise exception.VolumeNotFound()
-        
+        volume_status = volume_info['status']
+        v_shareable = volume_info['shareable'] 
         volume_az = volume_info.get('availability_zone')
-
+        need_set_shareable = False
+        if volume_status =='in-use' and v_shareable =='false':
+            need_set_shareable = True
+        
         # 3. attach volume to gateway vm
-        vgw_id, vgw_ip = self._get_next_vgw(volume_az)
+        vgw_id, vgw_ip = utils.get_next_vgw(volume_az)
         LOG.debug('Clone volume driver vgw info: id: %(id)s,ip: %(ip)s',
                   {'id':vgw_id, 'ip': vgw_ip})
         
         des_dev_name = None
         try:
-            attach_resp = self.compute_api.attach_volume(context, vgw_id, volume_id, None)
-            if volume_wait_fun:
-                volume_wait_fun(context, volume_id, 'in-use')
-            des_dev_name = attach_resp._info.get('device')
+            if need_set_shareable:
+                self.cinder_api.set_volume_shareable(context, volume_id,True)
+                attach_resp = self.compute_api.attach_volume(context, vgw_id, volume_id, None)
+                des_dev_name = attach_resp._info.get('device')
+                self._wait_for_shareable_volume_status(context, volume_id, vgw_id, 'in-use')
+            else:
+                attach_resp = self.compute_api.attach_volume(context, vgw_id, volume_id, None)
+                if volume_wait_fun:
+                    volume_wait_fun(context, volume_id, 'in-use')
+                des_dev_name = attach_resp._info.get('device')
         except Exception as e:
             LOG.error('Volume clone error: attach volume failed:%(id)s,%(e)s',
                       {'id': volume_id, 'e': e})
@@ -108,8 +115,12 @@ class VolumeCloneDriver(object):
             try:
                 # 5. detach volume
                 self.compute_api.detach_volume(context, vgw_id, volume_id)
-                if volume_wait_fun:
-                    volume_wait_fun(context, volume_id, 'available')
+                if need_set_shareable:
+                    self._wait_for_shareable_volume_status(context, volume_id, vgw_id, 'available')
+                    self.cinder_api.set_volume_shareable(context, volume_id,False)
+                else:
+                    if volume_wait_fun:
+                        volume_wait_fun(context, volume_id, 'available')
             except Exception as e:
                 LOG.error('Volume clone error: detach failed:%(id)s,%(e)s',
                           {'id': volume_id, 'e': e})
@@ -122,10 +133,8 @@ class VolumeCloneDriver(object):
         volume_res = resources.get(resource_name)
         volume_id = volume_res.get('id')
         volume_ext_properties = volume_res.get('extra_properties')
-        
         # 1. get gateway vm conveyor agent service ip and port
         des_gw_port = str(CONF.v2vgateway_api_listen_port)
-        
         des_gw_url = des_gw_ip + ':' + des_gw_port
         # data transformer procotol(ftp/fillp)
         data_trans_protocol = CONF.data_transformer_procotol
@@ -146,12 +155,15 @@ class VolumeCloneDriver(object):
         
         # 3. get volme mount point and disk format info
         
+        boot_index = None
+        
         if volume_ext_properties:
             src_dev_format = volume_ext_properties.get('guest_format')
             src_mount_point = volume_ext_properties.get('mount_point')
             # volume dev name in system
             src_vol_sys_dev = volume_ext_properties.get('sys_dev_name')
-            
+            boot_index = volume_ext_properties.get('boot_index',None)
+          
             if dev_name:
                 des_dev_name = dev_name
             else:
@@ -175,7 +187,9 @@ class VolumeCloneDriver(object):
 
         mount_point = []
         task_ids = []
-        mount_point.append(src_mount_point)
+        
+        if not boot_index or boot_index not in[0,'0']:
+            mount_point.append(src_mount_point)
 
         # 4. copy data
         client = birdiegatewayclient.get_birdiegateway_client(des_gw_ip, des_gw_port)
@@ -187,7 +201,6 @@ class VolumeCloneDriver(object):
                                                   des_gw_url,
                                                   trans_protocol=data_trans_protocol,
                                                   trans_port=trans_port)
-            
         task_id = clone_rsp.get('body').get('task_id')
         task_ids.append(task_id)
 
@@ -198,32 +211,7 @@ class VolumeCloneDriver(object):
 
         LOG.debug('Clone volume driver copy data end for %s', resource_name)
         return rsp
-    
-    def _get_next_vgw(self, region):
-        """ return next available (vgw_id, vgw_ip) given region. """
-        if region not in self._vgw_index:
-            if self._vgw_dict is None:
  
-                try:
-                    vgw_str = '{' + CONF.vgw_info + '}'
-                    self._vgw_dict = eval(vgw_str)
-                except Exception as e:
-                    LOG.error('read the vgw info error: %s', e)
-                    raise
-                self._vgw_id = dict([(_r, list(v))
-                                     for _r, v in self._vgw_dict.items()
-                                     ]
-                                    )
-            self._vgw_index[region] = random.randint(
-                0, len(self._vgw_id[region])-1
-            )
-        else:
-            self._vgw_index[region] = (self._vgw_index[region] + 1) % \
-                len(self._vgw_id[region])
-        idx = self._vgw_index[region]
-        vgw_id = self._vgw_id[region][idx]
-        return vgw_id, self._vgw_dict[region][vgw_id]
-    
     def _check_volume_attach_instance(self, resource_name, template):
 
         # 1. Get all server resource info in template,
@@ -247,3 +235,35 @@ class VolumeCloneDriver(object):
                             return True
         LOG.debug('Volume clone end: volume attached vm not exist.')
         return False
+
+    def _wait_for_shareable_volume_status(self,context, volume_id, server_id, status):
+        volume = self.cinder_api.get(context, volume_id)
+        start = int(time.time())
+        volume_attachments = volume['attachments']
+        attach_flag = False
+        end_flag = False
+        for vol_att in volume_attachments:
+            if vol_att.get('server_id') == server_id:
+                attach_flag = True
+        if status == 'in-use' and attach_flag:
+            end_flag = True
+        elif status == 'available' and  not attach_flag:
+            end_flag = True
+        while not end_flag:
+            attach_flag = False
+            time.sleep(CONF.check_interval)
+            volume = self.cinder_api.get(context, volume_id)
+            volume_attachments = volume['attachments']
+            for vol_att in volume_attachments:
+                if vol_att.get('server_id') == server_id:
+                    attach_flag = True
+            if status == 'in-use' and attach_flag:
+                end_flag = True
+            elif status == 'available' and not attach_flag:
+                end_flag = True
+            if int(time.time()) - start >= CONF.check_timeout:
+                message = ('Volume %s failed to reach %s status (server %s) '
+                           'within the required time (%s s).' %
+                           (volume_id, status, server_id,
+                            CONF.check_timeout))
+                raise exception.TimeoutException(msg=message)

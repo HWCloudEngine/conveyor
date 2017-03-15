@@ -50,3 +50,11 @@ class API(object):
     def download_template(self, context, id):
         LOG.debug("download template of plan %s" % id)
         return self.clone_rpcapi.download_template(context, id)
+
+    def export_template_and_clone(self, context, id, destination,
+                                  update_resources={},
+                                  sys_clone=False):
+        LOG.debug("export template and clone plan %s" % id)
+        return self.clone_rpcapi.export_template_and_clone(context, id, destination,
+                                                           update_resources=update_resources,
+                                                           sys_clone=sys_clone)

@@ -154,9 +154,9 @@ class StackTemplateCloneDriver(object):
                 continue
             vol_res_name = volume.get('volume_id').get('get_resource')
             sys_clone = ext_properties.get('sys_clone')
-            bool_index = volume.get('bool_index')
+            boot_index = volume.get('boot_index')
             #3.1 if do not clone system volume, don't add system volume to bdms
-            if not sys_clone and bool_index in [0, '0']:
+            if not sys_clone and boot_index in [0, '0']:
                 continue
             #3.2 get volume id
             volume_id = self._get_resource_id(context, vol_res_name, stack_id)
@@ -251,7 +251,7 @@ class StackTemplateCloneDriver(object):
                 client = birdiegatewayclient.get_birdiegateway_client(src_urls[0], src_urls[1])
                 src_dev_format = client.vservices.get_disk_format(src_dev_name).get('disk_format')
             #if volume does not format, this volume not data to transformer
-            if not src_dev_format:
+            if not src_dev_format and  CONF.data_transformer_procotol == 'ftp':
                 continue
                 
             src_mount_point = bdm.get('mount_point')
@@ -260,8 +260,10 @@ class StackTemplateCloneDriver(object):
                 client = birdiegatewayclient.get_birdiegateway_client(src_urls[0], src_urls[1])
                 src_mount_point = client.vservices.get_disk_mount_point(src_dev_name).get('mount_point')
                 
-            if not src_mount_point:
+            if not src_mount_point and CONF.data_transformer_procotol == 'ftp':
                 continue
+                
+                
                 
             mount_point = []
             mount_point.append(src_mount_point)   

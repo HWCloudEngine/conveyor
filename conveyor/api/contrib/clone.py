@@ -25,6 +25,7 @@ from conveyor.api import extensions
 from conveyor.common import timeutils
 from conveyor.clone import api
 from conveyor.resource import api as resource_api
+from conveyor.common import plan_status as p_status
 
 from conveyor.i18n import _
 
@@ -75,8 +76,15 @@ class CloneActionController(wsgi.Controller):
         if timeutils.is_older_than(expire_time, 0):
             msg = _("Template is out of time")
             raise exc.HTTPBadRequest(explanation=msg)
+        plan_status = plan['plan_status']
+        if plan_status not in (p_status.INITIATING, p_status.CREATING):
+            msg = _("the plan %(plan_id)s in state %(state)s can't export template") % {
+                'plan_id': id,
+                'state': plan_status,
+            }
+            raise exc.HTTPBadRequest(explanation=msg)
         clone_body = body['export_clone_template']
-        sys_clone = clone_body.get('sys_clone')
+        sys_clone = clone_body.get('sys_clone', False)
         self.clone_api.export_clone_template(context, id, sys_clone)
 
     @wsgi.response(202)
@@ -95,11 +103,43 @@ class CloneActionController(wsgi.Controller):
         if timeutils.is_older_than(expire_time, 0):
             msg = _("Template is out of time")
             raise exc.HTTPBadRequest(explanation=msg)
+        plan_status = plan['plan_status']
+        if plan_status not in (p_status.AVAILABLE, p_status.CLONING,
+                               p_status.MIGRATING,
+                               p_status.FINISHED,):
+            msg = _("the plan %(plan_id)s in state %(state)s can't clone") % {
+                'plan_id': id,
+                'state': plan_status,
+            }
+            raise exc.HTTPBadRequest(explanation=msg)
         clone_body = body['clone']
         destination = clone_body.get('destination')
-        sys_clone = clone_body.get('sys_clone')
+        sys_clone = clone_body.get('sys_clone', False)
         context = req.environ['conveyor.context']
         self.clone_api.clone(context, id, destination, sys_clone)
+    
+    @wsgi.response(202)
+    @wsgi.action('export_template_and_clone')   
+    def _export_template_and_clone(self, req, id, body):
+        LOG.debug(" start export_template_and_clone in API,the plan id is %s" % id)
+        context = req.environ['conveyor.context']
+        if not self.is_valid_body(body, 'export_template_and_clone'):
+            LOG.debug("clone request body has not key:clone")
+            raise exc.HTTPUnprocessableEntity()
+        clone_body = body['export_template_and_clone']
+        destination = clone_body.get('destination')
+        sys_clone = clone_body.get('sys_clone', False)
+        resources = clone_body.get('resources', {})
+        plan = self._resource_api.get_plan_by_id(context, id)
+        plan_status = plan['plan_status']
+        if plan_status not in (p_status.INITIATING, p_status.CREATING):
+            msg = _("the plan %(plan_id)s in state %(state)s can't export_template_and_clone") % {
+                'plan_id': id,
+                'state': plan_status,
+            }
+            raise exc.HTTPBadRequest(explanation=msg) 
+        self.clone_api.export_template_and_clone(context, id, destination,
+                                                 resources, sys_clone)
 
 
 class Clone(extensions.ExtensionDescriptor):

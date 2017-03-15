@@ -198,3 +198,9 @@ class API(object):
     def get_event(self, context, stack_id, resource_name, event_id):
         return heatclient(context).events.get(stack_id, resource_name, event_id)
     
+    def get_template(self, context, stack_id):
+        return heatclient(context).stacks.template(stack_id)
+    
+    def stack_list(self, context, **kwargs):
+        return heatclient(context).stacks.list(**kwargs)
+    

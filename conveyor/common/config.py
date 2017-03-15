@@ -225,5 +225,34 @@ global_opts = [
                 default='live',
                 help='code or live clone(migrate)')
 ]
+birdie_opts = [
+    cfg.IntOpt('v2vgateway_api_listen_port',
+               default=8899,
+               help='Host port for v2v gateway api'),
+    cfg.IntOpt('check_timeout',
+               default=360,
+               help='Host port for v2v gateway api'),
+    cfg.IntOpt('check_interval',
+               default=1,
+               help='Host port for v2v gateway api'),
+    ]
 
+keystone_auth_opts = [
+    cfg.StrOpt('admin_password',
+               secret=True,
+               help='Keystone account password'),
+    cfg.StrOpt('conveyor_admin_user',
+               default='cloud_admin',
+               help='Keystone admin user'),
+    cfg.StrOpt('conveyor_admin_tenant_name',
+               default='admin',
+               help='keystone tenant name'),
+    cfg.StrOpt('auth_url',
+               default='https://identity.cloud.hybrid.huawei.com:443/identity/v2.0',
+               help='keystone auth url'),
+    ]
+
+
+CONF.register_opts(birdie_opts)
 CONF.register_opts(global_opts)
+CONF.register_opts(keystone_auth_opts, group='keystone_authtoken')
