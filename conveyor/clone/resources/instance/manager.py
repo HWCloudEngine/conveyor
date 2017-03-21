@@ -16,11 +16,11 @@
 #    under the License.
 
 
-from oslo.config import cfg
+from oslo_config import cfg
 
-from conveyor.common import log as logging
+from oslo_log import log as logging
 from conveyor.i18n import _, _LE, _LI, _LW
-from conveyor.common import importutils
+from oslo_utils import importutils
 from conveyor.clone.resources import common
 from conveyor import exception
 

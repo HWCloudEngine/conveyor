@@ -31,8 +31,8 @@ import warnings
 
 warnings.simplefilter('once', DeprecationWarning)
 
-from oslo.config import cfg
-from conveyor.common import log as logging
+from oslo_config import cfg
+from oslo_log import log as logging
 
 from conveyor import i18n
 i18n.enable_lazy()
@@ -52,7 +52,7 @@ CONF = cfg.CONF
 
 def main():
     config.parse_args(sys.argv)
-    logging.setup("conveyor")
+    logging.setup(CONF, "conveyor")
     LOG = logging.getLogger('v2v_all')
 
     launcher = service.process_launcher()

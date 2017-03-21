@@ -21,9 +21,9 @@ Handles all requests relating to neutron.
 from neutronclient.common import exceptions
 from neutronclient.v2_0 import client as neutron_client
 
-from oslo.config import cfg
+from oslo_config import cfg
 
-from conveyor.common import log as logging
+from oslo_log import log as logging
 
 from conveyor import exception
 from conveyor.i18n import _

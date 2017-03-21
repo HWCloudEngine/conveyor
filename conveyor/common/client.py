@@ -16,10 +16,10 @@
 #    under the License.
 from keystoneclient import access
 from conveyor import exception
-from oslo.config import cfg
+from oslo_config import cfg
 import requests
 
-from conveyor.common import log as logging
+from oslo_log import log as logging
 
 try:
     import json
@@ -29,15 +29,15 @@ except ImportError:
 CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
 
-CONF.import_opt('auth_protocol', 'keystoneclient.middleware.auth_token',
+CONF.import_opt('auth_protocol', 'keystonemiddleware.auth_token',
                 group='keystone_authtoken')
-CONF.import_opt('auth_host', 'keystoneclient.middleware.auth_token',
+CONF.import_opt('auth_host', 'keystonemiddleware.auth_token',
                 group='keystone_authtoken')
-CONF.import_opt('auth_port', 'keystoneclient.middleware.auth_token',
+CONF.import_opt('auth_port', 'keystonemiddleware.auth_token',
                 group='keystone_authtoken')
-CONF.import_opt('auth_version', 'keystoneclient.middleware.auth_token',
+CONF.import_opt('auth_version', 'keystonemiddleware.auth_token',
                 group='keystone_authtoken')
-CONF.import_opt('auth_admin_prefix', 'keystoneclient.middleware.auth_token',
+CONF.import_opt('auth_admin_prefix', 'keystonemiddleware.auth_token',
                 group='keystone_authtoken')
 
 

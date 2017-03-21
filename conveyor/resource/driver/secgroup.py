@@ -20,7 +20,7 @@ from conveyor import network
 from conveyor.resource import resource
 from conveyor.resource.driver import base
 
-from conveyor.common import log as logging
+from oslo_log import log as logging
 LOG = logging.getLogger(__name__)
 
 class SecGroup(base.resource):

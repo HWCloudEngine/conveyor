@@ -22,7 +22,7 @@ from conveyor.resource.driver import base
 from conveyor.resource.driver import networks
 
 
-from conveyor.common import log as logging
+from oslo_log import log as logging
 LOG = logging.getLogger(__name__)
 
 class FloatIps(base.resource):

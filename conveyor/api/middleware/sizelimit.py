@@ -17,12 +17,12 @@ Request Body limiting middleware.
 """
 
 
-from oslo.config import cfg
+from oslo_config import cfg
 import webob.dec
 import webob.exc
 
 from conveyor.i18n import _
-from conveyor.common import log as logging
+from oslo_log import log as logging
 from conveyor import wsgi
 
 

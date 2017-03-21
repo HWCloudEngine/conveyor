@@ -15,10 +15,10 @@
 #    under the License.
 
 
-from oslo.config import cfg
+from oslo_config import cfg
 import paste.urlmap
 
-from conveyor.common import log as logging
+from oslo_log import log as logging
 from conveyor.i18n import _LW
 
 

@@ -14,8 +14,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from oslo.config import cfg
-from conveyor.common import importutils
+from oslo_config import cfg
+from oslo_utils import importutils
 
 _compute_opts = [
     cfg.StrOpt('network_api_class',

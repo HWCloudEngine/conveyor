@@ -11,7 +11,7 @@ from conveyor.resource.driver import base
 from conveyor.resource.driver.volumes import VolumeResource
 from conveyor.resource.driver.networks import NetworkResource
 
-from conveyor.common import log as logging
+from oslo_log import log as logging
 LOG = logging.getLogger(__name__)
 
 class InstanceResource(base.resource):

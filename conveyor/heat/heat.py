@@ -9,12 +9,12 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-from oslo.config import cfg
+from oslo_config import cfg
 
 from heatclient import client as heat_client
 
 from conveyor import exception
-from conveyor.common import log as logging
+from oslo_log import log as logging
 from conveyor.common import client as url_client
 
 LOG = logging.getLogger(__name__)
@@ -172,7 +172,6 @@ class API(object):
     def create_stack(self, context, password=None, **kwargs):
         return heatclient(context, password).stacks.create(**kwargs)
 
-
     def preview_stack(self, context, password=None, **kwargs):
         return heatclient(context, password).stacks.preview(**kwargs)
 
@@ -181,7 +180,6 @@ class API(object):
     
     def resources_list(self, context, stack_name):
         return heatclient(context).resources.list(stack_name)
-
 
     def get_resource(self, context, stack_id, resource_name):
         return heatclient(context).resources.get(stack_id, resource_name)

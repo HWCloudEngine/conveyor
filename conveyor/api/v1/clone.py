@@ -20,7 +20,7 @@ import ast
 import webob
 from webob import exc
 
-from conveyor.common import log as logging
+from oslo_log import log as logging
 from conveyor.api import common
 from conveyor.api.wsgi import wsgi
 from conveyor import exception

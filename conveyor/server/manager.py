@@ -15,10 +15,10 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from oslo.config import cfg
-import oslo.messaging as messaging
+from oslo_config import cfg
+import oslo_messaging as messaging
 
-from conveyor.common import log as logging
+from oslo_log import log as logging
 from conveyor.i18n import _, _LE, _LI, _LW
 
 from conveyor import manager

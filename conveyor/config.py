@@ -15,8 +15,9 @@
 
 import os
 
-from oslo.config import cfg
-from oslo.db import options
+from oslo_config import cfg
+from oslo_db import options
+from oslo_log import log
 
 from conveyor import debugger
 from conveyor import paths
@@ -29,6 +30,7 @@ CONF = cfg.CONF
 
 
 def parse_args(argv, default_config_files=None):
+    log.register_options(CONF)
     options.set_defaults(CONF, connection=_DEFAULT_SQL_CONNECTION,
                          sqlite_db='conveyor.sqlite')
     rpc.set_defaults(control_exchange='conveyor')

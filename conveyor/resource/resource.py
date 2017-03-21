@@ -5,12 +5,12 @@
 import datetime
 import copy
 import six
-from oslo.config import cfg
+from oslo_config import cfg
 
-from conveyor.common import jsonutils
-from conveyor.common import fileutils
-from conveyor.common import timeutils
-from conveyor.common import log as logging
+from oslo_serialization import jsonutils
+from oslo_utils import fileutils
+from oslo_utils import timeutils
+from oslo_log import log as logging
 from conveyor.common import plan_status as p_status
 from conveyor import exception
 
@@ -21,6 +21,7 @@ LOG = logging.getLogger(__name__)
 
 # instance_allowed_search_opts = ['reservation_id', 'name', 'status', 'image', 'flavor',
 #                                'tenant_id', 'ip', 'changes-since', 'all_tenants']
+
 
 class Resource(object):
     """Describes an OpenStack resource."""

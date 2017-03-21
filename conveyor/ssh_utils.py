@@ -22,11 +22,11 @@ import os
 import string
 
 from eventlet import pools
-from oslo.config import cfg
+from oslo_config import cfg
 import paramiko
 import six
 
-from conveyor.common import log as logging
+from oslo_log import log as logging
 from conveyor import exception
 from conveyor.i18n import _, _LI
 

@@ -38,19 +38,19 @@ from xml import sax
 from xml.sax import expatreader
 from xml.sax import saxutils
 
-from oslo.config import cfg
-from oslo.utils import importutils
-from oslo.utils import timeutils
+from oslo_config import cfg
+from oslo_utils import importutils
+from oslo_utils import timeutils
 import retrying
 import six
 
-from conveyor.common import lockutils
-from conveyor.common import processutils
-from conveyor.common import log as logging
+from oslo_concurrency import lockutils
+from oslo_concurrency import processutils
+from oslo_log import log as logging
 
 from conveyor import exception
 from conveyor.i18n import _, _LE
-from conveyor.common import excutils
+from oslo_utils import excutils
 
 
 CONF = cfg.CONF

@@ -20,7 +20,7 @@ from sqlalchemy import Text
 from sqlalchemy.types import NullType
 
 from conveyor.i18n import _
-from conveyor.common import log as logging
+from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)
 

@@ -27,10 +27,10 @@ stepping stone.
 
 import socket
 
-from oslo.config import cfg
-from oslo.utils import netutils
+from oslo_config import cfg
+from oslo_utils import netutils
 
-from conveyor.common import log as logging
+from oslo_log import log as logging
 from conveyor.i18n import _
 
 
@@ -238,7 +238,7 @@ birdie_opts = [
     ]
 
 keystone_auth_opts = [
-    cfg.StrOpt('admin_password',
+    cfg.StrOpt('password',
                secret=True,
                help='Keystone account password'),
     cfg.StrOpt('conveyor_admin_user',

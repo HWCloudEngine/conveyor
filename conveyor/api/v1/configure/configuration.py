@@ -18,10 +18,10 @@ import ConfigParser
 import webob
 from webob import exc
 
-from oslo.config import cfg
+from oslo_config import cfg
 
-from conveyor.common import log as logging
-from conveyor.common import timeutils
+from oslo_log import log as logging
+from oslo_utils import timeutils
 from conveyor import utils
 from conveyor.api.wsgi import wsgi
 

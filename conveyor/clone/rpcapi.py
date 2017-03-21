@@ -16,10 +16,10 @@
 Client side of the conveyor RPC API.
 """
 
-from oslo.config import cfg
-import oslo.messaging as messaging
-from oslo.serialization import jsonutils
-from conveyor.common import log as logging
+from oslo_config import cfg
+import oslo_messaging as messaging
+from oslo_serialization import jsonutils
+from oslo_log import log as logging
 
 from conveyor import rpc
 

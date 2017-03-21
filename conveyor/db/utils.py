@@ -4,9 +4,9 @@
 
 from conveyor import exception
 from conveyor.i18n import _
-from conveyor.common import jsonutils
+from oslo_serialization import jsonutils
 
-from oslo.config import cfg
+from oslo_config import cfg
 CONF = cfg.CONF
 
 class LazyPluggable(object):

@@ -20,7 +20,7 @@ Helper code for the iSCSI volume driver.
 
 import six
 from conveyor import utils
-from conveyor.common import log as logging
+from oslo_log import log as logging
 
 
 LOG = logging.getLogger(__name__)

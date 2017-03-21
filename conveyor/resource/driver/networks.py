@@ -7,8 +7,8 @@ from conveyor import exception
 from conveyor.resource import resource
 from conveyor.resource.driver import base
 
-from conveyor.common import log as logging
-from conveyor.common import uuidutils
+from oslo_log import log as logging
+from oslo_utils import uuidutils
 
 from copy import deepcopy
 LOG = logging.getLogger(__name__)

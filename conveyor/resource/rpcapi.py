@@ -4,8 +4,8 @@ Created on
 @author: g00357909
 '''
 
-import oslo.messaging as messaging
-from oslo.config import cfg
+import oslo_messaging as messaging
+from oslo_config import cfg
 
 from conveyor import rpc
 

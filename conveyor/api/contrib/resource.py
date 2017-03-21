@@ -19,9 +19,9 @@ from webob import exc
 
 from conveyor.i18n import _
 from conveyor import context
-from conveyor.common import log as logging
-from conveyor.common import uuidutils
-from conveyor.common import strutils
+from oslo_log import log as logging
+from oslo_utils import uuidutils
+from oslo_utils import strutils
 from conveyor.api.wsgi import wsgi
 from conveyor.api import extensions
 

@@ -13,9 +13,9 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from oslo.config import cfg
+from oslo_config import cfg
 
-import conveyor.common.importutils
+import oslo_utils.importutils
 
 _compute_opts = [
     cfg.StrOpt('compute_api_class',
@@ -28,7 +28,7 @@ cfg.CONF.register_opts(_compute_opts)
 
 
 def API():
-    importutils = conveyor.common.importutils
+    importutils = oslo_utils.importutils
     compute_api_class = cfg.CONF.compute_api_class
     cls = importutils.import_class(compute_api_class)
     return cls()

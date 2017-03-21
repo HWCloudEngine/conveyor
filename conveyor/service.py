@@ -22,28 +22,27 @@ import inspect
 import os
 import random
 
-from oslo.config import cfg
-from oslo.db import exception as db_exc
-import oslo.messaging as messaging
-from oslo.utils import importutils
+from oslo_config import cfg
+from oslo_db import exception as db_exc
+import oslo_messaging as messaging
+from oslo_utils import importutils
 import osprofiler.notifier
 from osprofiler import profiler
 import osprofiler.web
 from conveyor import utils
 
-from conveyor.common import processutils
-from conveyor.common import log as logging
-
+from oslo_concurrency import processutils
+from oslo_log import log as logging
+from oslo_service import service
 from conveyor import context
 #from conveyor import db
 from conveyor import exception
 from conveyor.i18n import _, _LE, _LI, _LW
 from conveyor.common import loopingcall
-from conveyor.common import service
 from conveyor import rpc
 from conveyor import version
 from conveyor import wsgi
-from conveyor.common import timeutils
+from oslo_utils import timeutils
 
 
 
@@ -341,7 +340,7 @@ class Service(service.Service):
                 LOG.exception(_LE('model server went away'))
 
 
-class WSGIService(object):
+class WSGIService(service.Service):
     """Provides ability to launch API from a 'paste' configuration."""
 
     def __init__(self, name, loader=None):
@@ -458,7 +457,7 @@ class WSGIService(object):
 
 
 def process_launcher():
-    return service.ProcessLauncher()
+    return service.ProcessLauncher(CONF)
 
 
 # NOTE(vish): the global launcher is to maintain the existing
@@ -472,7 +471,7 @@ def serve(server, workers=None):
     if _launcher:
         raise RuntimeError(_('serve() can only be called once'))
 
-    _launcher = service.launch(server, workers=workers)
+    _launcher = service.launch(CONF, server, workers=workers)
 
 
 def wait():

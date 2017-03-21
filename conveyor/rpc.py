@@ -26,9 +26,9 @@ __all__ = [
     'TRANSPORT_ALIASES',
 ]
 
-from oslo.config import cfg
-import oslo.messaging as messaging
-from oslo.serialization import jsonutils
+from oslo_config import cfg
+import oslo_messaging as messaging
+from oslo_serialization import jsonutils
 from osprofiler import profiler
 
 import conveyor.context

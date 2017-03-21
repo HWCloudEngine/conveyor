@@ -20,14 +20,14 @@ Common Auth Middleware.
 
 import os
 
-from oslo.config import cfg
-from oslo.serialization import jsonutils
+from oslo_config import cfg
+from oslo_serialization import jsonutils
 import webob.dec
 import webob.exc
 
 from conveyor.api.middleware import request_id
 
-from conveyor.common import log as logging
+from oslo_log import log as logging
 from conveyor.api.wsgi import wsgi
 from conveyor import context
 from conveyor.i18n import _

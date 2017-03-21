@@ -19,7 +19,7 @@ import six
 import webob.dec
 import webob.exc
 
-from conveyor.common import log as logging
+from oslo_log import log as logging
 from conveyor.api.wsgi import wsgi
 from conveyor import exception
 from conveyor.i18n import _, _LE, _LI

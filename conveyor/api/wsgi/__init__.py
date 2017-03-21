@@ -20,7 +20,7 @@ WSGI middleware for OpenStack API controllers.
 
 import routes
 
-from conveyor.common import log as logging
+from oslo_log import log as logging
 from conveyor.api.wsgi import wsgi
 from conveyor.i18n import _, _LW
 from conveyor import wsgi as base_wsgi

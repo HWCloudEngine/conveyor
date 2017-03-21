@@ -15,7 +15,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from conveyor.common import log as logging
+from oslo_log import log as logging
 from conveyor import exception
 from conveyor import compute
 from conveyor import volume
@@ -25,7 +25,7 @@ from conveyor.conveyoragentclient.v1 import client as conveyorclient
 from conveyor.resource import api as resource_api
 from conveyor.i18n import _, _LE, _LI, _LW
 from eventlet import greenthread
-from oslo.config import cfg
+from oslo_config import cfg
 import time
 
 

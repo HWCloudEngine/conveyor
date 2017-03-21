@@ -10,11 +10,11 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-"""Compatibility shim for Kilo, while operators migrate to oslo.middleware."""
+"""Compatibility shim for Kilo, while operators migrate to oslo_middleware."""
 
-from oslo.middleware import catch_errors
+from oslo_middleware import catch_errors
 
-from conveyor.common import versionutils
+from oslo_log import versionutils
 
 
 @versionutils.deprecated(as_of=versionutils.deprecated.KILO,

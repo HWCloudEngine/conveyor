@@ -23,9 +23,9 @@ from __future__ import print_function
 import requests
 
 from conveyor.conveyoragentclient.common import exceptions
-from conveyor.common import strutils
-from conveyor.common import importutils as utils
-from conveyor.common import log as logging
+from oslo_utils import strutils
+from oslo_utils import importutils as utils
+from oslo_log import log as logging
 
 
 try:

@@ -10,8 +10,8 @@ import six
 import numbers
 import netaddr
 import random
-from oslo.config import cfg
-import oslo.messaging as messaging
+from oslo_config import cfg
+import oslo_messaging as messaging
 from cinderclient import exceptions as cinderclient_exceptions
 from novaclient import exceptions as novaclient_exceptions
 from keystoneclient.v2_0 import client as kc
@@ -21,11 +21,11 @@ from conveyor.conveyoragentclient.v1 import client as birdiegatewayclient
 from conveyor.common import plan_status as p_status
 from conveyor.common import template_format
 from conveyor.common import loopingcall
-from conveyor.common import fileutils
-from conveyor.common import uuidutils
-from conveyor.common import timeutils
-from conveyor.common import strutils
-from conveyor.common import log as logging
+from oslo_utils import fileutils
+from oslo_utils import uuidutils
+from oslo_utils import timeutils
+from oslo_utils import strutils
+from oslo_log import log as logging
 from conveyor.db import api as db_api
 
 from conveyor import context as ctxt
@@ -50,9 +50,9 @@ from conveyor.resource.driver.volumes import Volume
 from conveyor.resource.driver.stacks import StackResource
 from conveyor.resource.resource import Resource
 
-
-
 CONF = cfg.CONF
+
+
 LOG = logging.getLogger(__name__)
                         
 CONF.import_opt('clear_expired_plan_interval', 'conveyor.common.config')
@@ -83,31 +83,30 @@ class ResourceManager(manager.Manager):
         
         #Start periodic task to clear expired plan
         # context = ctxt.get_admin_context()
-        kwargs = {
-            'username': CONF.keystone_authtoken.conveyor_admin_user,
-            'password': CONF.keystone_authtoken.admin_password,
-            'tenant_name': CONF.keystone_authtoken.conveyor_admin_tenant_name,
-            'auth_url': CONF.keystone_authtoken.auth_url,
-            'insecure': True,
-        }
-        cs = kc.Client(**kwargs)
-        cs.authenticate()    
-        user_id = cs.auth_ref['user']['id']
-        project_id = cs.auth_ref['token']['tenant']['id']
-        auth_token = cs.auth_ref['token']['id']
-        sc = service_catalog.ServiceCatalog.factory(cs.auth_ref)
-        service_catalog = sc.get_data()
-        context = ctxt.RequestContext(user_id,
-                                     project_id,
-                                     auth_token=auth_token,
-                                     service_catalog=service_catalog)
-        timer = loopingcall.FixedIntervalLoopingCall(self._clear_expired_plan, context)
-        timer.start(interval=CONF.clear_expired_plan_interval)
+#         kwargs = {
+#             'username': CONF.keystone_authtoken.conveyor_admin_user,
+#             'password': CONF.keystone_authtoken.password,
+#             'tenant_name': CONF.keystone_authtoken.conveyor_admin_tenant_name,
+#             'auth_url': CONF.keystone_authtoken.auth_url,
+#             'insecure': True,
+#         }
+#         cs = kc.Client(**kwargs)
+#         cs.authenticate()
+#         user_id = cs.auth_ref['user']['id']
+#         project_id = cs.auth_ref['token']['tenant']['id']
+#         auth_token = cs.auth_ref['token']['id']
+#         sc = service_catalog.ServiceCatalog.factory(cs.auth_ref)
+#         service_catalog = sc.get_data()
+#         context = ctxt.RequestContext(user_id,
+#                                      project_id,
+#                                      auth_token=auth_token,
+#                                      service_catalog=service_catalog)
+#         timer = loopingcall.FixedIntervalLoopingCall(self._clear_expired_plan, context)
+#         timer.start(interval=CONF.clear_expired_plan_interval)
         
         super(ResourceManager, self).__init__(service_name="conveyor-resource",
                                              *args, **kwargs)
-
-    
+        
     def get_resource_detail(self, context, resource_type, resource_id):
         
         LOG.info("Get %s resource details with id of <%s>.", resource_type, resource_id)
@@ -448,8 +447,7 @@ class ResourceManager(manager.Manager):
                 for field in fields:
                     plan_dict.pop(field, None)
                 return plan_dict
-            
-
+    
     def delete_plan(self, context, plan_id):
         @utils.synchronized(plan_id)
         def _lock_do_delete_plan(context, plan_id, ):
@@ -1385,7 +1383,6 @@ class ResourceManager(manager.Manager):
         """
         
         LOG.debug("Searching expired plan.")
-        
         #Search expired plan in database.
         exist_expired_plan = False
         plans = self.db_api.plan_get_all(context)
@@ -1605,14 +1602,14 @@ class ResourceManager(manager.Manager):
     def _has_expired(self, plan):
         status = (p_status.INITIATING, p_status.CREATING, p_status.AVAILABLE, 
                   p_status.ERROR, p_status.FINISHED)
-        
+
         if isinstance(plan, resource.Plan):
             plan_status = plan.plan_status
             expire_at = plan.expire_at
         else:
             plan_status = plan['plan_status']
             expire_at = plan['expire_at']
-        
+
         if plan_status in status:
             expire_time = timeutils.parse_isotime(str(expire_at))
             if timeutils.is_older_than(expire_time, 0):

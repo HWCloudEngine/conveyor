@@ -23,8 +23,8 @@ except ImportError:
     from urllib.parse import urlencode
 import six
 
-from conveyor.common import log as logging
-from conveyor.common import uuidutils
+from oslo_log import log as logging
+from oslo_utils import uuidutils
 from conveyor.conveyoragentclient.common import base
 
 LOG = logging.getLogger(__name__)

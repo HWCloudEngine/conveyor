@@ -19,7 +19,7 @@
 WSGI middleware for Hybrid-conveyor API.
 """
 
-from conveyor.common import log as logging
+from oslo_log import log as logging
 
 from conveyor.api import extensions
 import conveyor.api.wsgi

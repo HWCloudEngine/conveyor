@@ -4,13 +4,13 @@
 import time
 import six
 
-from conveyor.common import timeutils
+from oslo_utils import timeutils
 from webob import exc
 from conveyor.i18n import _
-from conveyor.common import uuidutils
+from oslo_utils import uuidutils
 from conveyor.common import template_format
 from conveyor.api.wsgi import wsgi
-from conveyor.common import log as logging
+from oslo_log import log as logging
 from conveyor.common import plan_status as p_status
 from conveyor import exception
 from conveyor.resource import api as resource_api

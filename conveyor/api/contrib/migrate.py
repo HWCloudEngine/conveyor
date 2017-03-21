@@ -18,11 +18,11 @@ import time
 from webob import exc
 
 from conveyor import context
-from conveyor.common import log as logging
+from oslo_log import log as logging
 from conveyor.api.wsgi import wsgi
 from conveyor.api import extensions
 
-from conveyor.common import timeutils
+from oslo_utils import timeutils
 from conveyor.clone import api
 
 from conveyor.i18n import _

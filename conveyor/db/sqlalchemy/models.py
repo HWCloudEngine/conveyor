@@ -19,15 +19,15 @@
 SQLAlchemy models for conveyor data.
 """
 
-from oslo.config import cfg
-from oslo.db.sqlalchemy import models
+from oslo_config import cfg
+from oslo_db.sqlalchemy import models
 from sqlalchemy import Column, Index, Integer, BigInteger, Enum, String, schema
 from sqlalchemy.dialects.mysql import MEDIUMTEXT
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import orm
 from sqlalchemy import ForeignKey, DateTime, Boolean, Text, Float
 
-from conveyor.common import timeutils
+from oslo_utils import timeutils
 
 BASE = declarative_base()
 

@@ -18,7 +18,7 @@ from conveyor import compute
 from conveyor import exception
 from conveyor import  network
 
-from conveyor.common import log as logging
+from oslo_log import log as logging
 from conveyor.resource import resource
 from conveyor.resource.driver import base
 from conveyor.resource.driver import networks

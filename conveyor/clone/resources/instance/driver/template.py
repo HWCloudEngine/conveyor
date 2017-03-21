@@ -15,9 +15,9 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from oslo.config import cfg
+from oslo_config import cfg
 
-from conveyor.common import log as logging
+from oslo_log import log as logging
 from conveyor.i18n import _, _LE, _LI, _LW
 from conveyor import volume 
 from conveyor import compute

@@ -27,11 +27,11 @@ these objects be simple dictionaries.
 
 """
 
-from oslo.config import cfg
-from oslo.db import concurrency
+from oslo_config import cfg
+from oslo_db import concurrency
 
 from conveyor.i18n import _
-from conveyor.common import log as logging
+from oslo_log import log as logging
 
 
 db_opts = [

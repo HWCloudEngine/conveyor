@@ -18,11 +18,11 @@ Handles all requests to Nova.
 
 
 from novaclient import service_catalog
-from novaclient.v1_1 import client as nova_client
-from novaclient.v1_1.contrib import assisted_volume_snapshots
-from oslo.config import cfg
+from novaclient.v2 import client as nova_client
+from novaclient.v2.contrib import assisted_volume_snapshots
+from oslo_config import cfg
 
-from conveyor.common import log as logging
+from oslo_log import log as logging
 from conveyor.common import client as url_client
 
 nova_opts = [
@@ -58,19 +58,19 @@ nova_opts = [
 CONF = cfg.CONF
 CONF.register_opts(nova_opts)
 
-CONF.import_opt('auth_protocol', 'keystoneclient.middleware.auth_token',
+CONF.import_opt('auth_protocol', 'keystonemiddleware.auth_token',
                 group='keystone_authtoken')
-CONF.import_opt('auth_host', 'keystoneclient.middleware.auth_token',
+CONF.import_opt('auth_host', 'keystonemiddleware.auth_token',
                 group='keystone_authtoken')
-CONF.import_opt('auth_port', 'keystoneclient.middleware.auth_token',
+CONF.import_opt('auth_port', 'keystonemiddleware.auth_token',
                 group='keystone_authtoken')
-CONF.import_opt('auth_version', 'keystoneclient.middleware.auth_token',
+CONF.import_opt('auth_version', 'keystonemiddleware.auth_token',
                 group='keystone_authtoken')
-CONF.import_opt('admin_tenant_name', 'keystoneclient.middleware.auth_token',
+CONF.import_opt('admin_tenant_name', 'keystonemiddleware.auth_token',
                 group='keystone_authtoken')
-CONF.import_opt('admin_user', 'keystoneclient.middleware.auth_token',
+CONF.import_opt('admin_user', 'keystonemiddleware.auth_token',
                 group='keystone_authtoken')
-CONF.import_opt('admin_password', 'keystoneclient.middleware.auth_token',
+CONF.import_opt('admin_password', 'keystonemiddleware.auth_token',
                 group='keystone_authtoken')
 
 LOG = logging.getLogger(__name__)
@@ -136,7 +136,7 @@ def novaclient(context, admin=False):
     # noauth extracts user_id:project_id from auth_token
     c.client.auth_token = context.auth_token or '%s:%s' % (context.user_id,
                                                            context.project_id)
-    c.client.management_url = url
+    c.client.management_url = url 
     return c
 
 

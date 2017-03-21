@@ -37,20 +37,20 @@ import socket
 import sys
 import traceback
 
-from oslo.config import cfg
+from oslo_config import cfg
 import six
 from six import moves
 
 _PY26 = sys.version_info[0:2] == (2, 6)
 
 from conveyor.common.gettextutils import _
-from conveyor.common import importutils
-from conveyor.common import jsonutils
+from oslo_utils import importutils
+from oslo_serialization import jsonutils
 from conveyor.common import local
 #from v2v.common.hw_log_handler import FSSysLogHandler
 # NOTE(flaper87): Pls, remove when graduating this module
 # from the incubator.
-from conveyor.common.strutils import mask_password  # noqa
+from oslo_utils.strutils import mask_password  # noqa
 
 
 _DEFAULT_LOG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
@@ -125,7 +125,7 @@ generic_log_opts = [
 
 DEFAULT_LOG_LEVELS = ['amqp=WARN', 'amqplib=WARN', 'boto=WARN',
                       'qpid=WARN', 'sqlalchemy=WARN', 'suds=INFO',
-                      'oslo.messaging=INFO', 'iso8601=WARN',
+                      'oslo_messaging=INFO', 'iso8601=WARN',
                       'requests.packages.urllib3.connectionpool=WARN',
                       'urllib3.connectionpool=WARN', 'websocket=WARN',
                       "keystonemiddleware=WARN", "routes.middleware=WARN",
@@ -520,7 +520,7 @@ def _setup_logging_from_conf(project, version):
                 logging.ERROR)
         except ImportError:
             handler = importutils.import_object(
-                "oslo.messaging.notify.log_handler.PublishErrorsHandler",
+                "oslo_messaging.notify.log_handler.PublishErrorsHandler",
                 logging.ERROR)
         log_root.addHandler(handler)
 

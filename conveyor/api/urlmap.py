@@ -18,7 +18,7 @@ import urllib2
 
 import paste.urlmap
 
-from conveyor.common import log as logging
+from oslo_log import log as logging
 from conveyor.api.wsgi import wsgi
 
 

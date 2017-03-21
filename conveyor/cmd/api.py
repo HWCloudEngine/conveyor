@@ -26,7 +26,7 @@ import warnings
 
 warnings.simplefilter('once', DeprecationWarning)
 
-from oslo.config import cfg
+from oslo_config import cfg
 
 possible_topdir = os.path.normpath(os.path.join(os.path.abspath(sys.argv[0]),
                                    os.pardir,
@@ -39,7 +39,7 @@ i18n.enable_lazy()
 
 # Need to register global_opts
 from conveyor.common import config  # noqa
-from conveyor.common import log as logging
+from oslo_log import log as logging
 from conveyor import rpc
 from conveyor import service
 from conveyor import utils
@@ -50,9 +50,10 @@ CONF = cfg.CONF
 
 
 def main():
+    logging.register_options(CONF)
     CONF(sys.argv[1:], project='conveyor',
          version=version.version_string())
-    logging.setup("conveyor")
+    logging.setup(CONF, "conveyor")
     utils.monkey_patch()
 
     rpc.init(CONF)

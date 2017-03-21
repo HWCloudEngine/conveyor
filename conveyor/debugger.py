@@ -27,7 +27,7 @@ def enabled():
 
 
 def register_cli_opts():
-    from oslo.config import cfg
+    from oslo_config import cfg
 
     cli_opts = [
         cfg.StrOpt('host',
@@ -50,7 +50,7 @@ def register_cli_opts():
 
 
 def init():
-    from oslo.config import cfg
+    from oslo_config import cfg
     CONF = cfg.CONF
 
     # NOTE(markmc): gracefully handle the CLI options not being registered
@@ -61,7 +61,7 @@ def init():
         return
 
     from conveyor.i18n import _
-    from conveyor.common import log as logging
+    from oslo_log import log as logging
     LOG = logging.getLogger(__name__)
 
     LOG.debug('Listening on %(host)s:%(port)s for debug connection',

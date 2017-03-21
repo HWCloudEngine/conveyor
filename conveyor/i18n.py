@@ -12,13 +12,13 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-"""oslo.i18n integration module.
+"""oslo_i18n integration module.
 
-See http://docs.openstack.org/developer/oslo.i18n/usage.html .
+See http://docs.openstack.org/developer/oslo_i18n/usage.html .
 
 """
 
-import oslo.i18n as i18n
+import oslo_i18n as i18n
 
 from conveyor.common import gettextutils
 
@@ -53,11 +53,11 @@ def get_available_languages():
 
 
 # Parts in oslo-incubator are still using gettextutils._(), _LI(), etc., from
-# oslo-incubator. Until these parts are changed to use oslo.i18n, Cinder
+# oslo-incubator. Until these parts are changed to use oslo_i18n, Cinder
 # needs to do something to allow them to work. One option is to continue to
 # initialize gettextutils, but with the way that Cinder has initialization
 # spread out over mutltiple entry points, we'll monkey-patch
-# gettextutils._(), _LI(), etc., to use our oslo.i18n versions.
+# gettextutils._(), _LI(), etc., to use our oslo_i18n versions.
 
 # FIXME(dims): Remove the monkey-patching and update openstack-common.conf and
 # do a sync with oslo-incubator to remove gettextutils once oslo-incubator

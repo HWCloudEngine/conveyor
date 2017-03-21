@@ -25,17 +25,17 @@ import time
 
 import glanceclient
 import glanceclient.exc
-from oslo.config import cfg
+from oslo_config import cfg
 import six
 import six.moves.urllib.parse as urlparse
 
 from conveyor import exception
 from conveyor.i18n import _
-from conveyor.common import jsonutils
-from conveyor.common import log as logging
-from conveyor.common import timeutils
+from oslo_serialization import jsonutils
+from oslo_log import log as logging
+from oslo_utils import timeutils
 from conveyor import utils
-from conveyor.common import importutils
+from oslo_utils import importutils
 
 
 glance_opts = [

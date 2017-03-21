@@ -16,11 +16,11 @@
 #    under the License.
 import copy
 
-from oslo.config import cfg
-import oslo.messaging as messaging
-from conveyor.common import importutils
+from oslo_config import cfg
+import oslo_messaging as messaging
+from oslo_utils import importutils
 
-from conveyor.common import log as logging
+from oslo_log import log as logging
 from conveyor.i18n import _, _LE, _LI, _LW
 
 from conveyor import manager
@@ -31,13 +31,13 @@ from conveyor.clone import rpcapi
 from conveyor.resource import api as resource_api
 from conveyor.resource import resource
 from conveyor import exception
-from conveyor.common import excutils
+from oslo_utils import excutils
 import yaml
 from conveyor.common import template_format
 import json
 from conveyor import heat
 from conveyor.common import loopingcall
-from conveyor.common import uuidutils
+from oslo_utils import uuidutils
 from conveyor.common import plan_status
 from novaclient import exceptions as novaclient_exceptions
 from neutronclient.common import exceptions as neutronclient_exceptions

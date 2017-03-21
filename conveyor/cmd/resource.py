@@ -33,7 +33,7 @@ import warnings
 
 warnings.simplefilter('once', DeprecationWarning)
 
-from oslo.config import cfg
+from oslo_config import cfg
 
 # If ../cinder/__init__.py exists, add ../ to Python search path, so that
 # it will override what happens to be installed in /usr/(local/)lib/python...
@@ -48,7 +48,7 @@ i18n.enable_lazy()
 
 # Need to register global_opts
 from conveyor.common import config  # noqa
-from conveyor.common import log as logging
+from oslo_log import log as logging
 from conveyor import service
 from conveyor import utils
 from conveyor import version
@@ -60,11 +60,11 @@ CONF = cfg.CONF
 
 
 def main():
+    logging.register_options(CONF)
     CONF(sys.argv[1:], project='conveyor',
          version=version.version_string())
-    logging.setup("conveyor")
+    logging.setup(CONF, "conveyor")
     utils.monkey_patch()
     server = service.Service.create(binary='conveyor-resource')
     service.serve(server)
     service.wait()
-

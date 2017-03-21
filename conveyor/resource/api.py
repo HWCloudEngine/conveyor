@@ -7,11 +7,11 @@ Created on 2016
 import six
 import copy
 import numbers
-from oslo.config import cfg
+from oslo_config import cfg
 
-from conveyor.common import log as logging
+from oslo_log import log as logging
 from conveyor.resource import rpcapi
-from conveyor.common import uuidutils
+from oslo_utils import uuidutils
 from conveyor.common import plan_status as p_status
 from conveyor.resource import resource
 

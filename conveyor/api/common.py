@@ -18,11 +18,11 @@ import os
 import re
 import urllib
 
-from oslo.config import cfg
+from oslo_config import cfg
 import six.moves.urllib.parse as urlparse
 import webob
 
-from conveyor.common import log as logging
+from oslo_log import log as logging
 from conveyor.api.wsgi import wsgi
 from conveyor.api import xmlutil
 from conveyor.i18n import _

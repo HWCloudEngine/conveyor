@@ -60,8 +60,8 @@ import sys
 
 import decorator
 import netaddr
-from oslo.config import cfg
-from oslo.db import exception as db_exc
+from oslo_config import cfg
+from oslo_db import exception as db_exc
 from oslo import messaging
 import six
 
@@ -76,8 +76,8 @@ from conveyor import version
 
 from conveyor.i18n import _
 from conveyor.common import cliutils
-from conveyor.common import importutils
-from conveyor.common import log as logging
+from oslo_utils import importutils
+from oslo_log import log as logging
 from conveyor import rpc
 from conveyor import utils
 
@@ -319,7 +319,7 @@ def main():
     CONF.register_cli_opt(category_opt)
     try:
         config.parse_args(sys.argv)
-        logging.setup("conveyor")
+        logging.setup(CONF, "conveyor")
     except cfg.ConfigFilesNotFoundError:
         cfgfile = CONF.config_file[-1] if CONF.config_file else None
         if cfgfile and not os.access(cfgfile, os.R_OK):

@@ -4,7 +4,7 @@
 from conveyor import exception
 from conveyor import volume
 
-from conveyor.common import log as logging
+from oslo_log import log as logging
 from conveyor.resource import resource
 from conveyor.resource.driver import base
 
@@ -138,7 +138,7 @@ class VolumeResource(base.resource):
             if volume_type_res:
                 volumeTypeResources.append(volume_type_res)
                 continue
-
+            
             properties = {
                 'name': volume_type['name']
             }

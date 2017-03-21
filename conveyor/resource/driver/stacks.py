@@ -5,7 +5,7 @@ import json
 from conveyor import exception
 from conveyor import heat
 
-from conveyor.common import log as logging
+from oslo_log import log as logging
 from conveyor.resource import resource
 from conveyor.resource.driver import base
 

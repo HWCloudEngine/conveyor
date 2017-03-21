@@ -25,8 +25,8 @@ import six
 import exception
 from conveyor.i18n import _
 from conveyor.common import local
-from conveyor.common import log as logging
-from conveyor.common import timeutils
+from oslo_log import log as logging
+from oslo_utils import timeutils
 
 
 LOG = logging.getLogger(__name__)

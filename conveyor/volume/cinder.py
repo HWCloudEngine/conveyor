@@ -26,12 +26,12 @@ from cinderclient import exceptions as cinder_exception
 from cinderclient.v1 import client as v1_client
 from keystoneclient import exceptions as keystone_exception
 from cinderclient import service_catalog
-from oslo.config import cfg
-from oslo.utils import strutils
+from oslo_config import cfg
+from oslo_utils import strutils
 import six
 import six.moves.urllib.parse as urlparse
 
-from conveyor.common import log as logging
+from oslo_log import log as logging
 
 from conveyor import exception
 from conveyor.i18n import _

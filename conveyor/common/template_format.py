@@ -14,10 +14,10 @@
 import json
 import yaml
 
-from oslo.config import cfg
+from oslo_config import cfg
 
 from conveyor import exception
-from conveyor.common import fileutils
+from oslo_utils import fileutils
 from conveyor.i18n import _
 
 template_opts = [

@@ -17,12 +17,12 @@
 
 
 from eventlet import greenthread
-from oslo.config import cfg
+from oslo_config import cfg
 
-from conveyor.common import log as logging
+from oslo_log import log as logging
 from conveyor.i18n import _LW
 from conveyor.clone.resources import common
-from conveyor.common import importutils
+from oslo_utils import importutils
 from conveyor.resource import api as resource_api
 
 from conveyor import exception

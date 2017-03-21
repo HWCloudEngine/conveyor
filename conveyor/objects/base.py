@@ -22,17 +22,17 @@ import functools
 import traceback
 
 import netaddr
-import oslo.messaging as messaging
-from oslo.utils import timeutils
+import oslo_messaging as messaging
+from oslo_utils import timeutils
 import six
 
-from conveyor.common import log as logging
+from oslo_log import log as logging
 from conveyor import context
 from conveyor import exception
 from conveyor.i18n import _, _LE
 from conveyor import objects
 from conveyor.objects import fields
-from conveyor.common import versionutils
+from oslo_log import versionutils
 from conveyor import utils
 
 

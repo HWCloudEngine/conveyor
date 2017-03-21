@@ -24,11 +24,11 @@ SHOULD include dedicated exception logging.
 
 import sys
 
-from oslo.config import cfg
+from oslo_config import cfg
 import six
 import webob.exc
 
-from conveyor.common import log as logging
+from oslo_log import log as logging
 
 from conveyor.i18n import _, _LE
 

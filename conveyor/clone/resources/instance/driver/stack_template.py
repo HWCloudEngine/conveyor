@@ -15,9 +15,9 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from oslo.config import cfg
+from oslo_config import cfg
 
-from conveyor.common import log as logging
+from oslo_log import log as logging
 from conveyor.i18n import _, _LE, _LI, _LW
 from conveyor import volume 
 from conveyor import compute
@@ -225,8 +225,9 @@ class StackTemplateCloneDriver(object):
         data_trans_ports = CONF.trans_ports
         trans_port = data_trans_ports[0]
         src_gw_url = ext_properties.get('gw_url')
+        
         src_urls = src_gw_url.split(':')
-
+        
         if len(src_urls) != 2:
             LOG.error("Input source gw url error: %s", src_gw_url)
             msg = "Input source gw url error: " + src_gw_url
@@ -325,3 +326,7 @@ class StackTemplateCloneDriver(object):
             LOG.error("Query stack %(stack)s resource %(name)s id error: %(error)s",
                       {'stack': stack_id, 'name': resource_name, 'error': e})
             return None
+            
+
+
+        

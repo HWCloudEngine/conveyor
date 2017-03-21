@@ -19,7 +19,7 @@
 WSGI middleware for Hybrid-conveyor API.
 """
 
-from conveyor.common import log as logging
+from oslo_log import log as logging
 
 from conveyor.api import extensions
 import conveyor.api.wsgi
@@ -29,9 +29,7 @@ from conveyor.api.v1 import resources
 from conveyor.api.v1 import plans
 from conveyor.api.v1 import migrate
 
-
 LOG = logging.getLogger(__name__)
-
 
 class APIRouter(conveyor.api.wsgi.APIRouter):
     """Routes requests on the API to the appropriate controller and method."""
