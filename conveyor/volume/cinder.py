@@ -86,7 +86,7 @@ LOG = logging.getLogger(__name__)
 CINDER_URL = None
 
 
-def cinderclient(context,http_timeout=None):
+def cinderclient(context, http_timeout=None):
     global CINDER_URL
     version = get_cinder_client_version(context)
     c = cinder_client.Client(version,
@@ -103,7 +103,6 @@ def cinderclient(context,http_timeout=None):
                                                            context.project_id)
     c.client.management_url = CINDER_URL
     return c
-
 
 
 def _untranslate_volume_summary_view(context, vol):
@@ -161,6 +160,7 @@ def _untranslate_volume_type_summary_view(vtype):
     type_dict['extra_specs'] = vtype.extra_specs
     type_dict['qos_specs_id'] = vtype.qos_specs_id
     return type_dict
+
 
 def _untranslate_qos_summary_view(qos):
     """Maps keys for volume types summary view."""
@@ -268,7 +268,6 @@ class API(object):
         search_opts = search_opts or {}
         items = cinderclient(context).volumes.list(detailed=True,
                                                    search_opts=search_opts)
-        
         if trans_map == False:
             return items
 
@@ -278,13 +277,13 @@ class API(object):
             rval.append(_untranslate_volume_summary_view(context, item))
 
         return rval
-    
+
     def create_volume(self, context, size,  name,
-               snapshot_id=None,
-               description=None, volume_type=None, user_id=None,
-               project_id=None, availability_zone=None,
-               metadata=None, imageRef=None, scheduler_hints=None):
-        
+                      snapshot_id=None, description=None,
+                      volume_type=None, user_id=None,
+                      project_id=None, availability_zone=None,
+                      metadata=None, imageRef=None, scheduler_hints=None):
+
         kwargs = dict(snapshot_id=snapshot_id,
                       description=description,
                       volume_type=volume_type,
@@ -302,9 +301,9 @@ class API(object):
         elif version == '2':
             kwargs['name'] = name
             kwargs['description'] = description
-        try:            
+        try:
             volume = cinderclient(context).volumes.create(size, name, **kwargs)
-            
+
             return _untranslate_volume_summary_view(context, volume)
         except cinder_exception.OverLimit:
             raise exception.QuotaError(overs='volumes')
@@ -315,31 +314,29 @@ class API(object):
                                   error=False):
         return cinderclient(context).volumes.migrate_volume_completion(
             old_volume_id, new_volume_id, error)
-    
+
     def snapshot_list(self, context, detailed=True, search_opts=None):
         return cinderclient(context).volume_snapshots.list(detailed=detailed,
                                                            search_opts=search_opts)
-    
+
     def get_snapshot(self, context, snapshot_id):
         return cinderclient(context).volume_snapshots.get(snapshot_id)
-            
+
     def volume_type_list(self, context, search_opts=None, trans_map=True):
         type_objs = cinderclient(context).volume_types.list(search_opts=search_opts)
-        
-        if trans_map == False:
+        if trans_map:
             return type_objs
-        
+
         type_list = []
         for vtype in type_objs:
             type_list.append(_untranslate_volume_type_summary_view(vtype))
-            
         return type_list
-            
+
     def get_volume_type(self, context, volume_type_id, trans_map=True):
         type_obj = cinderclient(context).volume_types.get(volume_type_id)
         if trans_map:
             return _untranslate_volume_type_summary_view(type_obj)
-        
+
         return type_obj
 
     def get_consisgroup(self, context, consisgroup_id):
@@ -350,29 +347,29 @@ class API(object):
         if trans_map:
             qos_list = []
             for qos in qoses:
-                qos_list.append( _untranslate_qos_summary_view(qos))
+                qos_list.append(_untranslate_qos_summary_view(qos))
             return qos_list
         return qoses
-            
+
     def get_qos_specs(self, context, qos_specs_id, trans_map=True):
         qos = cinderclient(context).qos_specs.get(qos_specs_id)
         if trans_map:
             return _untranslate_qos_summary_view(qos)
         return qos
-            
+
     def get_qos_associations(self, context, qos_specs_id):
         return cinderclient(context).qos_specs.get_associations(qos_specs_id)
-    
+
     def delete(self, context, volume_id):
         return cinderclient(context).volumes.delete(volume_id)
-    
+
     def set_volume_bootable(self, context, volume_id, flag):
         try:
             item = cinderclient(context).volumes.get(volume_id)
             cinderclient(context).volumes.set_bootable(item, flag)
         except cinder_exception.BadRequest as e:
-            raise exception.InvalidInput(reason=unicode(e)) 
-        
+            raise exception.InvalidInput(reason=unicode(e))
+
     def set_volume_shareable(self, context, volume_id, flag):
         try:
             item = cinderclient(context).volumes.get(volume_id)
@@ -386,5 +383,3 @@ class API(object):
             cinderclient(context).volumes.reset_state(item, state)
         except cinder_exception.BadRequest as e:
             raise exception.InvalidInput(reason=unicode(e))
-
- 

@@ -30,14 +30,14 @@ from conveyor import exception
 migrate_manager_opts = [
     cfg.StrOpt('volume_clone_driver',
                default='conveyor.clone.resources.volume.driver.volume.VolumeCloneDriver',
-               help='volume clone driver')              
+               help='volume clone driver')
 ]
-
 
 
 CONF = cfg.CONF
 CONF.register_opts(migrate_manager_opts)
 LOG = logging.getLogger(__name__)
+
 
 class CloneManager(object):
     """Manages the running instances from creation to destruction."""

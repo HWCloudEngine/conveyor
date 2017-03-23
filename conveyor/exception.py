@@ -332,10 +332,12 @@ class ResourceTypeNotSupported(V2vException):
     
 class PlanNotFound(NotFound):
     message = _("The plan <%(plan_id)s> could not be found.")
-   
+
+
 class PlanDeleteError(V2vException):
     message = _("Plan <%(plan_id)s> delete failed.")
-   
+
+
 class PlanUpdateError(V2vException):
     message = _("Plan updated failed. The key not found or unsupported to update.")
     
@@ -404,9 +406,15 @@ class PlanCloneFailed(V2vException):
     
 class PlanMigrateFailed(V2vException):
     message = _("migrate plan <%(id)s> failed.%(msg)s")
-    
+
+
 class TimeoutException(V2vException): 
     message = _("%(msg)s.")
-    
+
+
 class VolumeErrorException(V2vException):
     message = _("volume <%(id)s> status is error")
+
+
+class RetryException(V2vException):
+    msg_fmt = _('Need to retry, error info: %(error_info)s')

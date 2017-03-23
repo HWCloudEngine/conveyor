@@ -20,9 +20,8 @@ from oslo_utils import importutils
 
 def API():
     volume_api_class = cfg.CONF.volume_api_class
-    
     if volume_api_class is None:
         volume_api_class = 'conveyor.volume.cinder.API'
-        
+
     cls = importutils.import_class(volume_api_class)
     return cls()

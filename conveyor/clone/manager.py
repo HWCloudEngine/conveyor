@@ -545,8 +545,8 @@ class CloneManager(manager.Manager):
                                                               key)
                     phy_id = heat_res.physical_resource_id
                     server_info = self.compute_api.get_server(context, phy_id)
-                    vm_state = getattr(server_info, 'OS-EXT-STS:vm_state', None)
-                    v_exra_prop = value.get('extra_properties',{}) 
+                    vm_state = server_info.get('OS-EXT-STS:vm_state', None)
+                    v_exra_prop = value.get('extra_properties',{})
                     v_exra_prop['vm_state'] = vm_state
                     v_exra_prop['id'] = phy_id
                     value['extra_properties'] = v_exra_prop
@@ -556,7 +556,7 @@ class CloneManager(manager.Manager):
                     son_stack_id = value.get('id')
                     _add_extra_prop(son_template, son_stack_id)
                     value['content'] = json.dumps(son_template)
-                
+
 
 #                 else:
 #                     r = value.get('properties',{}).get('resource')
@@ -1586,8 +1586,10 @@ class CloneManager(manager.Manager):
                 server_id = value.id
                 server = self.compute_api.get_server(context, server_id)
                 volume_ids = []
-                if getattr(server, 'os-extended-volumes:volumes_attached', ''):
-                    volumes = getattr(server, 'os-extended-volumes:volumes_attached', [])
+                volumes_attached = \
+                    server.get('os-extended-volumes:volumes_attached', '')
+                if volumes_attached:
+                    volumes = volumes_attached
                     for v in volumes:
                         if v.get('id'):
                             volume_ids.append(v.get('id'))
@@ -1617,7 +1619,7 @@ class CloneManager(manager.Manager):
             except novaclient_exceptions.NotFound:
                 LOG.debug('the server %s deleted ' % server_id)
                 raise loopingcall.LoopingCallDone()
-            server_status = server.status
+            server_status = server.get('status', None)
             if server_status == 'ERROR':
                 LOG.debug('the server %s delete failed' % server_id)
                 loopingcall.LoopingCallDone()

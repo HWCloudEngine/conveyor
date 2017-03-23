@@ -227,17 +227,17 @@ class ResourceCommon(object):
             attempts = retries + 1
         for attempt in range(1, attempts + 1):
             instance = self.nova_api.get_server(context, instance_id)
-            instance_status = instance.status
+            instance_status = instance.get('status', None)
             if instance_status == 'ACTIVE':
-                LOG.debug(_("Instance id: %s finished being created"), instance_id)
+                LOG.debug(_("Instance:%s finished being created"), instance_id)
                 return attempt
-                
+
             greenthread.sleep(CONF.instance_create_retries_interval)
-            
+
         # NOTE(harlowja): Should only happen if we ran out of attempts
         raise exception.InstanceNotCreated(instance_id=instance_id,
-                                         seconds=int(time.time() - start),
-                                         attempts=attempts)
+                                           seconds=int(time.time() - start),
+                                           attempts=attempts)
 
     def _await_port_status(self, context, port_id, ip_address):
         # TODO(yamahata): creating volume simultaneously

@@ -118,18 +118,18 @@ class StackTemplateCloneDriver(object):
         '''copy volumes in template data'''
         resources = template.get('resources')
         instance = resources.get(resource_name)
-        #2. get server info
+        # 2. get server info
         server_id = instance.get('id')
         stack_id = template.get('stack_id')
-        
+
         try:
             server = self.nova_api.get_server(context, server_id)
         except Exception as e:
             LOG.error("Query server %(server_id)s error: %(error)s",
                       {'server_id': server_id, 'error': e})
             raise exception.ServerNotFound(server_id=server_id)
-        
-        #3. get volumes attached to this server
+
+        # 3. get volumes attached to this server
         properties = instance.get('properties')
         ext_properties = instance.get('extra_properties')
         volumes = properties.get('block_device_mapping_v2')
@@ -142,7 +142,7 @@ class StackTemplateCloneDriver(object):
                    'copy_tasks': []}
             return rsp
         bdms = []
-        
+
         for volume in volumes:
             # if volume id is string, this volume is using exist volume,
             # so does not copy data
@@ -171,25 +171,25 @@ class StackTemplateCloneDriver(object):
                 if vol_sys_dev:
                     volume['device_name'] = vol_sys_dev
             bdms.append(volume)
-            
+
         if not bdms:
             return {} 
-        #4. create transform data port to new instances
-        server_az = server._info.get('OS-EXT-AZ:availability_zone')
-        
+        # 4. create transform data port to new instances
+        server_az = server.get('OS-EXT-AZ:availability_zone', None)
+        id = server.get('id', None)
         if not server_az:
-            LOG.error('Can not get the availability_zone of server %s', server.id)
-            raise exception.AvailabilityZoneNotFound(server_uuid=server.id)
-        
+            LOG.error('Can not get the availability_zone of server %s', id)
+            raise exception.AvailabilityZoneNotFound(server_uuid=id)
+
         migrate_net_map = CONF.migrate_net_map
         migrate_net_id = migrate_net_map.get(server_az)
-        
+
         if migrate_net_id:
-            #4.1 call neutron api create port
+            # 4.1 call neutron api create port
             LOG.debug("Instance template driver attach port to instance start")
-            net_info = self.nova_api.interface_attach(context, server.id, migrate_net_id,
-                                                  port_id=None, fixed_ip=None)
-        
+            net_info = self.nova_api.interface_attach(context, id, migrate_net_id,
+                                                      port_id=None, fixed_ip=None)
+
             interface_attachment = net_info._info
             if interface_attachment:
                 LOG.debug('The interface attachment info is %s ' %str(interface_attachment))
@@ -197,7 +197,7 @@ class StackTemplateCloneDriver(object):
                 port_id = interface_attachment.get('port_id')
             else:
                 LOG.error("Instance template driver attach port failed")
-                raise exception.NoMigrateNetProvided(server_uuid=server.id)
+                raise exception.NoMigrateNetProvided(server_uuid=id)
         else:
             retrying = 1
             while retrying < 300:                
@@ -211,12 +211,11 @@ class StackTemplateCloneDriver(object):
         #waiting port attach finished, and can ping this vm
 #         if port_wait_fun:
 #             port_wait_fun(context, port_id, des_gw_ip)
-            
+
         LOG.debug("Instance template driver attach port end: %s", des_gw_ip)
         if not des_gw_ip:
             _msg = "New clone or migrate VM data transformer IP is None"
             raise exception.V2vException(message=_msg)
-        #des_gw_url = ip:port
         des_port = str(CONF.v2vgateway_api_listen_port)
         des_gw_url = des_gw_ip + ":" + des_port
 
@@ -225,71 +224,72 @@ class StackTemplateCloneDriver(object):
         data_trans_ports = CONF.trans_ports
         trans_port = data_trans_ports[0]
         src_gw_url = ext_properties.get('gw_url')
-        
+
         src_urls = src_gw_url.split(':')
-        
+
         if len(src_urls) != 2:
             LOG.error("Input source gw url error: %s", src_gw_url)
             msg = "Input source gw url error: " + src_gw_url
             raise exception.InvalidInput(reason=msg)
-        
-        #5. request birdiegateway service to clone each volume data
-        #record all volume data copy task id
+        # 5. request birdiegateway service to clone each volume data
+        # record all volume data copy task id
         task_ids = []
         for bdm in bdms:
             # 6.1 TODO: query cloned new VM volume name
-            #src_dev_name = "/dev/sdc"
+            # src_dev_name = "/dev/sdc"
             src_dev_name = bdm.get('device_name')
             client = birdiegatewayclient.get_birdiegateway_client(des_gw_ip, des_port)
             des_dev_name = client.vservices.get_disk_name(bdm.get('id')).get('dev_name')
             if not des_dev_name:
                 des_dev_name = src_dev_name
-                #des_dev_name = '/dev/vdb'
+
             src_dev_format = bdm.get('guest_format')
             # if template does not hava disk format and mount point info
             # query them from conveyor-agent
             if not src_dev_format:
                 client = birdiegatewayclient.get_birdiegateway_client(src_urls[0], src_urls[1])
                 src_dev_format = client.vservices.get_disk_format(src_dev_name).get('disk_format')
-            #if volume does not format, this volume not data to transformer
-            if not src_dev_format and  CONF.data_transformer_procotol == 'ftp':
+            # if volume does not format, this volume not data to transformer
+            if not src_dev_format and CONF.data_transformer_procotol == 'ftp':
                 continue
-                
+
             src_mount_point = bdm.get('mount_point')
-            
+
             if not src_mount_point:
-                client = birdiegatewayclient.get_birdiegateway_client(src_urls[0], src_urls[1])
+                client = birdiegatewayclient.get_birdiegateway_client(src_urls[0],
+                                                                      src_urls[1])
                 src_mount_point = client.vservices.get_disk_mount_point(src_dev_name).get('mount_point')
-                
+
             if not src_mount_point and CONF.data_transformer_procotol == 'ftp':
                 continue
-                
-                
-                
+
             mount_point = []
-            mount_point.append(src_mount_point)   
-            LOG.debug("Volume %(dev_name)s disk format is %(disk_format)s and mount point is %(point)s",
-                      {'dev_name': src_dev_name, 'disk_format': src_dev_format, 'point': src_mount_point})          
-           
+            mount_point.append(src_mount_point)
+            LOG.debug('Volume %(dev_name)s disk format is %(disk_format)s'
+                      ' and mount point is %(point)s',
+                      {'dev_name': src_dev_name,
+                       'disk_format': src_dev_format,
+                       'point': src_mount_point})
+
             # get conveyor gateway client to call birdiegateway api
             LOG.debug("Instance template driver transform data start")
-            client = birdiegatewayclient.get_birdiegateway_client(des_gw_ip, des_port)
+            client = birdiegatewayclient.get_birdiegateway_client(des_gw_ip,
+                                                                  des_port)
             clone_rsp = client.vservices.clone_volume(src_dev_name,
-                                          des_dev_name,
-                                          src_dev_format,
-                                          mount_point,
-                                          src_gw_url,
-                                          des_gw_url,
-                                          trans_protocol=data_trans_protocol,
-                                          trans_port=trans_port)
+                                                      des_dev_name,
+                                                      src_dev_format,
+                                                      mount_point,
+                                                      src_gw_url,
+                                                      des_gw_url,
+                                                      trans_protocol=data_trans_protocol,
+                                                      trans_port=trans_port)
             task_id = clone_rsp.get('body').get('task_id')
             if not task_id:
                 LOG.warn("Clone volume %(dev_name)s response is %(rsp)s",
                          {'dev_name': des_dev_name, 'rsp': clone_rsp})
                 continue
             task_ids.append(task_id)
-            
-        
+
         rsp = {'server_id': server_id,
                'port_id': port_id,
                'des_ip': des_gw_ip,
@@ -305,15 +305,14 @@ class StackTemplateCloneDriver(object):
         for infa in interfaces:
             if host_ip:
                 break
-            binding_profile =infa.get("binding:profile", [])
+            binding_profile = infa.get("binding:profile", [])
             if binding_profile:
                 host_ip = binding_profile.get('host_ip')
-        
+
         return host_ip
-    
-    
+
     def _get_resource_id(self, context, resource_name, stack_id):
-            
+
         try:
             LOG.debug("Query stack %(stack)s resource %(name)s id start",
                       {'stack': stack_id, 'name': resource_name})
