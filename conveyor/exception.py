@@ -406,12 +406,10 @@ class PlanCloneFailed(V2vException):
     
 class PlanMigrateFailed(V2vException):
     message = _("migrate plan <%(id)s> failed.%(msg)s")
-
-
+    
 class TimeoutException(V2vException): 
     message = _("%(msg)s.")
-
-
+    
 class VolumeErrorException(V2vException):
     message = _("volume <%(id)s> status is error")
 

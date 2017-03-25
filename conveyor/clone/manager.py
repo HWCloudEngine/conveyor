@@ -24,7 +24,7 @@ from oslo_log import log as logging
 from conveyor.i18n import _, _LE, _LI, _LW
 
 from conveyor import manager
-from conveyor import volume 
+from conveyor import volume
 from conveyor import compute
 from conveyor import network
 from conveyor.clone import rpcapi
@@ -52,14 +52,24 @@ from copy import deepcopy
 resource_from_dict = resource.Resource.from_dict
 
 manager_opts = [
-                cfg.ListOpt('resource_managers',
-                default=[
-                  'instance=conveyor.clone.resources.instance.manager.CloneManager',
-                  'volume=conveyor.clone.resources.volume.manager.CloneManager'
-                  ],
-                help='DEPRECATED. each resource manager class path.'),]
+    cfg.ListOpt('resource_managers',
+                default=['instance=conveyor.clone.resources.instance.'
+                         'manager.CloneManager',
+                         'volume=conveyor.clone.resources.volume.'
+                         'manager.CloneManager'],
+                help='DEPRECATED. each resource manager class path.')
+]
+clone_opts = [
+    cfg.StrOpt('clone_driver',
+               default='conveyor.clone.drivers.openstack.driver.'
+                       'OpenstackDriver.',
+               help='Driver to connect cloud')
+]
+
+
 CONF = cfg.CONF
 CONF.register_opts(manager_opts)
+CONF.register_opts(clone_opts)
 
 
 LOG = logging.getLogger(__name__)
@@ -72,27 +82,29 @@ parameters:
 resources:
 '''
 
-add_destination_res_type =['OS::Nova::Server' , 'OS::Cinder::Volume']
-no_action_res_type =['OS::Neutron::FloatingIP']
+add_destination_res_type = ['OS::Nova::Server', 'OS::Cinder::Volume']
+no_action_res_type = ['OS::Neutron::FloatingIP']
 
-RESOURCE_MAPPING={'OS::Neutron::Net': 'network',
-                  'OS::Neutron::Subnet':'subnet',
-                  'OS::Neutron::Port':'port',
-                  'OS::Neutron::Router': 'router',
-                  'OS::Neutron::SecurityGroup': 'securitygroup',
-                  'OS::Cinder::VolumeType': 'volumeType',
-                  'OS::Cinder::Volume': 'volume',
-                  'OS::Nova::Flavor': 'flavor',
-                  'OS::Nova::KeyPair': 'keypair',   
-                  'OS::Nova::Server': 'instance',
-                  'OS::Neutron::FloatingIP': 'floatingIp',
-                  'OS::Neutron::Vip': 'loadbalanceVip',
-                  'OS::Neutron::Pool': 'loadbalancePool',
-                  'OS::Neutron::Listener': 'loadbalanceListener',
-                  'OS::Neutron::PoolMember': 'loadbalanceMember',
-                  'OS::Neutron::HealthMonitor': 'loadbalanceHealthMonitor',
-                  'OS::Cinder::ConsistencyGroup': 'consistencyGroup',
-                  'OS::Cinder::Qos': 'qos'}
+RESOURCE_MAPPING = {
+    'OS::Neutron::Net': 'network',
+    'OS::Neutron::Subnet': 'subnet',
+    'OS::Neutron::Port': 'port',
+    'OS::Neutron::Router': 'router',
+    'OS::Neutron::SecurityGroup': 'securitygroup',
+    'OS::Cinder::VolumeType': 'volumeType',
+    'OS::Cinder::Volume': 'volume',
+    'OS::Nova::Flavor': 'flavor',
+    'OS::Nova::KeyPair': 'keypair',
+    'OS::Nova::Server': 'instance',
+    'OS::Neutron::FloatingIP': 'floatingIp',
+    'OS::Neutron::Vip': 'loadbalanceVip',
+    'OS::Neutron::Pool': 'loadbalancePool',
+    'OS::Neutron::Listener': 'loadbalanceListener',
+    'OS::Neutron::PoolMember': 'loadbalanceMember',
+    'OS::Neutron::HealthMonitor': 'loadbalanceHealthMonitor',
+    'OS::Cinder::ConsistencyGroup': 'consistencyGroup',
+    'OS::Cinder::Qos': 'qos'
+}
 
 
 STATE_MAP = {
@@ -100,7 +112,6 @@ STATE_MAP = {
     'CREATE_COMPLETE': 'finished',
     'CREATE_FAILED': 'error',
 }
-
 
 
 def manager_dict_from_config(named_manager_config, *args, **kwargs):
@@ -127,7 +138,7 @@ class CloneManager(manager.Manager):
 
     def __init__(self, *args, **kwargs):
         """Load configuration options and connect to the hypervisor."""
-        
+
         self.clone_managers = manager_dict_from_config(
             CONF.resource_managers, self)
         self.volume_api = volume.API()
@@ -142,36 +153,46 @@ class CloneManager(manager.Manager):
         self._resource_tracker_dict = {}
         self._syncs_in_progress = {}
         self.resource_api = resource_api.ResourceAPI()
+        clone_driver_class = importutils.import_class(CONF.clone_driver)
+        self.clone_driver = clone_driver_class()
+
         super(CloneManager, self).__init__(service_name="clone",
-                                             *args, **kwargs)
+                                           *args, **kwargs)
         self.conveyor_cmd = base.MigrationCmd()
-   
+
     def start_template_clone(self, context, template):
-        '''here control all resources to distribute, and rollback after error occurring '''
-        
+        '''here control all resources to distribute,
+
+        and rollback after error occurring '''
+
         LOG.debug("Clone resources start in clone manager")
         stack = None
-        #(1. TODO: resolute template,and generate the dependences topo) 
-        #(2.TODO: generate TaskFlow according to dependences topo(first, execute leaf node resource))
+        # (1. TODO: resolute template,and generate the dependences topo)
+        # (2.TODO: generate TaskFlow according to dependences topo(first,
+        # execute leaf node resource))
         clone_type = CONF.clone_migrate_type
         if 'cold' == clone_type:
-            template = self._cold_clone(context, template, plan_status.STATE_MAP)
+            template = self._cold_clone(context, template,
+                                        plan_status.STATE_MAP)
         else:
-            template = self._live_clone(context, template, plan_status.STATE_MAP)
-        #1. remove the self-defined keys in template to generate heat template
+            template = self._live_clone(context, template,
+                                        plan_status.STATE_MAP)
+        # 1. remove the self-defined keys in template to generate heat template
         src_template = copy.deepcopy(template.get('template'))
         try:
-            LOG.error('liuling begin time of heat create resource is %s' %(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())))
-            stack = self._create_resource_by_heat(context, template, plan_status.STATE_MAP)
-            LOG.error('liuling end time of heat create resource is %s' %(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())))
+            LOG.error('liuling begin time of heat create resource is %s'
+                      % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())))
+            stack = self._create_resource_by_heat(context, template,
+                                                  plan_status.STATE_MAP)
+            LOG.error('liuling end time of heat create resource is %s'
+                      % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())))
         except Exception as e:
             LOG.error("Heat create resource error: %s", e)
             if not template.get('disable_rollback') and stack:
                 stack_id = stack.get('stack').get('id')
                 self.heat_api.delete_stack(context, stack_id)
             return None
-        
-        #if plan status is error after create resources
+        # if plan status is error after create resources
         plan_id = template.get('plan_id')
         plan = self.resource_api.get_plan_by_id(context, plan_id, detail=False)
         plan_state = plan.get('plan_status')
@@ -181,101 +202,102 @@ class CloneManager(manager.Manager):
                 stack_id = stack.get('stack').get('id')
                 self.heat_api.delete_stack(context, stack_id)
             return None
-        
         stack_info = stack.get('stack')
-        #5. after stack creating success,  start copy data and other steps
-        #5.1 according to resource type get resource manager, then call this manager clone template function
-        
+        # 5. after stack creating success,  start copy data and other steps
+        # 5.1 according to resource type get resource manager,
+        # then call this manager clone template function
         src_resources = src_template.get("resources")
-        
         if not src_resources:
             values = {}
             values['plan_status'] = plan_status.STATE_MAP.get('FINISHED')
             self.resource_api.update_plan(context, plan_id, values)
             LOG.warning("Clone resource warning: clone resource is empty.")
             return stack_info['id']
-                
         LOG.debug("After pop self define info, resources: %s", src_resources)
         try:
             for key, resource in src_resources.items():
                 res_type = resource['type']
                 if res_type in no_action_res_type:
                     values = {}
-                    values['plan_status'] = plan_status.STATE_MAP.get('DATA_TRANS_FINISHED')
+                    values['plan_status'] = plan_status.STATE_MAP.get(
+                        'DATA_TRANS_FINISHED')
                     self.resource_api.update_plan(context, plan_id, values)
                     continue
-                #5.2 resource create successful, get resource ID, and add to resource
-                heat_resource = self.heat_api.get_resource(context, stack_info['id'], key)
+                # 5.2 resource create successful, get resource ID,
+                # and add to resource
+                heat_resource = self.heat_api.get_resource(context,
+                                                           stack_info['id'],
+                                                           key)
                 resource['id'] = heat_resource.physical_resource_id
                 src_template['stack_id'] = stack_info['id']
-                #after step need update plan status
+                # after step need update plan status
                 src_template['plan_id'] = plan_id
-                #5.3 call resource manager clone fun
+                # 5.3 call resource manager clone fun
                 manager_type = RESOURCE_MAPPING.get(res_type)
                 if not manager_type:
                     values = {}
-                    values['plan_status'] = plan_status.STATE_MAP.get('DATA_TRANS_FINISHED')
+                    values['plan_status'] = plan_status.STATE_MAP.get(
+                        'DATA_TRANS_FINISHED')
                     self.resource_api.update_plan(context, plan_id, values)
                     continue
                 rs_maganger = self.clone_managers.get(manager_type)
                 if not rs_maganger:
                     values = {}
-                    values['plan_status'] = plan_status.STATE_MAP.get('DATA_TRANS_FINISHED')
+                    values['plan_status'] = plan_status.STATE_MAP.get(
+                        'DATA_TRANS_FINISHED')
                     self.resource_api.update_plan(context, plan_id, values)
                     continue
                 rs_maganger.start_template_clone(context, key, src_template)
         except Exception as e:
             LOG.error("Clone resource error: %s", e)
-            
-            #if clone failed and rollback parameter is true, rollback all resource
+            # if clone failed and rollback parameter is true,
+            # rollback all resource
             if not template.get('disable_rollback'):
                 self.heat_api.delete_stack(context, stack_info['id'])
 
             # set plan status is error
             values = {}
-            values['plan_status'] = plan_status.STATE_MAP.get('DATA_TRANS_FAILED')
-            self.resource_api.update_plan(context, plan_id, values)            
+            values['plan_status'] = plan_status.STATE_MAP.get(
+                'DATA_TRANS_FAILED')
+            self.resource_api.update_plan(context, plan_id, values)
             return None
 
         # all resources clone success, set plan status finished
         values = {}
         values['plan_status'] = plan_status.STATE_MAP.get('FINISHED')
-        self.resource_api.update_plan(context, plan_id, values) 
-            
+        self.resource_api.update_plan(context, plan_id, values)
         return stack_info['id']
         LOG.debug("Clone resources end in clone manager")
-        
+
     def _export_template(self, context, id, sys_clone=False):
-        # get migrate net map
-        migrate_net_map = CONF.migrate_net_map
         # get plan info
         plan = self.resource_api.get_plan_by_id(context, id)
         if not plan:
-            LOG.error('get plan %s failed' % id)
+            LOG.error(_LE('get plan %s failed') % id)
             raise exception.PlanNotFound(plan_id=id)
         expire_time = plan.get('expire_at')
         plan_type = plan.get('plan_type')
         resource_map = plan.get('updated_resources')
-        LOG.debug("the resource_map is %s" % resource_map)
+        LOG.debug("The resource_map is %s" % resource_map)
         for key, value in resource_map.items():
             resource_map[key] = resource_from_dict(value)
         # add migrate port
         if resource_map:
+            undo_mgr = None
             try:
-                undo_mgr = utils.UndoManager()
-                self._add_extra_properties(context, resource_map, sys_clone,
-                                           undo_mgr)
+                undo_mgr = self.clone_driver.handle_resources(
+                    context, id, resource_map, sys_clone)
                 self._update_plan_resources(context, resource_map, id)
-                self._set_resources_state(context, resource_map)
                 self._format_template(resource_map, id, expire_time, plan_type)
             except Exception as e:
-                LOG.error('the generate template of plan %s failed, and rollback operations,\
+                LOG.error('The generate template of plan %s failed, and rollback operations,\
                           the error is %s', id, str(e))
-                undo_mgr._rollback()
+                if undo_mgr:
+                    undo_mgr._rollback()
                 raise exception.ExportTemplateFailed(id=id, msg=str(e))
         self.resource_api.update_plan(context, id,
                                       {'plan_status': plan_status.AVAILABLE})
-        LOG.debug("export template end in clone manager")
+        LOG.debug("Export template end in clone manager")
         return resource_map, expire_time
 
     def _update_plan_resources(self, context, resource_map, plan_id):
@@ -286,12 +308,12 @@ class CloneManager(manager.Manager):
                                       {'updated_resources': updated_resources})
 
     def export_clone_template(self, context, id, sys_clone):
-        LOG.debug("export clone template start in clone manager")
+        LOG.debug("Export clone template start in clone manager")
         return self._export_template(context, id, sys_clone)
-    
-    def export_template_and_clone(self, context, id, destination, 
+
+    def export_template_and_clone(self, context, id, destination,
                                   update_resources={}, sys_clone=False):
-        LOG.debug('export template and clone start in clone manager')
+        LOG.debug('Export template and clone start in clone manager')
         if update_resources:
             self.resource_api.update_plan_resources(context, id,
                                                     update_resources)
@@ -331,478 +353,46 @@ class CloneManager(manager.Manager):
             rule = dict((k, v) for k, v in rule.items() if v is not None)
             brules.append(rule)
         return brules
-    
-    def _add_extra_properties_for_server(self, context, resource, resource_map,
-                                         sys_clone, undo_mgr):
-        migrate_net_map = CONF.migrate_net_map
-        server_properties = resource.properties
-        server_id = resource.id
-        server_extra_properties = resource.extra_properties
-        server_az = server_properties.get('availability_zone')
-        vm_state = server_extra_properties.get('vm_state')
-        gw_url = server_extra_properties.get('gw_url')
-        if not gw_url:
-            if vm_state == 'stopped':
-                gw_id, gw_ip = utils.get_next_vgw(server_az)
-                if not gw_id or not gw_ip:
-                    raise exception.V2vException(message='no vgw host found')
-                gw_url = gw_ip + ':' + str(CONF.v2vgateway_api_listen_port)
-                resource.extra_properties.update({"gw_url": gw_url,
-                                                  "gw_id": gw_id})
-                resource.extra_properties['sys_clone'] = sys_clone
-                resource.extra_properties['is_deacidized'] = True
-                block_device_mapping = server_properties.get('block_device_mapping_v2')
-                if block_device_mapping:
-                    for block_device in block_device_mapping:
-                        volume_name = block_device.get('volume_id').get('get_resource')
-                        volume_resource = resource_map.get(volume_name)
-                        volume_resource.extra_properties['gw_url'] = gw_url
-                        volume_resource.extra_properties['is_deacidized'] = True
-                        boot_index = block_device.get('boot_index')
-                        dev_name = block_device.get('device_name')
-                        if boot_index == 0 or boot_index == '0':
-                            volume_resource.extra_properties['sys_clone'] = sys_clone
-                            if sys_clone:
-                                self._handle_sv_for_svm(context, volume_resource,
-                                                        gw_id, gw_ip, undo_mgr)
-                        else:
-                            self._handle_dv_for_svm(context, volume_resource, server_id,
-                                                    dev_name, gw_id, gw_ip, undo_mgr)
-            else:
-                if migrate_net_map:
-                    # get the availability_zone of server
-                    server_az = server_properties.get('availability_zone')
-                    if not server_az:
-                        LOG.error('can not get the availability_zone of server %s' %resource.id)
-                        raise exception.AvailabilityZoneNotFound(server_uuid=resource.id)
-                    migrate_net_id = migrate_net_map.get(server_az)
-                    if not migrate_net_id:
-                        LOG.error('can not get the migrate net of server %s' %resource.id)
-                        raise exception.NoMigrateNetProvided(server_uuid=resource.id)
-                    # attach interface
-                    LOG.debug('attach a port of net %s to server %s',
-                              migrate_net_id,
-                              server_id)
-                    obj = self.compute_api.interface_attach(context, server_id,
-                                                            migrate_net_id,
-                                                            None,
-                                                            None)
-                    interface_attachment = obj._info
-                    if interface_attachment:
-                        LOG.debug('the interface attachment info is %s ' %str(interface_attachment))
-                        migrate_fix_ip = interface_attachment.get('fixed_ips')[0].get('ip_address')
-                        migrate_port_id = interface_attachment.get('port_id')
-                        undo_mgr.undo_with(functools.partial
-                                           (self.compute_api.interface_detach,
-                                            context,
-                                            server_id,
-                                            migrate_port_id))
-                        gw_url = migrate_fix_ip + ':' + str(CONF.v2vgateway_api_listen_port)
-                        extra_properties ={}
-                        extra_properties['gw_url'] = gw_url
-                        extra_properties['is_deacidized'] = True
-                        extra_properties['migrate_port_id'] = migrate_port_id
-                        extra_properties['sys_clone'] = sys_clone
-                        resource.extra_properties.update(extra_properties)
-                        # waiting port attach finished, and can ping this vm
-                        self._await_port_status(context, migrate_port_id,
-                                                migrate_fix_ip)
-                else:
-                    interfaces = self.neutron_api.port_list(context,
-                                                            device_id=server_id)
-                    host_ip = None
-                    for infa in interfaces:
-                        if host_ip:
-                            break
-                        binding_profile = infa.get("binding:profile", [])
-                        if binding_profile:
-                            host_ip = binding_profile.get('host_ip')
-                    if not host_ip:
-                        LOG.error('can not find the clone data ip for server')
-                        raise exception.NoMigrateNetProvided(server_uuid=resource.id)
-                    gw_url = host_ip + ':' + str(CONF.v2vgateway_api_listen_port)
-                    extra_properties ={}
-                    extra_properties['gw_url'] = gw_url
-                    extra_properties['sys_clone'] = sys_clone
-                    resource.extra_properties.update(extra_properties)
-                block_device_mapping = server_properties.get('block_device_mapping_v2')
-                if block_device_mapping:
-                    gw_urls = gw_url.split(':') 
-                    client = birdiegatewayclient.get_birdiegateway_client(gw_urls[0], gw_urls[1])
-                    for block_device in block_device_mapping:
-                        device_name = block_device.get('device_name')
-                        volume_name = block_device.get('volume_id').get('get_resource')
-                        volume_resource = resource_map.get(volume_name)
-                        boot_index = block_device.get('boot_index')
-                        if boot_index == 0 or boot_index == '0':
-                            volume_resource.extra_properties['sys_clone'] = sys_clone
-                        src_dev_format = client.vservices.get_disk_format(device_name).get('disk_format')
-                        src_mount_point = client.vservices.get_disk_mount_point(device_name).get('mount_point')
-                        volume_resource.extra_properties['guest_format'] = src_dev_format
-                        volume_resource.extra_properties['mount_point'] = src_mount_point
-                        volume_resource.extra_properties['gw_url'] = gw_url
-                        volume_resource.extra_properties['is_deacidized'] = True
-                        sys_dev_name = client.vservices.get_disk_name(volume_resource.id).get('dev_name')
-                        if not sys_dev_name:
-                            sys_dev_name = device_name
-                        volume_resource.extra_properties['sys_dev_name'] = sys_dev_name
-
-    def _set_resources_state(self, context, resource_map):
-        for key, value in resource_map.items():
-            resource_type = value.type
-            resource_id = value.id
-            if resource_type == 'OS::Nova::Server':
-                self.compute_api.reset_state(context, resource_id, 'cloning')
-            elif resource_type == 'OS::Cinder::Volume':
-                self.volume_api.reset_state(context, resource_id, 'cloning')
-            elif resource_type == 'OS::Heat::Stack':
-                self._set_resources_state_for_stack(context, value)
-                
-    def _set_resources_state_for_stack(self, context, resource):
-        template_str = resource.properties.get('template')
-        template = json.loads(template_str)
-
-        def _set_state(template):
-            temp_res = template.get('resources')
-            for key, value in temp_res.items():
-                res_type = value.get('type')
-                if res_type == 'OS::Cinder::Volume':
-                    vid = value.get('extra_properties', {}).get('id')
-                    if vid:
-                        self.volume_api.reset_state(context, vid, 'cloning') 
-                elif res_type == 'OS::Nova::Server':
-                    sid = value.get('extra_properties', {}).get('id')
-                    if sid:
-                        self.compute_api.reset_state(context, sid, 'cloning')
-                elif res_type and res_type.startswith('file://'):
-                    son_template = value.get('content')
-                    son_template = json.loads(son_template)
-                    _set_state(son_template)
-        _set_state(template)
-
-    def _add_extra_properties(self, context, resource_map, sys_clone, undo_mgr):
-        for key, value in resource_map.items():
-            resource_type = value.type
-            if resource_type == 'OS::Nova::Server':
-                self._add_extra_properties_for_server(context, value,
-                                                      resource_map, sys_clone,
-                                                      undo_mgr)
-            elif resource_type == 'OS::Cinder::Volume':
-                clone_along_with_vm = False
-                for name in resource_map:
-                    r = resource_map[name]
-                    if r.type == 'OS::Nova::Server':
-                        for p in r.properties.get('block_device_mapping_v2', []):
-                            volume_key = p.get('volume_id', {}).get('get_resource')
-                            if volume_key and key == volume_key:
-                                clone_along_with_vm = True
-                                # value.extra_properties['clone_along_with_vm'] = clone_along_with_vm
-                                break
-                    if clone_along_with_vm:
-                        break
-                if not clone_along_with_vm:
-                    self._add_extra_properties_for_dep_volume(context, value, undo_mgr)
-            elif resource_type == 'OS::Heat::Stack':
-                self._add_extra_properties_for_stack(context, value, undo_mgr)
-
-    def _add_extra_properties_for_stack(self,context, resource, undo_mgr):
-        res_prop = resource.properties
-        stack_id = resource.id
-        template = json.loads(res_prop.get('template'))
-        def is_file_type(t):
-            return t and t.startswith('file://')
-        
-        def _add_extra_prop(template, stack_id):
-            temp_res = template.get('resources')
-            for key,value in temp_res.items():
-                res_type = value.get('type')
-                if res_type == 'OS::Cinder::Volume':
-                    v_prop = value.get('properties')
-                    v_exra_prop = value.get('extra_properties',{}) 
-                    if not v_exra_prop or not v_exra_prop.get('gw_url'):
-                        heat_res = self.heat_api.get_resource(context,
-                                                              stack_id,
-                                                              key)
-                        phy_id = heat_res.physical_resource_id
-                        res_info = self.volume_api.get(context, phy_id)
-                        az = res_info.get('availability_zone')
-                        gw_id, gw_ip = utils.get_next_vgw(az)
-                        if not gw_id or not gw_ip:
-                            raise exception.V2vException(message='no vgw host found')
-                        gw_url = gw_ip + ':' + str(CONF.v2vgateway_api_listen_port) 
-                        v_exra_prop.update({"gw_url": gw_url, "gw_id": gw_id})
-                        v_exra_prop['is_deacidized'] = True
-                        v_exra_prop['id'] = phy_id
-                        volume_status = res_info['status']
-                        v_exra_prop['status'] = volume_status
-                        value['extra_properties'] = v_exra_prop
-                        value['id'] = phy_id
-                        self._handle_volume_for_stack(context, value, gw_id,
-                                                      gw_ip, undo_mgr)
-                elif res_type == 'OS::Nova::Server':
-                    heat_res = self.heat_api.get_resource(context,
-                                                              stack_id,
-                                                              key)
-                    phy_id = heat_res.physical_resource_id
-                    server_info = self.compute_api.get_server(context, phy_id)
-                    vm_state = server_info.get('OS-EXT-STS:vm_state', None)
-                    v_exra_prop = value.get('extra_properties',{})
-                    v_exra_prop['vm_state'] = vm_state
-                    v_exra_prop['id'] = phy_id
-                    value['extra_properties'] = v_exra_prop
-                elif res_type and res_type.startswith('file://'):
-                    son_template = value.get('content')
-                    son_template = json.loads(son_template)
-                    son_stack_id = value.get('id')
-                    _add_extra_prop(son_template, son_stack_id)
-                    value['content'] = json.dumps(son_template)
-
-
-#                 else:
-#                     r = value.get('properties',{}).get('resource')
-#                     if not r or not is_file_type(r.get('type')):
-#                         continue
-#                     son_template = r.get('content')
-#                     son_template = json.loads(son_template)
-#                     son_stack_id = r.get('id')
-#                     _add_extra_prop(son_template, son_stack_id)
-#                     r['content'] = json.dumps(son_template)
-        _add_extra_prop(template, stack_id)
-        res_prop['template'] = json.dumps(template)
-
-    def _add_extra_properties_for_dep_volume(self, context, resource, undo_mgr):
-        volume_id = resource.id
-        volume = self.volume_api.get(context, volume_id)
-        volume_status = volume['status']
-        is_shareable = volume['shareable']
-        if volume_status == 'in_use' and is_shareable == 'false':
-            error_message ='the volume is in_use and not shareable'
-            raise exception.V2vException(message=error_message)
-        else:
-            gw_url = resource.extra_properties.get('gw_url')
-            if not gw_url:
-                az = resource.properties.get('availability_zone')
-                gw_id, gw_ip = utils.get_next_vgw(az)
-                if not gw_id or not gw_ip:
-                    raise exception.V2vException(message='no vgw host found')
-                gw_url = gw_ip + ':' + str(CONF.v2vgateway_api_listen_port) 
-                resource.extra_properties.update({"gw_url": gw_url, "gw_id": gw_id})
-                resource.extra_properties['is_deacidized'] = True
-                self._handle_dep_volume(context, resource, gw_id, gw_ip, undo_mgr)
-
-    def _handle_dep_volume(self, context, resource, gw_id, gw_ip, undo_mgr):
-        volume_id = resource.id
-        LOG.debug('attach volume %s to gw host %s', volume_id, gw_id)
-        attach_resp = self.compute_api.attach_volume(context,
-                                                     gw_id,
-                                                     volume_id,
-                                                     None)
-        undo_mgr.undo_with(functools.partial(self._detach_volume,
-                                             gw_id,
-                                             volume_id))
-        self._wait_for_volume_status(context, volume_id,
-                                     gw_id,
-                                     'in-use')
-        resource.extra_properties['status'] = 'in-use'
-        LOG.debug('begin get info for volume,the vgw ip %s' % gw_ip)
-        client = birdiegatewayclient.get_birdiegateway_client(gw_ip,
-                                                              str(CONF.v2vgateway_api_listen_port))
-        # sys_dev_name = client.vservices.get_disk_name(volume_id).get('dev_name')
-        # sys_dev_name = device_name
-        sys_dev_name = attach_resp._info.get('device')
-        resource.extra_properties['sys_dev_name'] = sys_dev_name
-        guest_format = client.vservices.get_disk_format(sys_dev_name)\
-                             .get('disk_format')
-        if guest_format:
-            resource.extra_properties['guest_format'] = guest_format
-            mount_point = client.vservices.force_mount_disk(sys_dev_name,
-                                                            "/opt/" + volume_id)
-            resource.extra_properties['mount_point'] = mount_point.get('mount_disk')
-
-    def _attach_volume(self, context, server_id, volume_id, device):
-        self.compute_api.attach_volume(context, server_id, volume_id,
-                                       device)
-        self._wait_for_volume_status(context, volume_id, server_id,'in-use')
-
-    def _detach_volume(self, context, server_id, volume_id):
-        self.compute_api.detach_volume(context, server_id,
-                                        volume_id)
-        self._wait_for_volume_status(context, volume_id, server_id,
-                                      'available')
-
-    def _set_volume_shareable(self, context, volume_id, flag):
-        self.volume_api.set_volume_shareable(context, volume_id, flag)
-
-    def _handle_dv_for_svm(self, context, vol_res, server_id, dev_name,
-                           gw_id, gw_ip, undo_mgr):
-        volume_id = vol_res.id
-        LOG.debug('detach the volume %s form server %s', volume_id, server_id)
-        self.compute_api.detach_volume(context, server_id,
-                                       volume_id)
-        undo_mgr.undo_with(functools.partial(self._attach_volume,
-                                             context,
-                                             server_id,
-                                             volume_id,
-                                             dev_name))
-        self._wait_for_volume_status(context, volume_id, server_id,
-                                     'available')
-        attach_resp = self.compute_api.attach_volume(context,
-                                                     gw_id,
-                                                     volume_id,
-                                                     None)
-        LOG.debug('attach volume %s to gw host %s', volume_id, gw_id)
-        undo_mgr.undo_with(functools.partial(self._detach_volume,
-                                             context,
-                                             gw_id,
-                                             volume_id))
-        self._wait_for_volume_status(context, volume_id, gw_id,
-                                     'in-use')
-        LOG.debug('begin get info for volume,the vgw ip %s' % gw_ip)
-        client = birdiegatewayclient.get_birdiegateway_client(gw_ip, 
-                                                              str(CONF.v2vgateway_api_listen_port))
-        # sys_dev_name = client.vservices.get_disk_name(volume_id).get('dev_name')
-        # sys_dev_name = device_name
-        sys_dev_name = attach_resp._info.get('device')
-        vol_res.extra_properties['sys_dev_name'] = sys_dev_name
-        guest_format = client.vservices.get_disk_format(sys_dev_name)\
-                             .get('disk_format')
-        if guest_format:
-            vol_res.extra_properties['guest_format'] = guest_format
-            mount_point = client.vservices.force_mount_disk(sys_dev_name,
-                                                            "/opt/" + volume_id)
-            vol_res.extra_properties['mount_point'] = mount_point.get('mount_disk')
-
-    def _handle_volume_for_stack(self, context, vol_res,
-                                 gw_id, gw_ip, undo_mgr):
-        volume_id = vol_res.get('id')
-        volume_info =  self.volume_api.get(context, volume_id)
-        volume_status = volume_info['status']
-        v_shareable = volume_info['shareable']
-        if v_shareable == 'false' and volume_status == 'in-use':
-            vol_res.get('extra_properties')['set_shareable'] = True
-            self.volume_api.set_volume_shareable(context, volume_id, True)
-            undo_mgr.undo_with(functools.partial(self._set_volume_shareable,
-                                                 context,
-                                                 volume_id,
-                                                 False))
-        LOG.debug('attach volume %s to gw host %s', volume_id, gw_id)
-        attach_resp = self.compute_api.attach_volume(context,
-                                                     gw_id,
-                                                     volume_id,
-                                                     None)
-        LOG.debug('the volume attachment info is %s '
-                  % str(attach_resp))
-        undo_mgr.undo_with(functools.partial(self._detach_volume,
-                                             context,
-                                             gw_id,
-                                            volume_id))
-        self._wait_for_volume_status(context, volume_id, gw_id,
-                                        'in-use')
-        vol_res.get('extra_properties')['status'] = 'in-use'
-        LOG.debug('begin get info for volume,the vgw ip %s' % gw_ip)
-        client = birdiegatewayclient.get_birdiegateway_client(gw_ip, 
-                                                              str(CONF.v2vgateway_api_listen_port))
-        device_name = attach_resp._info.get('device')
-        # sys_dev_name = client.vservices.get_disk_name(volume_id).get('dev_name')
-        sys_dev_name = device_name
-        vol_res.get('extra_properties')['sys_dev_name'] = sys_dev_name
-        guest_format = client.vservices.get_disk_format(sys_dev_name)\
-                             .get('disk_format')
-        if guest_format:
-            vol_res.get('extra_properties')['guest_format'] = guest_format
-            mount_point = client.vservices.force_mount_disk(sys_dev_name,
-                                                            "/opt/" + volume_id)
-            vol_res.get('extra_properties')['mount_point'] = mount_point.get('mount_disk')
-
-    def _handle_sv_for_svm(self, context, vol_res,
-                           gw_id, gw_ip, undo_mgr):
-        volume_id = vol_res.id
-        LOG.debug('set the volume %s shareable', volume_id)
-        self.volume_api.set_volume_shareable(context, volume_id, True)
-        undo_mgr.undo_with(functools.partial(self._set_volume_shareable,
-                                             context,
-                                             volume_id,
-                                             False))
-        attach_resp = self.compute_api.attach_volume(context,
-                                                     gw_id,
-                                                     volume_id,
-                                                     None)
-        LOG.debug('attach the volume %s to gw host %s ', volume_id, gw_id)
-        undo_mgr.undo_with(functools.partial(self._detach_volume,
-                                             context,
-                                             gw_id,
-                                             volume_id))
-        self._wait_for_volume_status(context, volume_id, gw_id,
-                                     'in-use')
-        LOG.debug('begin get info for volume,the vgw ip %s' % gw_ip)
-        client = birdiegatewayclient.get_birdiegateway_client(gw_ip,
-                                                              str(CONF.v2vgateway_api_listen_port))
-        # sys_dev_name = client.vservices.get_disk_name(volume_id).get('dev_name')
-        # sys_dev_name = device_name
-        sys_dev_name = attach_resp._info.get('device')
-        vol_res.extra_properties['sys_dev_name'] = sys_dev_name
-        guest_format = client.vservices.get_disk_format(sys_dev_name)\
-                             .get('disk_format')
-        if guest_format:
-            vol_res.extra_properties['guest_format'] = guest_format
-            mount_point = client.vservices.force_mount_disk(sys_dev_name,
-                                                            "/opt/" + volume_id)
-            vol_res.extra_properties['mount_point'] = mount_point.get('mount_disk')
-
-    def _handle_volume_after_migrate_for_svm(self, context, resource_map,
-                                              original_server_volume_map):
-        if original_server_volume_map:
-            for server_key in list(original_server_volume_map):
-                server_id, volume_list = original_server_volume_map[server_key]
-                for volume_key, volume_id, device_name in volume_list:
-                    vgw_id = resource_map.get(server_key).extra_properties.get('gw_id')
-                    vgw_url = resource_map.get(server_key).extra_properties.get('gw_url')
-                    vgw_ip = vgw_url.split(':')[0]
-                    client = birdiegatewayclient.get_birdiegateway_client(vgw_ip,
-                                                                        str(CONF.v2vgateway_api_listen_port))
-                    client.vservices._force_umount_disk("/opt/" + volume_id)
-                    self.compute_api.detach_volume(context, vgw_id, volume_id)
-                    self._wait_for_volume_status(context, volume_id,vgw_id, 'available')
-                    self.volume_api.delete(context, volume_id)
 
     def clone(self, context, id, destination, sys_clone):
-        LOG.debug("execute clone plan in clone manager")
+        LOG.debug("Execute clone plan in clone manager")
         self.resource_api.update_plan(context, id,
                                       {'plan_status': plan_status.CLONING})
         # get plan info
         plan = self.resource_api.get_plan_by_id(context, id)
         if not plan:
-            LOG.error('get plan %s failed' % id)
+            LOG.error(_LE('Get plan %s failed') % id)
             raise exception.PlanNotFound(plan_id=id)
         expire_time = plan.get('expire_at')
         resource_map = plan.get('updated_resources')
-        LOG.debug("the resource_map is %s" % resource_map)
+        LOG.debug("The resource_map is %s" % resource_map)
         for key, value in resource_map.items():
             resource_map[key] = resource_from_dict(value)
         resource_cb_map = {
-                                 'OS::Nova::Flavor': self.compute_api.get_flavor,
-                                 'OS::Neutron::FloatingIP': self.neutron_api.get_floatingip,
-                                 'OS::Neutron::Net': self.neutron_api.get_network,
-                                 'OS::Neutron::SecurityGroup': self.neutron_api.get_security_group,
-                                 'OS::Neutron::Subnet': self.neutron_api.get_subnet,
-                                 'OS::Nova::KeyPair': self.compute_api.get_keypair,
-                                 'OS::Neutron::Router': self.neutron_api.get_router,
-                                 'OS::Neutron::RouterInterface': self.neutron_api.get_port,
-                                 'OS::Cinder::VolumeType': self.volume_api.get_volume_type,
-                                 'OS::Cinder::Qos': self.volume_api.get_qos_specs
-                                 }
+            'OS::Nova::Flavor': self.compute_api.get_flavor,
+            'OS::Neutron::FloatingIP': self.neutron_api.get_floatingip,
+            'OS::Neutron::Net': self.neutron_api.get_network,
+            'OS::Neutron::SecurityGroup': self.neutron_api.get_security_group,
+            'OS::Neutron::Subnet': self.neutron_api.get_subnet,
+            'OS::Nova::KeyPair': self.compute_api.get_keypair,
+            'OS::Neutron::Router': self.neutron_api.get_router,
+            'OS::Neutron::RouterInterface': self.neutron_api.get_port,
+            'OS::Cinder::VolumeType': self.volume_api.get_volume_type,
+            'OS::Cinder::Qos': self.volume_api.get_qos_specs
+        }
         description_map = {
-                           'OS::Nova::Flavor': 'Flavor description',
-                           'OS::Neutron::FloatingIP': 'FloatingIP description',
-                           'OS::Neutron::Net': 'Network description',
-                           'OS::Neutron::SecurityGroup': 'Security group description',
-                           'OS::Neutron::Subnet': 'Subnet description',
-                           'OS::Neutron::Port': 'Port description',
-                           'OS::Nova::KeyPair': 'KeyPair description',
-                           'OS::Neutron::Router': 'Router description',
-                           'OS::Neutron::RouterInterface': 'RouterInterface description',
-                           'OS::Cinder::VolumeType': 'VolumeType description',
-                           'OS::Cinder::Qos': 'Volume Qos description'}
+            'OS::Nova::Flavor': 'Flavor description',
+            'OS::Neutron::FloatingIP': 'FloatingIP description',
+            'OS::Neutron::Net': 'Network description',
+            'OS::Neutron::SecurityGroup': 'Security group description',
+            'OS::Neutron::Subnet': 'Subnet description',
+            'OS::Neutron::Port': 'Port description',
+            'OS::Nova::KeyPair': 'KeyPair description',
+            'OS::Neutron::Router': 'Router description',
+            'OS::Neutron::RouterInterface': 'RouterInterface description',
+            'OS::Cinder::VolumeType': 'VolumeType description',
+            'OS::Cinder::Qos': 'Volume Qos description'
+        }
         resources = resource_map.values()
         template = yaml.load(template_skeleton)
         template['resources'] = template_resource = {}
@@ -815,12 +405,14 @@ class CloneManager(manager.Manager):
                 self._clone_stack(context, stack_prop, id)
 
         if not resource_map:
-            self.resource_api.update_plan(context, id,
-                                          {'plan_status': plan_status.FINISHED})
+            self.resource_api.update_plan(
+                context, id, {'plan_status': plan_status.FINISHED})
             return
         for resource in resources:
-            template['resources'].update(copy.deepcopy(resource.template_resource))
-            template['parameters'].update(copy.deepcopy(resource.template_parameter))
+            template['resources'].update(
+                copy.deepcopy(resource.template_resource))
+            template['parameters'].update(
+                copy.deepcopy(resource.template_parameter))
 
         # handle for lb
         self._handle_lb(template_resource)
@@ -839,11 +431,10 @@ class CloneManager(manager.Manager):
                 else:
                     net_template = resource.get('properties').get('network_id')
                     net_key = net_template.get('get_resource') or \
-                              net_template.get('get_param')
+                        net_template.get('get_param')
                     net_id = resource_map[net_key].id
-                    is_exist = self._judge_resource_exist(context,
-                                                          self.neutron_api.get_network,
-                                                          net_id)
+                    is_exist = self._judge_resource_exist(
+                        context, self.neutron_api.get_network, net_id)
                     _pop_need = is_exist
                 # maybe exist problem if the network not exist
                 for _fix_ip in resource.get('properties', {})\
@@ -866,10 +457,11 @@ class CloneManager(manager.Manager):
                     # special treatment for floatingip
                     if resource['type'] == 'OS::Neutron::FloatingIP':
                         if resource_result.get('fixed_ip_address'):
-                            self.resource_api.update_plan(context, id,
-                                                          {'plan_status': plan_status.ERROR})
-                            error_message ='the floatingip %s exist and be used' \
-                                                           % resource_id
+                            self.resource_api.update_plan(
+                                context, id,
+                                {'plan_status': plan_status.ERROR})
+                            error_message = 'the floatingip %s exist and be used' \
+                                % resource_id
                             raise exception.PlanCloneFailed(id=id,
                                                             msg=error_message)
                     # add parameters into template if exists
@@ -900,18 +492,18 @@ class CloneManager(manager.Manager):
                         cinderclient_exceptions.NotFound):
                     pass
         template = {
-                    "template": {
-                        "heat_template_version": '2013-05-23',
-                        "description": "clone template",
-                        "parameters": template['parameters'],
-                        "resources": template_resource
-                    },
-                    "plan_id": id
-                    }
-        LOG.debug("the template is  %s ", template)
+            "template": {
+                "heat_template_version": '2013-05-23',
+                "description": "clone template",
+                "parameters": template['parameters'],
+                "resources": template_resource
+            },
+            "plan_id": id
+        }
+        LOG.debug("The template is  %s ", template)
         stack_id = self.start_template_clone(context, template)
         if not stack_id:
-            LOG.error('clone template error')
+            LOG.error(_LE('Clone template error'))
             self.resource_api.update_plan(context, id,
                                           {'plan_status': plan_status.ERROR})
 
@@ -926,26 +518,26 @@ class CloneManager(manager.Manager):
         timer = loopingcall.FixedIntervalLoopingCall(_wait_for_plan_finished,
                                                      context)
         timer.start(interval=0.5).wait()
-        
         LOG.error('liuling end time of clone is %s' %
                   (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())))
-        
+
     def _clone_stack(self, context, stack_info, plan_id):
         LOG.debug('begin clone stack')
         self.resource_api.update_plan(context, plan_id,
-                                           {'plan_status':plan_status.CLONING}) 
+                                      {'plan_status': plan_status.CLONING})
         template = stack_info.get('template')
         template_dict = json.loads(template)
         origin_template_dict = copy.deepcopy(template_dict)
         disable_rollback = stack_info.get('disable_rollback')
         stack_name = stack_info.get('stack_name')
-        f_template, son_file_template = self._get_template_contents(template_dict)
+        f_template, son_file_template = self._get_template_contents(
+            template_dict)
         stack_kwargs = dict(stack_name=stack_name+'_clone',
                             disable_rollback=disable_rollback,
                             template=f_template,
                             files=son_file_template
                             )
-        stack=None
+        stack = None
         try:
             stack = self.heat_api.create_stack(context, **stack_kwargs)
             origin_template_dict['stack_id'] = stack.get('stack').get('id')
@@ -954,13 +546,13 @@ class CloneManager(manager.Manager):
             LOG.debug(("Deploy plan %(plan_id)s, with stack error %(error)s."),
                       {'plan_id': plan_id, 'error': e})
             self.resource_api.update_plan(context, plan_id,
-                                           {'plan_status':plan_status.ERROR})
+                                          {'plan_status': plan_status.ERROR})
             if stack:
                 stack_id = stack.get('stack').get('id')
                 self.heat_api.delete_stack(context, stack_id)
             raise exception.PlanDeployError(plan_id=plan_id)
-        
         stack_id = stack.get('stack').get('id')
+
         def _wait_for_boot():
             """Called at an interval until the resources are deployed ."""
             stack = self.heat_api.get_stack(context, stack_id)
@@ -970,16 +562,17 @@ class CloneManager(manager.Manager):
                 raise loopingcall.LoopingCallDone()
         timer = loopingcall.FixedIntervalLoopingCall(_wait_for_boot)
         timer.start(interval=0.5).wait()
-        
+
         stack = self.heat_api.get_stack(context, stack_id)
         state = stack.stack_status
         if state == 'CREATE_FAILED':
             self.heat_api.delete_stack(context, stack_id)
             self.resource_api.update_plan(context, plan_id,
-                                           {'plan_status':plan_status.ERROR})
+                                          {'plan_status': plan_status.ERROR})
             raise exception.PlanDeployError(plan_id=plan_id)
-        self._copy_data_for_stack(context, origin_template_dict, stack_id, plan_id)
-        
+        self._copy_data_for_stack(context, origin_template_dict,
+                                  stack_id, plan_id)
+
     def _copy_data_for_stack(self, context, template, stack_id, plan_id):
         volume_template = deepcopy(template)
         template['stack_id'] = stack_id
@@ -994,10 +587,11 @@ class CloneManager(manager.Manager):
                 son_template = json.loads(res.get('content'))
                 son_stack = self.heat_api.get_resource(context,
                                                        stack_id,
-                                                       key) 
+                                                       key)
                 son_stack_id = son_stack.physical_resource_id
                 son_template['stack_id'] = son_stack_id
-                self._copy_data_for_stack(context, son_template, son_stack_id, plan_id)
+                self._copy_data_for_stack(context, son_template,
+                                          son_stack_id, plan_id)
 #             else:
 #                 r = res.get('properties',{}).get('resource')
 #                 if not r or not r.get('type').startswith('file://'):
@@ -1006,11 +600,12 @@ class CloneManager(manager.Manager):
 #                 son_template = json.loads(r.get('content'))
 #                 son_stack_id = r.get('id')
 #                 son_template['stack_id'] = son_stack_id
-#                 self._copy_data_for_stack(context, son_template, son_stack_id, plan_id)
+#                  self._copy_data_for_stack(context, son_template,
+#                                            son_stack_id, plan_id)
 
         if volume_resource:
             volume_template['resources'] = volume_resource
-            template={}
+            template = {}
             template['template'] = copy.deepcopy(volume_template)
             template['plan_id'] = plan_id
             self._afther_resource_created_handler(context, template, stack_id)
@@ -1021,7 +616,7 @@ class CloneManager(manager.Manager):
     def _get_template_contents(self, template_dict):
         LOG.debug('the origin template is %s', template_dict)
         resources = template_dict.get('resources')
-        file_template={}
+        file_template = {}
         for key, res in resources.items():
             if 'extra_properties' in res:
                 res.pop('extra_properties')
@@ -1039,8 +634,8 @@ class CloneManager(manager.Manager):
 
         def _get_file_template(file_template):
             final_file_template = {}
-            for k,v in file_template.items():
-                son_file_template={}
+            for k, v in file_template.items():
+                son_file_template = {}
                 son_template_dict = json.loads(v)
                 son_res = son_template_dict.get('resources')
                 for key, res in son_res.items():
@@ -1053,22 +648,23 @@ class CloneManager(manager.Manager):
                         son_file_template[res_type] = res.get('content')
                         res.pop('content')
                 final_file_template[k] = json.dumps(son_template_dict)
-                if  son_file_template:
-                    final_son_file_template =_get_file_template(son_file_template)
+                if son_file_template:
+                    final_son_file_template = _get_file_template(
+                        son_file_template)
                     final_file_template.update(final_son_file_template)
-            return  final_file_template 
+            return final_file_template
         return template_dict, _get_file_template(file_template)
-              
+
     def _handle_lb(self, template_resource):
         vip_pool_dict = {}
         vip_listener_dict = {}
         # get the relation for vip
-        for key in list(template_resource): 
+        for key in list(template_resource):
             resource = template_resource[key]
             if resource['type'] == 'OS::Neutron::Vip':
                 pools = []
                 listeners = []
-                for key_inner in list(template_resource): 
+                for key_inner in list(template_resource):
                     resoure_inner = template_resource[key_inner]
                     if resoure_inner['type'] == 'OS::Neutron::Pool':
                         proper = resoure_inner.get('properties')
@@ -1089,7 +685,8 @@ class CloneManager(manager.Manager):
             proper = vip_resource.get('properties')
             vip_properties = {}
             if proper.get('connection_limit'):
-                vip_properties['connection_limit'] = proper.get('connection_limit')
+                vip_properties['connection_limit'] = proper.get(
+                    'connection_limit')
             if proper.get('subnet'):
                 vip_properties['subnet'] = proper.get('subnet')
             if proper.get('address'):
@@ -1099,14 +696,15 @@ class CloneManager(manager.Manager):
             if proper.get('name'):
                 vip_properties['name'] = proper.get('name')
             if proper.get('session_persistence'):
-                vip_properties['session_persistence'] = proper.get('session_persistence')
+                vip_properties['session_persistence'] = proper.get(
+                    'session_persistence')
             for pool_key in value:
                 pool_res = template_resource.get(pool_key)
                 pool_res.get('properties')['vip'] = vip_properties
         for key, value in vip_listener_dict.items():
             for listener_key in value:
                 template_resource.pop(listener_key)
-        for key in list(template_resource): 
+        for key in list(template_resource):
             resource = template_resource[key]
             if resource['type'] == 'OS::Neutron::Vip':
                 template_resource.pop(key)
@@ -1121,7 +719,8 @@ class CloneManager(manager.Manager):
                     migrate_port_id = extra_properties.get('migrate_port_id')
                     if migrate_port_id:
                         try:
-                            self.compute_api.interface_detach(context, server_id,
+                            self.compute_api.interface_detach(context,
+                                                              server_id,
                                                               migrate_port_id)
                         except Exception as e:
                             LOG.warning('detach the interface %s from server %s \
@@ -1150,22 +749,25 @@ class CloneManager(manager.Manager):
             raise exception.PlanUpdateError
 
     def export_migrate_template(self, context, id,):
-        LOG.debug("export migrate template start in clone manager")
+        LOG.debug("Export migrate template start in clone manager")
         return self._export_template(context, id)
 
     def start_template_migrate(self, context, template):
-        '''here control all resources to distribute, and rollback after error occurring '''
+        '''here control all resources to distribute,
+        and rollback after error occurring '''
         LOG.debug("Migrate resources start in clone manager")
         src_template = copy.deepcopy(template.get('template'))
         try:
-            LOG.error('liuling begin time of migrate create resource is %s' %
-                      (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())))
-            stack = self._create_resource_by_heat(context, template,
-                                                  plan_status.MIGRATE_STATE_MAP)
-            LOG.error('liuling end time of migrate create resource is %s' %
+            LOG.error(_LE('Liuling begin time of migrate'
+                          'create resource is %s')
+                      % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())))
+            stack = self._create_resource_by_heat(
+                context, template,
+                plan_status.MIGRATE_STATE_MAP)
+            LOG.error('Liuling end time of migrate create resource is %s' %
                       (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())))
         except Exception as e:
-            LOG.error("Heat create resource error: %s", e)
+            LOG.error(_LE("Heat create resource error: %s"), e)
             return None
         stack_info = stack.get('stack')
         src_resources = src_template.get("resources")
@@ -1173,7 +775,8 @@ class CloneManager(manager.Manager):
         try:
             for key, resource in src_resources.items():
                 res_type = resource['type']
-                # 5.2 resource create successful, get resource ID, and add to resource
+                # 5.2 resource create successful, get resource ID,
+                # and add to resource
                 heat_resource = self.heat_api.get_resource(context,
                                                            stack_info['id'],
                                                            key)
@@ -1190,8 +793,9 @@ class CloneManager(manager.Manager):
                 rs_maganger.start_template_migrate(context, key, src_template)
             return stack_info['id']
         except Exception as e:
-            LOG.error("Migrate resource error: %s", e)
-            # if clone failed and rollback parameter is true, rollback all resource
+            LOG.error(_LE("Migrate resource error: %s"), e)
+            # if clone failed and rollback parameter is true,
+            # rollback all resource
             if not template.get('disable_rollback'):
                 self.heat_api.delete_stack(context, stack_info['id'])
             return None
@@ -1201,7 +805,7 @@ class CloneManager(manager.Manager):
         # 1. remove the self-defined keys in template to generate heat template
         stack_template = template['template']
         resources = stack_template['resources']
-        # remove the self-defined keys in template 
+        # remove the self-defined keys in template
         for key, res in resources.items():
             if 'extra_properties' in res:
                 res.pop('extra_properties')
@@ -1221,7 +825,7 @@ class CloneManager(manager.Manager):
         except Exception as e:
             LOG.debug(("Deploy plan %(plan_id)s, with stack error %(error)s."),
                       {'plan_id': plan_id, 'error': e})
-            raise exception.PlanDeployError(plan_id=plan_id)     
+            raise exception.PlanDeployError(plan_id=plan_id)
         # 3. update plan info in plan table
         values = {}
         stack_info = stack.get('stack')
@@ -1254,42 +858,43 @@ class CloneManager(manager.Manager):
         resource_map = None
         expire_time = None
         try:
-            resource_map, expire_time = self.export_migrate_template(context, id)
+            resource_map, expire_time = self.export_migrate_template(context,
+                                                                     id)
         except (exception.ExportTemplateFailed, exception.PlanNotFound):
             self.resource_api.update_plan(context, id,
                                           {'plan_status': plan_status.ERROR})
             return
         resource_cb_map = {
-                                'OS::Nova::Flavor': self.compute_api.get_flavor,
-                                'OS::Neutron::Net': self.neutron_api.get_network,
-                                'OS::Neutron::SecurityGroup': self.neutron_api.get_security_group,
-                                'OS::Neutron::Subnet': self.neutron_api.get_subnet,
-                                'OS::Nova::KeyPair': self.compute_api.get_keypair,
-                                'OS::Neutron::Router': self.neutron_api.get_router,
-                                'OS::Neutron::RouterInterface': self.neutron_api.get_port,
-                                'OS::Cinder::VolumeType': self.volume_api.get_volume_type
-                                }
+            'OS::Nova::Flavor': self.compute_api.get_flavor,
+            'OS::Neutron::Net': self.neutron_api.get_network,
+            'OS::Neutron::SecurityGroup': self.neutron_api.get_security_group,
+            'OS::Neutron::Subnet': self.neutron_api.get_subnet,
+            'OS::Nova::KeyPair': self.compute_api.get_keypair,
+            'OS::Neutron::Router': self.neutron_api.get_router,
+            'OS::Neutron::RouterInterface': self.neutron_api.get_port,
+            'OS::Cinder::VolumeType': self.volume_api.get_volume_type
+        }
         description_map = {
-                            'OS::Nova::Flavor': 'Flavor description',
-                            'OS::Neutron::Net' : 'Network description',
-                            'OS::Neutron::SecurityGroup': 'Security group description',
-                            'OS::Neutron::Subnet': 'Subnet description',
-                            'OS::Nova::KeyPair': 'KeyPair description',
-                            'OS::Neutron::Router': 'Router description',
-                            'OS::Neutron::RouterInterface': 'RouterInterface description',
-                            'OS::Cinder::VolumeType':'VolumeType description'
-                          }
+            'OS::Nova::Flavor': 'Flavor description',
+            'OS::Neutron::Net': 'Network description',
+            'OS::Neutron::SecurityGroup': 'Security group description',
+            'OS::Neutron::Subnet': 'Subnet description',
+            'OS::Nova::KeyPair': 'KeyPair description',
+            'OS::Neutron::Router': 'Router description',
+            'OS::Neutron::RouterInterface': 'RouterInterface description',
+            'OS::Cinder::VolumeType': 'VolumeType description'
+        }
         resources = resource_map.values()
         template = yaml.load(template_skeleton)
         template['resources'] = template_resource = {}
         template['parameters'] = {}
         # add expire_time
         template['expire_time'] = expire_time
-       
-
         for resource in resources:
-            template['resources'].update(copy.deepcopy(resource.template_resource))
-            template['parameters'].update(copy.deepcopy(resource.template_parameter))
+            template['resources'].update(copy.deepcopy(
+                resource.template_resource))
+            template['parameters'].update(copy.deepcopy(
+                resource.template_parameter))
         # { 'server_0': ('server_0.id, [('port_0','port_0.id']) }
         original_server_port_map = {}
         for name in template_resource:
@@ -1299,18 +904,19 @@ class CloneManager(manager.Manager):
                 for p in r['properties'].get('networks', []):
                     port_name = p.get('port', {}).get('get_resource')
                     port_id = template_resource[port_name]\
-                                    .get('extra_properties')['id']
+                        .get('extra_properties')['id']
                     net_name = template_resource[port_name].get('properties')\
                                                            .get('network_id')\
                                                            .get('get_resource')
-                    net_id = template_resource[net_name].get('extra_properties')['id']
-                    is_exist = self._judge_resource_exist(context,
-                                                          self.neutron_api.get_network,
-                                                          net_id)
+                    net_id = template_resource[net_name] \
+                        .get('extra_properties')['id']
+                    is_exist = self._judge_resource_exist(
+                        context, self.neutron_api.get_network, net_id)
                     if is_exist:
                         port_list.append((port_name, port_id))
-                original_server_port_map[name] =(r.get('extra_properties')['id'], port_list)
-        # port and fp map {'port_0':[('floatingip_0','floatingip_0.id', 'fix_ip')]
+                original_server_port_map[name] = (r.get('extra_properties')
+                                                  ['id'], port_list)
+        # port & fp map {'port_0':[('floatingip_0','floatingip_0.id','fix_ip')]
         exist_port_fp_map = {}
         unassociate_floationgip = []
         for key in list(template_resource):
@@ -1320,28 +926,46 @@ class CloneManager(manager.Manager):
                 for name in list(template_resource):
                     resource_roll = template_resource[name]
                     if resource_roll['type'] == 'OS::Neutron::FloatingIP':
-                        if resource_roll['properties'].get('port_id').get('get_resource') == key:
-                            floatingip_net_key = resource_roll['properties'].get('floating_network_id',{}).get('get_resource')
-                            net_id = template_resource[floatingip_net_key].get('extra_properties')['id']
-                            is_exist = self._judge_resource_exist(context, self.neutron_api.get_network, net_id)
+                        if resource_roll['properties'].get('port_id') \
+                                .get('get_resource') == key:
+                            floatingip_net_key = resource_roll['properties']\
+                                .get('floating_network_id', {}) \
+                                .get('get_resource')
+                            net_id = template_resource[floatingip_net_key]\
+                                .get('extra_properties')['id']
+                            is_exist = self._judge_resource_exist(
+                                context,
+                                self.neutron_api.get_network,
+                                net_id)
                             if is_exist:
-                                fix_ip_index = resource_roll['properties'].get('fixed_ip_address',{}).get('get_attr')[2]
+                                fix_ip_index = resource_roll['properties']\
+                                    .get('fixed_ip_address', {}) \
+                                    .get('get_attr')[2]
                                 fix_ip = resource['properties'].get('fixed_ips')[fix_ip_index]\
-                                                               .get('ip_address')
-                                fp_list.append((name, resource_roll.get('extra_properties')['id'],fix_ip )) 
-                                floatingip_id = resource_roll.get('extra_properties')['id']
-                                floatingip_info = self.neutron_api.get_floatingip(floatingip_id)
-                                floationgip_port_id = floatingip_info.get('port_id')
+                                    .get('ip_address')
+                                fp_list.append(
+                                    (name,
+                                     resource_roll.get('extra_properties')
+                                     ['id'],
+                                     fix_ip))
+                                floatingip_id = \
+                                    resource_roll.get('extra_properties')['id']
+                                floatingip_info = \
+                                    self.neutron_api.get_floatingip(
+                                        floatingip_id)
+                                floationgip_port_id = floatingip_info.get(
+                                    'port_id')
                                 if not floationgip_port_id:
-                                    unassociate_floationgip.append(floatingip_id)
+                                    unassociate_floationgip.append(
+                                        floatingip_id)
                 exist_port_fp_map[key] = fp_list
 
         for key in list(template_resource):
             # need pop from template ,such as floatingip
             resource = template_resource[key]
-            if resource['type'] == 'OS::Neutron::FloatingIP':   
-                floatingip_net_key = resource['properties'].get('floating_network_id',{})\
-                                                           .get('get_resource')
+            if resource['type'] == 'OS::Neutron::FloatingIP':
+                floatingip_net_key = resource['properties'] \
+                    .get('floating_network_id', {}).get('get_resource')
                 net_resource = resource_map[floatingip_net_key]
                 net_resource_id = net_resource.id
                 cb = resource_cb_map.get(net_resource.type)
@@ -1350,8 +974,9 @@ class CloneManager(manager.Manager):
                         if not net_resource_id:
                             continue
                         cb(context, net_resource_id)
-                        LOG.debug(" resource %s exists, remove the floatingip", floatingip_net_key)
-                        template_resource.pop(key) 
+                        LOG.debug("Resource %s exists, remove the floatingip",
+                                  floatingip_net_key)
+                        template_resource.pop(key)
                         continue
                     except neutronclient_exceptions.NotFound:
                         pass
@@ -1368,7 +993,7 @@ class CloneManager(manager.Manager):
                     if not net_resource_id:
                         continue
                     cb(context, resource_id)
-                    LOG.debug(" resource %s exists", key)  
+                    LOG.debug(" resource %s exists", key)
                     # if the network exists,pop the ip_address
                     if resource['type'] == 'OS::Neutron::Net':
                         for _k in template_resource:
@@ -1377,13 +1002,14 @@ class CloneManager(manager.Manager):
                                 _r['properties'].get('network_id', {})\
                                                 .get('get_resource') == key:
                                 _r.get('properties').pop('mac_address')
-                                for _f in _r['properties'].get('fixed_ips', []):
+                                for _f in _r['properties'].get('fixed_ips',
+                                                               []):
                                     _f.pop('ip_address', None)
                     # add parameters into template if exists
                     template['parameters'][key] = {
-                            'default': resource_id,
-                            'description': description_map[resource['type']],
-                            'type': 'string'
+                        'default': resource_id,
+                        'description': description_map[resource['type']],
+                        'type': 'string'
                     }
 
                     def _update_resource(r_list):
@@ -1404,27 +1030,27 @@ class CloneManager(manager.Manager):
                 except (novaclient_exceptions.NotFound,
                         neutronclient_exceptions.NotFound):
                     pass
-        template = { "template":
-                    {
-                      "heat_template_version": '2013-05-23',
-                      "description": "clone template",
-                      "parameters": template['parameters'],
-                      "resources": template_resource
-                    },
-                    "plan_id": id
-                    }
+        template = {
+            "template":
+                {
+                    "heat_template_version": '2013-05-23',
+                    "description": "clone template",
+                    "parameters": template['parameters'],
+                    "resources": template_resource
+                },
+            "plan_id": id
+        }
         LOG.debug("the template is  %s ", template)
         stack_id = self.start_template_migrate(context, template)
         if not stack_id:
             LOG.error('clone template error')
             self.resource_api.update_plan(context, id,
                                           {'plan_status': plan_status.ERROR})
-           
             raise exception.PlanCloneFailed(id=id, msg='')
         # after finish the clone plan ,detach migrate port
         if CONF.migrate_net_map:
             self._clear_migrate_port(context, resource_map)
-        plan = self.resource_api.get_plan_by_id(context, id) 
+        plan = self.resource_api.get_plan_by_id(context, id)
         if plan.get('plan_status') == plan_status.ERROR:
             raise exception.PlanMigrateFailed(id=id)
         self._realloc_port_floating_ip(context, id, original_server_port_map,
@@ -1432,9 +1058,10 @@ class CloneManager(manager.Manager):
                                        unassociate_floationgip,
                                        resource_map, stack_id)
         self._clear(context, resource_map)
-        self.resource_api.update_plan(context, id, {'plan_status': plan_status.FINISHED})
-        LOG.error('liuling begin time of migrate is %s' %
-                  (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))) 
+        self.resource_api.update_plan(context, id,
+                                      {'plan_status': plan_status.FINISHED})
+        LOG.error('Liuling begin time of migrate is %s' %
+                  (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())))
 
     def _judge_resource_exist(self, context, cb, resource_id):
         is_exist = False
@@ -1442,10 +1069,11 @@ class CloneManager(manager.Manager):
             cb(context, resource_id)
             LOG.debug('the resource %s exist' % resource_id)
             is_exist = True
-        except (novaclient_exceptions.NotFound, neutronclient_exceptions.NotFound):
+        except (novaclient_exceptions.NotFound,
+                neutronclient_exceptions.NotFound):
             pass
         return is_exist
-    
+
     def _realloc_port_floating_ip(self, context, id,
                                   server_port_map, port_fp_map,
                                   unassociate_floationgip, resource_map,
@@ -1458,7 +1086,7 @@ class CloneManager(manager.Manager):
                 r = self.heat_api.get_resource(context, stack_id, key)
                 key_dst_heat_resource[key] = r
             return r.physical_resource_id
-        # { 'server_0': ('server_0.id, [('port_0','port_0.id']) } 
+        # { 'server_0': ('server_0.id, [('port_0','port_0.id']) }
 
         for server_key in list(server_port_map):
             server_id, port_list = server_port_map[server_key]
@@ -1476,8 +1104,8 @@ class CloneManager(manager.Manager):
 
             def _create_attach_port(server_id, port_key, port_param):
                 try:
-                    port_id_new = self.neutron_api.create_port(context,
-                                                               {'port': port_params})
+                    port_id_new = self.neutron_api.create_port(
+                        context, {'port': port_params})
                     port_temp_map[port_key] = port_id_new
                 except (neutronclient_exceptions.IpAddressInUseClient,
                         neutronclient_exceptions.MacAddressInUseClient):
@@ -1493,36 +1121,44 @@ class CloneManager(manager.Manager):
                     fp_list = port_fp_map.get(port_key)
                     port_temp_map[port_key] = port_id
                     for (fp_key, fp_id, fix_ip) in fp_list:
-                        # disassociate floating_ip 
-                        LOG.debug('begin disassociate floating_ip %s' % fp_id)
+                        # disassociate floating_ip
+                        LOG.debug('Begin disassociate floating_ip %s' % fp_id)
                         if fp_id not in unassociate_floationgip:
-                            self.neutron_api.disassociate_floating_ip(context, fp_id)
-                            undo_mgr.undo_with(functools.partial(_associate_fip,
-                                                                 fp_id,
-                                                                 port_key))
-                    LOG.debug('begin detach interface %s form server %s ' %
+                            self.neutron_api.disassociate_floating_ip(context,
+                                                                      fp_id)
+                            undo_mgr.undo_with(functools.partial(
+                                _associate_fip, fp_id, port_key))
+
+                    LOG.debug('Begin detach interface %s form server %s ' %
                               (port_id, server_id))
                     # Note interface_detach will delete the port.
                     self.compute_api.interface_detach(context, server_id,
                                                       port_id)
                     port_info = resource_map.get(port_key)
-                    net_key = port_info.properties.get('network_id').get('get_resource')
-                    security_group_list = port_info.properties.get('security_groups')
+                    net_key = port_info.properties.get('network_id')\
+                                                  .get('get_resource')
+                    security_group_list = port_info.properties.get(
+                        'security_groups')
                     security_group_ids = []
                     for security_group in security_group_list:
                         security_group_key = security_group.get('get_resource')
-                        security_group_id = resource_map.get(security_group_key).id
+                        security_group_id = resource_map.get(
+                            security_group_key).id
                         security_group_ids.append(security_group_id)
-                    port_params = {'network_id': resource_map.get(net_key).id, 
-                                   'mac_address': port_info.properties.get('mac_address'),
+                    port_params = {'network_id': resource_map.get(net_key).id,
                                    'security_groups': security_group_ids,
-                                   'admin_state_up': True}
+                                   'admin_state_up': True,
+                                   'mac_address': port_info.properties.get(
+                        'mac_address')
+                        }
                     for fix in port_info.properties.get('fixed_ips', []):
-                        subnet_key = fix.get('subnet_id', {}).get('get_resource')
+                        subnet_key = fix.get('subnet_id', {}) \
+                                        .get('get_resource')
                         subnet_id = resource_map.get(subnet_key).id
                         fix_param = {'subnet_id': subnet_id,
                                      'ip_address': fix.get('ip_address')}
-                        port_params.setdefault('fixed_ips', []).append(fix_param)
+                        port_params.setdefault('fixed_ips', []) \
+                                   .append(fix_param)
 
                     # interface_detach rolling back callback
                     undo_mgr.undo_with(functools.partial(_create_attach_port,
@@ -1531,27 +1167,29 @@ class CloneManager(manager.Manager):
                     create_port_attempt = 150
                     for i in range(create_port_attempt):
                         try:
-                            LOG.debug('begin create new port %s', port_params)
-                            port_id_new = self.neutron_api.create_port(context,
-                                                                       {'port': port_params})
-                            LOG.debug(' create new port success the port is %s',\
+                            LOG.debug('Begin create new port %s', port_params)
+                            port_id_new = self.neutron_api.create_port(
+                                context, {'port': port_params})
+                            LOG.debug('Create new port success the port is %s',
                                       port_id_new)
                             port_temp_map[port_key] = port_id_new
-                            undo_mgr.undo_with(functools.partial(_delete_port, port_id_new))
+                            undo_mgr.undo_with(functools.partial(_delete_port,
+                                                                 port_id_new))
                             break
                         except (neutronclient_exceptions.IpAddressInUseClient,
-                                neutronclient_exceptions.MacAddressInUseClient):
+                                neutronclient_exceptions.MacAddressInUseClient
+                                ):
                             time.sleep(1)
                             pass
                     if not port_id_new:
                         port_id_new = port_id
                     dst_server_port_id = _get_resource_id_by_key(port_key)
-                    LOG.debug('begin detach interface %s from server %s' 
+                    LOG.debug('begin detach interface %s from server %s'
                               % (dst_server_port_id, dst_server_id))
                     # no rolling back for dst server.
                     self.compute_api.interface_detach(context, dst_server_id,
                                                       dst_server_port_id)
-                    LOG.debug('begin attach interface %s to server %s' 
+                    LOG.debug('begin attach interface %s to server %s'
                               % (port_id_new, dst_server_id))
                     # no rolling back for dst server.
                     self.compute_api.interface_attach(context, dst_server_id,
@@ -1559,19 +1197,22 @@ class CloneManager(manager.Manager):
                     # no rolling back for dst server.
                     if fp_list:
                         LOG.debug('begin associate floating_ip %s to server %s'
-                                   % (fp_id, dst_server_id))
-                        self.neutron_api.associate_floating_ip(context, fp_id,
-                                                               port_id_new,
-                                                               fixed_address=fix_ip)
-                        undo_mgr.undo_with(functools.partial(self.heat_api.delete_stack,
-                                                             context, stack_id))
-            except Exception as e: # TODO, clarify exceptions
-                LOG.exception("Failed migrate server_id %s due to %s, so rollback it.",
+                                  % (fp_id, dst_server_id))
+                        self.neutron_api.associate_floating_ip(
+                            context,
+                            fp_id,
+                            port_id_new,
+                            fixed_address=fix_ip)
+                        undo_mgr.undo_with(functools.partial(
+                            self.heat_api.delete_stack, context, stack_id))
+            except Exception as e:
+                LOG.exception("Failed migrate server_id %s due to %s,"
+                              "so rollback it.",
                               server_id, str(e.msg))
                 LOG.error("START rollback for %s ......", server_id)
                 undo_mgr._rollback()
-                self.resource_api.update_plan(context, id,
-                                           {'plan_status':plan_status.ERROR}) 
+                self.resource_api.update_plan(
+                    context, id, {'plan_status': plan_status.ERROR})
                 try:
                     self.heat_api.delete_stack(context, stack_id)
                 except Exception:
@@ -1586,16 +1227,16 @@ class CloneManager(manager.Manager):
                 server_id = value.id
                 server = self.compute_api.get_server(context, server_id)
                 volume_ids = []
-                volumes_attached = \
-                    server.get('os-extended-volumes:volumes_attached', '')
-                if volumes_attached:
-                    volumes = volumes_attached
+                if getattr(server, 'os-extended-volumes:volumes_attached', ''):
+                    volumes = getattr(server,
+                                      'os-extended-volumes:volumes_attached',
+                                      [])
                     for v in volumes:
                         if v.get('id'):
                             volume_ids.append(v.get('id'))
                 self.compute_api.delete_server(context, server_id)
-                timer = loopingcall.FixedIntervalLoopingCall(self._wait_for_server_termination,
-                                                             context, server_id)
+                timer = loopingcall.FixedIntervalLoopingCall(
+                    self._wait_for_server_termination, context, server_id)
                 timer.start(interval=0.5).wait()
                 for v_id in volume_ids:
                     self.volume_api.delete(context, v_id)
@@ -1619,115 +1260,22 @@ class CloneManager(manager.Manager):
             except novaclient_exceptions.NotFound:
                 LOG.debug('the server %s deleted ' % server_id)
                 raise loopingcall.LoopingCallDone()
-            server_status = server.get('status', None)
+            server_status = server.status
             if server_status == 'ERROR':
                 LOG.debug('the server %s delete failed' % server_id)
                 loopingcall.LoopingCallDone()
 
-    def _wait_for_volume_status(self, context, volume_id, server_id, status):
-        volume = self.volume_api.get(context, volume_id)
-        volume_status = volume['status']
-        start = int(time.time())
-        v_shareable = volume['shareable']
-        volume_attachments = volume['attachments']
-        attach_flag = False
-        end_flag  = False
-        for vol_att in volume_attachments:
-            if vol_att.get('server_id') == server_id:
-                attach_flag = True
-        if status == 'in-use' and attach_flag:
-            end_flag = True
-        elif status == 'available' and  not attach_flag:
-            end_flag = True
-        if v_shareable == 'false':
-            while volume_status != status :
-                time.sleep(CONF.check_interval)
-                volume = self.volume_api.get(context, volume_id)
-                volume_status = volume['status']
-                if volume_status == 'error':
-                    raise exception.VolumeErrorException(id=volume_id)
-                if int(time.time()) - start >= CONF.check_timeout:
-                    message = ('Volume %s failed to reach %s status (current %s) '
-                               'within the required time (%s s).' %
-                               (volume_id, status, volume_status,
-                                CONF.check_timeout))
-                    raise exception.TimeoutException(msg=message)
-        else:
-            while not end_flag:
-                attach_flag = False
-                time.sleep(CONF.check_interval)
-                volume = self.volume_api.get(context, volume_id)
-                volume_attachments = volume['attachments']
-                for vol_att in volume_attachments:
-                    if vol_att.get('server_id') == server_id:
-                        attach_flag = True
-                if status == 'in-use' and attach_flag:
-                    end_flag = True
-                elif status == 'available' and not attach_flag:
-                    end_flag = True
-                if int(time.time()) - start >= CONF.check_timeout:
-                    message = ('Volume %s failed to reach %s status (server %s) '
-                               'within the required time (%s s).' %
-                               (volume_id, status, server_id,
-                                CONF.check_timeout))
-                    raise exception.TimeoutException(msg=message)
-                        
-    def _await_port_status(self, context, port_id, ip_address):
-        # TODO(yamahata): creating volume simultaneously
-        #                 reduces creation time?
-        # TODO(yamahata): eliminate dumb polling
-        start = time.time()
-        retries = CONF.port_allocate_retries
-        if retries < 0:
-            LOG.warn(_LW("Treating negative config value (%(retries)s) for "
-                         "'block_device_retries' as 0."),
-                     {'retries': retries})
-        # (1) treat  negative config value as 0
-        # (2) the configured value is 0, one attempt should be made
-        # (3) the configured value is > 0, then the total number attempts
-        #      is (retries + 1)
-        attempts = 1
-        if retries >= 1:
-            attempts = retries + 1
-        for attempt in range(1, attempts + 1):
-            LOG.debug(_("port id: %s finished being attached"), port_id)
-            exit_status = self._check_connect_sucess(ip_address)
-            if exit_status:
-                return attempt
-            else:
-                continue
-            greenthread.sleep(CONF.port_allocate_retries_interval)
-        # NOTE(harlowja): Should only happen if we ran out of attempts
-        raise exception.PortNotattach(port_id=port_id,
-                                      seconds=int(time.time() - start),
-                                      attempts=attempts)
-        
-
-    def _check_connect_sucess(self, ip_address, times_for_check=3, interval=1):
-        '''check ip can ping or not'''
-        exit_status = False
-
-        for i in range(times_for_check):
-            time.sleep(interval)
-            exit_status = self.conveyor_cmd.check_ip_connect(ip_address)
-            if exit_status:
-                break
-            else:
-                continue
-
-        return exit_status
-    
     def _parse_floatingip(self, template_resource):
         t = template_resource.get('template')
         plan_id = template_resource.get('plan_id')
         if not t:
             return None, None
-        file_name = 'file://' + CONF.plan_file_path  + plan_id + '.floatingIp.template'
-        file_path = CONF.plan_file_path  + plan_id + '.floatingIp.template'
+        file_name = 'file://' + CONF.plan_file_path + plan_id \
+                              + '.floatingIp.template'
         fip_properties = {}
         fip_template_resource = {
-                'type': file_name,
-                'properties': fip_properties
+            'type': file_name,
+            'properties': fip_properties
         }
         idx = 0
         fip_prefix = 'floatingip'
@@ -1736,11 +1284,11 @@ class CloneManager(manager.Manager):
         resources = t.get('resources', {})
         new_resources = {}
         fip_file_template = {
-                'description' : 'Generated template',
-                'heat_template_version' : '2013-05-23',
-                'parameters': {},
-                'resources': {},
-                }
+            'description': 'Generated template',
+            'heat_template_version': '2013-05-23',
+            'parameters': {},
+            'resources': {},
+        }
         for name, rs in resources.items():
             if rs.get('type') != 'OS::Neutron::FloatingIP':
                 new_resources[name] = rs
@@ -1754,58 +1302,56 @@ class CloneManager(manager.Manager):
             subnet_id = None
             for _name, _rs in resources.items():
                 if _rs.get('type') == 'OS::Neutron::Subnet' and \
-                        _rs.get('properties',{}) \
-                           .get('network_id',{}) \
+                        _rs.get('properties', {}) \
+                           .get('network_id', {}) \
                            .get('get_resource') == net_id:
                     subnet_id = _name
                     break
-    
+
             fip_properties.update({
-                net_prefix + '_%d'%idx :  { 'get_resource': net_id}, 
-                subnet_prefix + '_%d'%idx :  { 'get_resource': subnet_id}, 
+                net_prefix + '_%d' % idx: {'get_resource': net_id},
+                subnet_prefix + '_%d' % idx: {'get_resource': subnet_id},
             })
-    
+
             fip_file_template['parameters'].update({
-                net_prefix + '_%d'%idx :  { 'type':'string', 'description': 'network'}, 
-                subnet_prefix + '_%d'%idx :  {'type':'string',  'description': 'subnet'}, 
+                net_prefix + '_%d' % idx: {'type': 'string',
+                                           'description': 'network'},
+                subnet_prefix + '_%d' % idx: {'type': 'string',
+                                              'description': 'subnet'},
             })
             fip_file_template['resources'].update({
-                fip_prefix + '_%d'%idx: {
+                fip_prefix + '_%d' % idx: {
                     'type': rs.get('type'),
-                    'properties': { 
-                        net_prefix : { 'get_param' : net_prefix + '_%d'%idx }
+                    'properties': {
+                        net_prefix: {'get_param': net_prefix + '_%d' % idx}
                     }
                 }
             })
             idx += 1
-        new_resources[fip_prefix] = fip_template_resource 
-#         with open(file_path, 'w+') as f:
-#             yaml.safe_dump(fip_file_template, f, default_flow_style=False)
-        return {file_name : json.dumps(fip_file_template)},  \
-               { 'description': 'Generated template', 
-                 'heat_template_version' : '2013-05-23', 
-                 'parameters': t.get('parameters', {}),
-                 'resources' : new_resources
-               }
+        new_resources[fip_prefix] = fip_template_resource
+        return {
+            file_name: json.dumps(fip_file_template)},  \
+            {'description': 'Generated template',
+             'heat_template_version': '2013-05-23',
+             'parameters': t.get('parameters', {}),
+             'resources': new_resources}
 
     def _cold_clone(self, context, template, state_map):
         ''' volume dependence volume type, consistencygroup'''
         ''' and volume type dependence qos '''
 
         LOG.debug('Code clone start for %s', template)
-        
-        default_parameter = {'default':'',
-                             'type':'string',
+        default_parameter = {'default': '',
+                             'type': 'string',
                              'description': ''}
         # 1. define all volume related resources
         volume_res_type = ['OS::Cinder::VolumeType',
                            'OS::Cinder::Volume',
-                           'OS::Cinder::Qos', 
+                           'OS::Cinder::Qos',
                            'OS::Cinder::ConsistencyGroup']
 
         volume_template = deepcopy(template)
         stack_template = template['template']
-       
         volume_resources = volume_template['template'].get('resources', {})
         stack_resources = stack_template['resources']
         parameter = stack_template.get('parameters', {})
@@ -1818,53 +1364,53 @@ class CloneManager(manager.Manager):
 
             # remove not volume needed resource
             if res_type not in volume_res_type:
-                volume_resources.pop(k) 
+                volume_resources.pop(k)
             else:
                 # remove volume related resource from template
                 stack_resources.pop(k)
                 parameter[k] = deepcopy(default_parameter)
                 vol_res_name.append(k)
             # if clone system volume, remove volume
-                # image info   
+                # image info
             if 'OS::Cinder::Volume' == res_type:
                     ext_properties = res.get('extra_properties')
                     sys_clone = ext_properties.get('sys_clone')
                     if sys_clone:
-                        properties = volume_resources.get(k).get('properties', {})
+                        properties = volume_resources.get(k).get('properties',
+                                                                 {})
                         properties.pop('image', None)
                         sys_vol_name.append(k)
         origin_template = deepcopy(volume_template)
         for key, res in volume_resources.items():
             if 'extra_properties' in res:
-                res.pop('extra_properties')        
+                res.pop('extra_properties')
 
         LOG.debug('Code clone volume for %s', volume_template)
-        
         if volume_resources:
             try:
                 # 3. deploy volumes template
                 stack = self._create_resource_by_heat(context,
-                                                       volume_template,
-                                                       state_map)
+                                                      volume_template,
+                                                      state_map)
                 # 4. copy data
                 stack_id = stack.get('stack').get('id')
                 self._afther_resource_created_handler(context,
-                                                  origin_template,
-                                                  stack_id)
+                                                      origin_template,
+                                                      stack_id)
                 for sys_vol in sys_vol_name:
-                    heat_resource = self.heat_api.get_resource(context, stack_id, sys_vol)
+                    heat_resource = self.heat_api.get_resource(context,
+                                                               stack_id,
+                                                               sys_vol)
                     res_id = heat_resource.physical_resource_id
                     self.volume_api.set_volume_bootable(context, res_id, True)
             except Exception as e:
                 LOG.error('Code clone error: %s', e)
                 raise
-            
         # 5. modify input template
         for name in vol_res_name:
             heat_resource = self.heat_api.get_resource(context, stack_id, name)
             res_id = heat_resource.physical_resource_id
             parameter.get(name)['default'] = res_id
-            
             for r_n, res in stack_resources.items():
                 res_type = res.get('type')
                 properties = res.get('properties')
@@ -1892,9 +1438,8 @@ class CloneManager(manager.Manager):
     def _live_clone(self, context, template, state_map):
 
         LOG.debug('Live clone start for %s', template)
-        
-        default_parameter = {'default':'',
-                             'type':'string',
+        default_parameter = {'default': '',
+                             'type': 'string',
                              'description': ''}
 
         # 1. define all volume related resources
@@ -1908,26 +1453,21 @@ class CloneManager(manager.Manager):
         volume_resources = volume_template['template'].get('resources', {})
         parameter = stack_template.get('parameters', {})
         vol_res_name = []
-        
         sys_resources = {}
         # 2. generate volumes template and modify input template
         for vm, volume in sys_volumes.items():
             volume_resource = volume_resources.get(volume)
-            
             properties = volume_resource.get('properties')
             # remove volume image info
             properties.pop('image')
-            
             # add volume to new template
             sys_resources[volume] = volume_resource
             vol_res_name.append(volume)
-            
             # remove volume in source template
             stack_resources.pop(volume)
             parameter[volume] = deepcopy(default_parameter)
             # change 'get_resource' to get_param'
             self._change_resource_to_param(template, volume)
-            
             # if volume dependence volume type, add it to volume
             # template. Then delete it in source template, and modify
             # other dependence this volume type resources to 'get param'
@@ -1937,17 +1477,14 @@ class CloneManager(manager.Manager):
                 for key, type_name in volume_type.items():
                     if 'get_resource' == key:
                         type_res = volume_resources.get(type_name)
-                        
                         # add volume type to new template
                         sys_resources[type_name] = type_res
                         vol_res_name.append(type_name)
-                        
                         # remove volume type in source template
                         stack_resources.pop(type_name)
                         parameter[type_name] = deepcopy(default_parameter)
                         # change 'get_resource' to 'get_param'
                         self._change_resource_to_param(template, type_name)
-                        
                         # 2.2 add volume type dependence qos
                         type_properties = type_res.get('properties')
                         qos_id = type_properties.get('qos_specs_id')
@@ -1960,9 +1497,11 @@ class CloneManager(manager.Manager):
                                     vol_res_name.append(qos_name)
                                     # remove qos in source template
                                     stack_resources.pop(qos_name)
-                                    parameter[qos_name] = deepcopy(default_parameter)
+                                    parameter[qos_name] = deepcopy(
+                                        default_parameter)
                                     # change 'get_resource' to 'get_param'
-                                    self._change_resource_to_param(template, qos_name)
+                                    self._change_resource_to_param(template,
+                                                                   qos_name)
         volume_template['template']['resources'] = sys_resources
         LOG.debug('Live clone volume for %s', volume_template)
         origin_template = deepcopy(volume_template)
@@ -1973,34 +1512,37 @@ class CloneManager(manager.Manager):
             try:
                 # 3. deploy new(volumes) template
                 stack = self._create_resource_by_heat(context,
-                                                       volume_template,
-                                                       state_map)
+                                                      volume_template,
+                                                      state_map)
                 # 4. copy data
                 stack_id = stack.get('stack').get('id')
                 self._afther_resource_created_handler(context,
-                                                  origin_template,
-                                                  stack_id)
-                for k,v in sys_volumes.items():
-                    heat_resource = self.heat_api.get_resource(context, stack_id, v)
+                                                      origin_template,
+                                                      stack_id)
+                for k, v in sys_volumes.items():
+                    heat_resource = self.heat_api.get_resource(context,
+                                                               stack_id, v)
                     res_id = heat_resource.physical_resource_id
                     self.volume_api.set_volume_bootable(context, res_id, True)
-    
             except Exception as e:
                 LOG.error('Live clone error: %s', e)
                 raise
 
-        # 5. use new template resource id update source template parameters info
-        # after new template deployed, resource id has generated, then add this id
-        # in source template and deploy source template
+        # 5. use new template resource id update source template
+        # parameters info after new template deployed,
+        # resource id has generated,
+        # then add this id in source template and deploy source template
         for res_name in vol_res_name:
-            heat_resource = self.heat_api.get_resource(context, stack_id, res_name)
+            heat_resource = self.heat_api.get_resource(context,
+                                                       stack_id,
+                                                       res_name)
             res_id = heat_resource.physical_resource_id
             parameter.get(res_name)['default'] = res_id
 
         # 6. return modify
         LOG.debug('Live clone template for finishing volumes: %s', template)
         return template
-    
+
     def _afther_resource_created_handler(self, context, template, stack_id):
 
         src_template = template['template']
@@ -2011,40 +1553,47 @@ class CloneManager(manager.Manager):
                 res_type = resource['type']
                 if res_type in no_action_res_type:
                     values = {}
-                    values['plan_status'] = plan_status.STATE_MAP.get('DATA_TRANS_FINISHED')
+                    values['plan_status'] = plan_status.STATE_MAP.get(
+                        'DATA_TRANS_FINISHED')
                     self.resource_api.update_plan(context, plan_id, values)
                     continue
-                #5.2 resource create successful, get resource ID, and add to resource
-                heat_resource = self.heat_api.get_resource(context, stack_id, key)
+                # 5.2 resource create successful, get resource ID,
+                # and add to resource
+                heat_resource = self.heat_api.get_resource(context, stack_id,
+                                                           key)
                 resource['id'] = heat_resource.physical_resource_id
                 src_template['stack_id'] = stack_id
-                #after step need update plan status
+                # after step need update plan status
                 src_template['plan_id'] = plan_id
-                #5.3 call resource manager clone fun
+                # 5.3 call resource manager clone fun
                 manager_type = RESOURCE_MAPPING.get(res_type)
                 if not manager_type:
                     values = {}
-                    values['plan_status'] = plan_status.STATE_MAP.get('DATA_TRANS_FINISHED')
+                    values['plan_status'] = plan_status.STATE_MAP.get(
+                        'DATA_TRANS_FINISHED'
+                    )
                     self.resource_api.update_plan(context, plan_id, values)
                     continue
                 rs_maganger = self.clone_managers.get(manager_type)
                 if not rs_maganger:
                     values = {}
-                    values['plan_status'] = plan_status.STATE_MAP.get('DATA_TRANS_FINISHED')
+                    values['plan_status'] = plan_status.STATE_MAP.get(
+                        'DATA_TRANS_FINISHED')
                     self.resource_api.update_plan(context, plan_id, values)
                     continue
                 rs_maganger.start_template_clone(context, key, src_template)
         except Exception as e:
             LOG.error("Clone resource error: %s", e)
-            
-            #if clone failed and rollback parameter is true, rollback all resource
+            # if clone failed and rollback parameter is true,
+            # rollback all resource
             if not template.get('disable_rollback'):
                 self.heat_api.delete_stack(context, stack_id)
 
             # set plan status is error
             values = {}
-            values['plan_status'] = plan_status.STATE_MAP.get('DATA_TRANS_FAILED')
-            self.resource_api.update_plan(context, plan_id, values)            
+            values['plan_status'] = plan_status.STATE_MAP.get(
+                'DATA_TRANS_FAILED')
+            self.resource_api.update_plan(context, plan_id, values)
             return None
 
     def _system_volumes_to_clone(self, resources):
@@ -2053,7 +1602,6 @@ class CloneManager(manager.Manager):
         vm_sys_dict = {}
         for k, res in resources.items():
             res_type = res.get('type')
-            
             # remove not volume needed resource
             if 'OS::Nova::Server' == res_type:
                 properties = res.get('properties', {})
@@ -2068,14 +1616,12 @@ class CloneManager(manager.Manager):
                     if boot_index in [0, '0'] and sys_clone:
                         vm_sys_dict[k] = vol_name
                         break
-        
         return vm_sys_dict
 
     def _change_resource_to_param(self, template, res_name):
 
         stack_template = template['template']
         stack_resources = stack_template.get('resources', {})
-        
         for r_name, res in stack_resources.items():
             properties = res.get('properties', {})
             for p_key, p_value in properties.items():

@@ -62,7 +62,7 @@ import decorator
 import netaddr
 from oslo_config import cfg
 from oslo_db import exception as db_exc
-from oslo import messaging
+import oslo_messaging as messaging
 import six
 
 from conveyor.common import config as __
