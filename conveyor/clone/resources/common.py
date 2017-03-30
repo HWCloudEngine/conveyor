@@ -36,7 +36,6 @@ migrate_manager_opts = [
     cfg.IntOpt('block_device_allocate_retries_interval',
                default=5,
                help='clone driver'),
-                        
     cfg.IntOpt('instance_allocate_retries',
                default=120,
                help='clone driver'),
@@ -267,7 +266,7 @@ class ResourceCommon(object):
             raise exception.InstanceNotStop(instance_id=instance_id,
                                             seconds=int(time.time() - start),
                                             attempts=attempts)
-        elif 'in-use' == status:
+        elif 'ACTIVE' == status:
             LOG.error(_("Instance id: %s start failed"), instance_id)
             raise exception.InstanceNotStart(instance_id=instance_id,
                                              seconds=int(time.time() - start),
