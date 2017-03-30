@@ -99,13 +99,11 @@ class LoadbalanceVip(base.resource):
 
         if subnet_id:
             newtwork_driver = \
-                networks.NetworkResource(self.context,
-                                         collected_resources= \
-                                         self._collected_resources,
-                                         collected_parameters= \
-                                         self._collected_parameters,
-                                         collected_dependencies= \
-                                         self._collected_dependencies)
+                networks.NetworkResource(
+                    self.context,
+                    collected_resources=self._collected_resources,
+                    collected_parameters=self._collected_parameters,
+                    collected_dependencies=self._collected_dependencies)
             subnet_ids = []
             subnet_ids.append(subnet_id)
             subnet_res = newtwork_driver.extract_subnets(subnet_ids)
@@ -133,13 +131,11 @@ class LoadbalanceVip(base.resource):
 
         if listener_ids:
             listener_driver = \
-                LoadbalanceListener(self.context,
-                                    collected_resources= \
-                                    self._collected_resources,
-                                    collected_parameters= \
-                                    self._collected_parameters,
-                                    collected_dependencies= \
-                                    self._collected_dependencies)
+                LoadbalanceListener(
+                    self.context,
+                    collected_resources=self._collected_resources,
+                    collected_parameters=self._collected_parameters,
+                    collected_dependencies=self._collected_dependencies)
             listener_driver.extract_loadbalanceListeners(listener_ids,
                                                          vip_id,
                                                          vip_name)
@@ -234,13 +230,11 @@ class LoadbalancePool(base.resource):
         vip_id = pool_info.get('vip_id')
         if vip_id:
             vip_driver = \
-                LoadbalanceVip(self.context,
-                               collected_resources= \
-                               self._collected_resources,
-                               collected_parameters= \
-                               self._collected_parameters,
-                               collected_dependencies= \
-                               self._collected_dependencies)
+                LoadbalanceVip(
+                    self.context,
+                    collected_resources=self._collected_resources,
+                    collected_parameters=self._collected_parameters,
+                    collected_dependencies=self._collected_dependencies)
             vip_res = vip_driver.extract_loadbalanceVip(vip_id, pool_name)
             properties['vip'] = {'get_resource': vip_res.name}
             # vip resource in lb resource list
@@ -253,13 +247,11 @@ class LoadbalancePool(base.resource):
         if subnet_id:
             # 3. build subnet resource and build dependence relation
             newtwork_driver = \
-                networks.NetworkResource(self.context,
-                                         collected_resources= \
-                                         self._collected_resources,
-                                         collected_parameters= \
-                                         self._collected_parameters,
-                                         collected_dependencies= \
-                                         self._collected_dependencies)
+                networks.NetworkResource(
+                    self.context,
+                    collected_resources=self._collected_resources,
+                    collected_parameters=self._collected_parameters,
+                    collected_dependencies=self._collected_dependencies)
             subnet_ids = []
             subnet_ids.append(subnet_id)
             subnet_res = newtwork_driver.extract_subnets(subnet_ids)
@@ -277,13 +269,11 @@ class LoadbalancePool(base.resource):
 
         if member_ids:
             lb_member_driver = \
-                LoadbalanceMember(self.context,
-                                  collected_resources= \
-                                  self._collected_resources,
-                                  collected_parameters= \
-                                  self._collected_parameters,
-                                  collected_dependencies= \
-                                  self._collected_dependencies)
+                LoadbalanceMember(
+                    self.context,
+                    collected_resources=self._collected_resources,
+                    collected_parameters=self._collected_parameters,
+                    collected_dependencies=self._collected_dependencies)
             lb_member_driver.extract_loadbalanceMembers(member_ids, pool_name)
 
             # update collect resource
@@ -297,13 +287,11 @@ class LoadbalancePool(base.resource):
 
         if healthmonitor_ids:
             lb_healthmonitor_driver = \
-                LoadbalanceHealthmonitor(self.context,
-                                         collected_resources= \
-                                         self._collected_resources,
-                                         collected_parameters= \
-                                         self._collected_parameters,
-                                         collected_dependencies= \
-                                         self._collected_dependencies)
+                LoadbalanceHealthmonitor(
+                    self.context,
+                    collected_resources=self._collected_resources,
+                    collected_parameters=self._collected_parameters,
+                    collected_dependencies=self._collected_dependencies)
             ids = healthmonitor_ids
             h = lb_healthmonitor_driver.extract_loadbalanceHealthmonitors(ids)
 
@@ -458,13 +446,11 @@ class LoadbalanceMember(base.resource):
             server_id = self._get_member_related_vm(properties['address'])
 
             if server_id:
-                instance_driver = instances.InstanceResource(self.context,
-                                                             collected_resources= \
-                                                             self._collected_resources,
-                                                             collected_parameters= \
-                                                             self._collected_parameters,
-                                                             collected_dependencies= \
-                                                             self._collected_dependencies)
+                instance_driver = instances.InstanceResource(
+                    self.context,
+                    collected_resources=self._collected_resources,
+                    collected_parameters=self._collected_parameters,
+                    collected_dependencies=self._collected_dependencies)
                 instance_ids = []
                 instance_ids.append(server_id)
                 reses = instance_driver.extract_instances(instance_ids)

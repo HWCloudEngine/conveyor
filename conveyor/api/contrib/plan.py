@@ -31,15 +31,15 @@ from conveyor.i18n import _
 
 LOG = logging.getLogger(__name__)
 
-  
+
 class PlansActionController(wsgi.Controller):
-    
+
     def __init__(self, ext_mgr=None, *args, **kwargs):
         super(PlansActionController, self).__init__(*args, **kwargs)
         self.clone_api = api.API()
         self.resource_api = resource_api.ResourceAPI()
         self.ext_mgr = ext_mgr
-    
+
     @wsgi.response(202)
     @wsgi.action('download_template')
     def _download_template(self, req, id, body):
@@ -61,7 +61,7 @@ class PlansActionController(wsgi.Controller):
     @wsgi.response(202)
     @wsgi.action('os-reset_state')
     def _reset_state(self, req, id, body):
-        
+
         LOG.debug("Start reset plan state in API for plan: %s", id)
         if not self.is_valid_body(body, 'os-reset_state'):
             LOG.debug("Reset plan state request body has not key:\
@@ -72,7 +72,19 @@ class PlansActionController(wsgi.Controller):
         self.resource_api.update_plan(context, id, update)
         LOG.debug("End reset plan state in API for plan: %s", id)
         return {'plan_id': id, 'plan_status': update.get('plan_status')}
-  
+
+    @wsgi.response(202)
+    @wsgi.action('force_delete-plan')
+    def _force_delete_plan(self, req, id, body):
+
+        if not self.is_valid_body(body, 'force_delete-plan'):
+            LOG.debug('')
+            raise exc.HTTPUnprocessableEntity()
+        context = req.environ['conveyor.context']
+        plan_id = body.get('force_delete-plan', {}).get('plan_id', None)
+        self.resource_api.force_delete_plan(context, plan_id)
+
+
 class Plan(extensions.ExtensionDescriptor):
     """Enable admin actions."""
 
@@ -80,10 +92,9 @@ class Plan(extensions.ExtensionDescriptor):
     alias = "conveyor-plan"
     namespace = "http://docs.openstack.org/conveyor/ext/plan/api/v1"
     updated = "2016-01-29T00:00:00+00:00"
-    
-    
-    #extend exist resource
+
+    # extend exist resource
     def get_controller_extensions(self):
         controller = PlansActionController(self.ext_mgr)
         extension = extensions.ControllerExtension(self, 'plans', controller)
-        return [extension]    
+        return [extension]

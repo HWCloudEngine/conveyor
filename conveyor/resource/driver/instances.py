@@ -21,6 +21,7 @@ from conveyor import volume
 from conveyor import network
 from conveyor.i18n import _LE
 from conveyor.resource import resource
+from conveyor.resource import resource_state
 from conveyor.resource.driver import base
 from conveyor.resource.driver.volumes import VolumeResource
 from conveyor.resource.driver.networks import NetworkResource
@@ -73,6 +74,11 @@ class InstanceResource(base.resource):
         instance_id = server.get('id', '')
         LOG.debug('Extract resources of instance %s.', instance_id)
 
+        vm_state = server.get('OS-EXT-STS:vm_state', None)
+        if vm_state not in resource_state.INSTANCE_CLONE_STATE:
+            LOG.error("Instance %(id)s state is %(state)s not active or stop",
+                      {'id': instance_id, 'state': vm_state})
+            raise exception.PlanCreateFailed
         # If this server resource has been extracted, ignore it.
         instance_resources = self._collected_resources.get(instance_id)
         if instance_resources:
@@ -112,10 +118,11 @@ class InstanceResource(base.resource):
             try:
                 flavor_res = self.extract_flavors([flavor_id])
                 instance_resources.add_property('flavor',
-                                                {'get_resource': flavor_res[0].name})
+                                                {'get_resource':
+                                                 flavor_res[0].name})
                 instance_dependencies.add_dependency(flavor_res[0].name)
             except Exception as e:
-                msg = "Instance flavor resource extracted failed. %s" % unicode(e)
+                msg = "Instance flavor extracted failed. %s" % unicode(e)
                 LOG.error(msg)
                 # TODO  get flavor resource by another method
                 raise exception.ResourceNotFound(message=msg)
@@ -125,10 +132,12 @@ class InstanceResource(base.resource):
         if keypair_name:
             try:
                 keypair_res = self.extract_keypairs([keypair_name])
-                instance_resources.add_property('key_name', {'get_resource': keypair_res[0].name})
+                instance_resources.add_property('key_name',
+                                                {'get_resource':
+                                                 keypair_res[0].name})
                 instance_dependencies.add_dependency(keypair_res[0].name)
             except Exception as e:
-                msg = "Instance keypair resource extracted failed. %s" % unicode(e)
+                msg = "Instance keypair extracted failed. %s" % unicode(e)
                 LOG.error(msg)
                 raise exception.ResourceNotFound(message=msg)
 
@@ -142,7 +151,8 @@ class InstanceResource(base.resource):
             instance_resources.add_parameter(image_para_name, description,
                                              default=image_id,
                                              constraints=constraints)
-            instance_resources.add_property('image', {'get_param': image_para_name})
+            instance_resources.add_property('image',
+                                            {'get_param': image_para_name})
 
         # extract bdm resources
         volumes_attached = server.get('os-extended-volumes:volumes_attached',
@@ -164,7 +174,6 @@ class InstanceResource(base.resource):
             raise exception.ResourceAttributesException(message=msg)
 
         # add extra properties
-        vm_state = server.get('OS-EXT-STS:vm_state', None)
         instance_resources.add_extra_property('vm_state', vm_state)
 
         power_state = server.get('OS-EXT-STS:power_state', None)
@@ -313,8 +322,9 @@ class InstanceResource(base.resource):
         LOG.debug('Extract security group of instance: %s.', server_id)
 
         try:
-            secgroup_objs = self.nova_api.server_security_group_list(self.context,
-                                                                     server)
+            secgroup_objs = \
+                self.nova_api.server_security_group_list(self.context,
+                                                         server)
         except Exception as e:
             msg = "Security groups of instance <%s> could not be found. %s" \
                     % (server_id, unicode(e))
@@ -448,15 +458,18 @@ class InstanceResource(base.resource):
                     port_id = port[0].get('id')
                     port_res = nr.extract_ports([port_id])
 
-                    network_properties.append({"port": {"get_resource": port_res[0].name}})
+                    network_properties.append({"port": {"get_resource":
+                                                        port_res[0].name}})
                     instance_dependencies.add_dependency(port_res[0].name)
 
                 elif ip_type == 'floating':
-                    floatingip = self.neutron_api.floatingip_list(self.context,
-                                                                  floating_ip_address=addr)
+                    floatingip = \
+                        self.neutron_api.floatingip_list(
+                            self.context,
+                            floating_ip_address=addr)
                     if not floatingip:
-                        msg = "Instance floatingip resource extracted failed, \
-                               can't find the floatingip with address of %s." % addr
+                        msg = "Instance floatingip extracted failed,can't \
+                                find floatingip with address of %s." % addr
                         LOG.error(msg)
                         raise exception.ResourceNotFound(message=msg)
 

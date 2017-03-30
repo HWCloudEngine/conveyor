@@ -23,9 +23,10 @@ from novaclient import exceptions as novaclient_exceptions
 from oslo_config import cfg
 from oslo_log import log as logging
 
-from conveyor import compute
-from conveyor.resource.plugins import driver
+from conveyor.clone.resources import common
 from conveyor.conveyoragentclient.v1 import client as birdiegatewayclient
+from conveyor.resource.plugins import driver
+from conveyor import compute
 from conveyor import exception
 from conveyor import heat
 from conveyor.i18n import _LE
@@ -156,6 +157,14 @@ class OpenstackDriver(driver.BaseDriver):
                     client = birdiegatewayclient.get_birdiegateway_client(
                         vgw_ip, str(CONF.v2vgateway_api_listen_port))
                     client.vservices._force_umount_disk("/opt/" + volume_id)
+
+                    # if provider cloud can not detcah volume in active status
+                    if not CONF.is_active_detach_volume:
+                        resouce_common = common.ResourceCommon()
+                        self.nova_api.stop_server(context, vgw_id)
+                        resouce_common._await_instance_status(context,
+                                                              vgw_id,
+                                                              'SHUTOFF')
                     if boot_index in ['0', 0]:
                         if sys_clone:
                             self.nova_api.detach_volume(context, vgw_id,
@@ -176,6 +185,12 @@ class OpenstackDriver(driver.BaseDriver):
                                                     device_name)
                         self._wait_for_volume_status(context, volume_id,
                                                      server_id, 'in-use')
+
+                    if not CONF.is_active_detach_volume:
+                        self.nova_api.start_server(context, vgw_id)
+                        resouce_common._await_instance_status(context,
+                                                              vgw_id,
+                                                              'ACTIVE')
             except novaclient_exceptions.NotFound as e:
                 LOG.warn('handle the volume %s after clone error, error is %s',
                          volume_id, e.msg)

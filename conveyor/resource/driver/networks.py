@@ -177,11 +177,12 @@ class NetworkResource(base.resource):
             subnet_res = resource.Resource(resource_name, resource_type,
                                            subnet_id, properties=properties)
 
+            nres_name = network_res[0].name
             subnet_dep = resource.ResourceDependency(subnet_id,
                                                      subnet.get('name'),
                                                      resource_name,
                                                      resource_type,
-                                                     dependencies=[network_res[0].name])
+                                                     dependencies=[nres_name])
 
             self._collected_resources[subnet_id] = subnet_res
             self._collected_dependencies[subnet_id] = subnet_dep
@@ -239,11 +240,12 @@ class NetworkResource(base.resource):
             subnet_res = resource.Resource(resource_name, resource_type,
                                            subnet_id, properties=properties)
 
+            net_name = network_resource_name
             subnet_dep = resource.ResourceDependency(subnet_id,
                                                      subnet.get('name'),
                                                      resource_name,
                                                      resource_type,
-                                                     dependencies=[network_resource_name])
+                                                     dependencies=[net_name])
 
             self._collected_resources[subnet_id] = subnet_res
             self._collected_dependencies[subnet_id] = subnet_dep
@@ -271,7 +273,7 @@ class NetworkResource(base.resource):
                     LOG.error(msg)
                     raise exception.ResourceNotFound(message=msg)
 
-        # every port_obj is a dict  
+        # every port_obj is a dict
         for port in port_objs:
             port_id = port.get('id')
             port_res = self._collected_resources.get(port_id)
@@ -287,7 +289,8 @@ class NetworkResource(base.resource):
             dependencies = []
 
             if port.get('allowed_address_pairs'):
-                properties['allowed_address_pairs'] = port.get('allowed_address_pairs')
+                properties['allowed_address_pairs'] = \
+                    port.get('allowed_address_pairs')
 
             value_specs = {}
             if port.get('binding:profile') is not None:
@@ -436,10 +439,11 @@ class NetworkResource(base.resource):
 
             # remove duplicate dependencies
             dependencies = {}.fromkeys(dependencies).keys()
-            floatingip_dep = resource.ResourceDependency(floatingip_id, '',
-                                                         resource_name,
-                                                         resource_type,
-                                                         dependencies=dependencies)
+            floatingip_dep = resource.ResourceDependency(
+                                floatingip_id, '',
+                                resource_name,
+                                resource_type,
+                                dependencies=dependencies)
 
             self._collected_resources[floatingip_id] = floatingip_res
             self._collected_dependencies[floatingip_id] = floatingip_dep
@@ -512,22 +516,24 @@ class NetworkResource(base.resource):
 
         # remove duplicate dependencies
         dependencies = {}.fromkeys(dependencies).keys()
-        association_dep = resource.ResourceDependency(resource_id, '',
-                                                      resource_name,
-                                                      resource_type,
-                                                      dependencies=dependencies)
+        association_dep = resource.ResourceDependency(
+                            resource_id, '',
+                            resource_name,
+                            resource_type,
+                            dependencies=dependencies)
 
         self._collected_resources[resource_id] = association_res
         self._collected_dependencies[resource_id] = association_dep
 
     def _extract_router_interface(self, router_res, subnet_res):
-        LOG.debug("Extract resources of router interface by %s and %s.", \
+        LOG.debug("Extract resources of router interface by %s and %s.",
                   router_res.name, subnet_res.name)
 
         # step 1: judge whether the interface exists
-        interfaces = self.neutron_api.port_list(self.context,
-                                                device_owner="network:router_interface",
-                                                device_id=router_res.id)
+        interfaces = self.neutron_api.port_list(
+                            self.context,
+                            device_owner="network:router_interface",
+                            device_id=router_res.id)
 
         interface = None
 
@@ -613,9 +619,10 @@ class NetworkResource(base.resource):
                 if network:
                     net_res = self.extract_nets([network], with_subnets=True)
                     if net_res:
+                        enable_snat = external_gateway_info.get('enable_snat')
                         properties['external_gateway_info'] = \
                             {'network': {'get_resource': net_res[0].name},
-                             'enable_snat': external_gateway_info.get('enable_snat')}
+                             'enable_snat': enable_snat}
                         dependencies.append(net_res[0].name)
 
             resource_type = "OS::Neutron::Router"
@@ -738,7 +745,7 @@ class NetworkResource(base.resource):
             subnet_res = self._collected_resources.get(subnet)
 
             if not subnet_res:
-                LOG.error("Subnet resource can not find, subnet id: %s", \
+                LOG.error("Subnet resource can not find, subnet id: %s",
                           subnet)
                 return None
 
@@ -750,8 +757,9 @@ class NetworkResource(base.resource):
 
         try:
             interfaces = \
-                self.neutron_api.port_list(self.context,
-                                           device_owner="network:router_interface")
+                self.neutron_api.port_list(
+                        self.context,
+                        device_owner="network:router_interface")
         except Exception as e:
             msg = "Interface resource extracted failed, \
                     can't find router port list. %s" % unicode(e)
@@ -812,9 +820,10 @@ class NetworkResource(base.resource):
                 if network:
                     net_res = self.extract_nets([network], with_subnets=True)
                     if net_res:
+                        enable_snat = external_gateway_info.get('enable_snat')
                         properties['external_gateway_info'] = \
                             {'network': {'get_resource': net_res[0].name},
-                             'enable_snat': external_gateway_info.get('enable_snat')}
+                             'enable_snat': enable_snat}
                         dependencies.append(net_res[0].name)
             else:
                 # if router relate public network not in clone list,

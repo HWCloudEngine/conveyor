@@ -241,6 +241,17 @@ class ResourceAPI(object):
                                    {'plan_status': p_status.DELETING})
         return self.resource_rpcapi.delete_plan(context, plan_id)
 
+    def force_delete_plan(self, context, plan_id):
+        try:
+            resource.update_plan_to_db(context, plan_file_dir, plan_id,
+                                       {'plan_status': p_status.DELETING})
+            rsp = self.resource_rpcapi.force_delete_plan(context, plan_id)
+        except Exception as e:
+            LOG.error('Force delete plan %(id)s error: %(err)s',
+                      {'id': plan_id, 'err': unicode(e)})
+            raise
+        return rsp
+
     def _is_template_skip_heat_check(self, template):
         ''' template has resources that heat does not exist,
          template skip heat api check'''

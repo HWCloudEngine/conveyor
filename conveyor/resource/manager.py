@@ -513,6 +513,28 @@ class ResourceManager(manager.Manager):
 
         LOG.info("Delete plan with id of %s succeed!", plan_id)
 
+    def force_delete_plan(self, context, plan_id):
+
+        _plans.pop(plan_id, None)
+        field_name = ['original_resources', 'updated_resources']
+
+        try:
+            fileutils.delete_if_exists(plan_file_dir + plan_id + '.template')
+            for name in field_name:
+                full_path = plan_file_dir + plan_id + '.' + name
+                fileutils.delete_if_exists(full_path)
+        except Exception as e:
+            msg = "Delete plan <%s> failed. %s" % (plan_id, unicode(e))
+            LOG.error(msg)
+            resource.update_plan_to_db(context, plan_file_dir, plan_id,
+                                       {'plan_status':
+                                        p_status.ERROR_DELETING})
+            raise exception.PlanDeleteError(message=msg)
+
+        values = {'plan_status': p_status.DELETED, 'deleted': True,
+                  'deleted_at': timeutils.utcnow()}
+        resource.update_plan_to_db(context, plan_file_dir, plan_id, values)
+
     def update_plan(self, context, plan_id, values):
 
         @utils.synchronized(plan_id)

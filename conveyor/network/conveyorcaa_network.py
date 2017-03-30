@@ -15,14 +15,16 @@
 """
 Handles all requests to conveyorcaa.
 """
+from webob import exc
 
 from oslo_config import cfg
 from oslo_log import log as logging
 
-from conveyor import exception
-
 from conveyor.conveyorcaa.api import ConveyorcaaClientWrapper
+from conveyor import exception
 from conveyor.i18n import _LE
+from neutronclient.common import exceptions as neutronclient_exceptions
+
 CONF = cfg.CONF
 
 
@@ -38,7 +40,7 @@ class API(ConveyorcaaClientWrapper):
     def network_list(self, context, **_params):
         networks = []
         try:
-            networks = self.call('list_network')
+            networks = self.call('list_networks')
         except Exception as e:
             LOG.error(_LE('Query networks info error: %s'), e)
             raise exception.V2vException
@@ -47,18 +49,20 @@ class API(ConveyorcaaClientWrapper):
     def get_network(self, context, network_id, timeout=None, **_params):
         network = None
         try:
-            network = self.call('get_subnet')
+            network = self.call('get_network')
+        except exc.HTTPNotFound:
+            LOG.error(_LE('Can not find network %s info'), network_id)
+            raise neutronclient_exceptions.NotFound
         except Exception as e:
             LOG.error(_LE('Query network %(id)s info error: %(err)s'),
                       {'id': network_id, 'err': e})
-            raise exception.ResourceNotFound(resource_type='Network',
-                                             resource_id=network_id)
+            raise exception.V2vException
         return network
 
     def subnet_list(self, context, **_params):
         subnets = []
         try:
-            subnets = self.call('list_subnet')
+            subnets = self.call('list_subnets')
         except Exception as e:
             LOG.error(_LE('Query subnets info error: %s'), e)
             raise exception.V2vException
@@ -68,17 +72,19 @@ class API(ConveyorcaaClientWrapper):
         subnet = None
         try:
             subnet = self.call('get_subnet')
+        except exc.HTTPNotFound:
+            LOG.error(_LE('Can not find subnet %s info'), subnet_id)
+            raise neutronclient_exceptions.NotFound
         except Exception as e:
             LOG.error(_LE('Query subnet %(id)s info error: %(err)s'),
                       {'id': subnet_id, 'err': e})
-            raise exception.ResourceNotFound(resource_type='Network',
-                                             resource_id=subnet_id)
+            raise exception.V2vException
         return subnet
 
     def secgroup_list(self, context, **_params):
         security_groups = []
         try:
-            security_groups = self.call('list_security_group')
+            security_groups = self.call('list_security_groups')
         except Exception as e:
             LOG.error(_LE('Query security groups info error: %s'), e)
             raise exception.V2vException
@@ -88,6 +94,9 @@ class API(ConveyorcaaClientWrapper):
         security_group = None
         try:
             security_group = self.call('get_security_group')
+        except exc.HTTPNotFound:
+            LOG.error(_LE('Can not find secgroup %s info'), security_group_id)
+            raise neutronclient_exceptions.NotFound
         except Exception as e:
             LOG.error(_LE('Query security group %(id)s info error: %(err)s'),
                       {'id': security_group_id, 'err': e})
@@ -96,16 +105,48 @@ class API(ConveyorcaaClientWrapper):
         return security_group
 
     def floatingip_list(self, context, **_params):
-        pass
+        floatingips = []
+        try:
+            floatingips = self.call('list_floatingips')
+        except Exception as e:
+            LOG.error(_LE('Query floatingips info error: %s'), e)
+            raise exception.V2vException
+        return floatingips
 
-    def get_floatingip(self, context, floatingip_id, **_params):
-        pass
+    def get_floatingip(self, context, floatingip, **_params):
+        floatingip_info = None
+        try:
+            floatingip_info = self.call('get_floatingip')
+        except exc.HTTPNotFound:
+            LOG.error(_LE('Can not find floatingip %s info'), floatingip)
+            raise neutronclient_exceptions.NotFound
+        except Exception as e:
+            LOG.error(_LE('Query floatingip %(id)s info error: %(err)s'),
+                      {'id': floatingip, 'err': e})
+            raise exception.V2vException
+        return floatingip_info
 
     def router_list(self, context, **_params):
-        pass
+        routers = []
+        try:
+            routers = self.call('list_routers')
+        except Exception as e:
+            LOG.error(_LE('Query routers info error: %s'), e)
+            raise exception.V2vException
+        return routers
 
     def get_router(self, context, router_id, **_params):
-        pass
+        router = None
+        try:
+            router = self.call('get_router')
+        except exc.HTTPNotFound:
+            LOG.error(_LE('Can not find router %s info'), router_id)
+            raise neutronclient_exceptions.NotFound
+        except Exception as e:
+            LOG.error(_LE('Query router %(id)s info error: %(err)s'),
+                      {'id': router_id, 'err': e})
+            raise exception.V2vException
+        return router
 
     def router_interfaces_list(self, context, router_id):
         pass
@@ -114,7 +155,7 @@ class API(ConveyorcaaClientWrapper):
 
         ports = []
         try:
-            ports = self.call('list_port')
+            ports = self.call('list_ports')
         except Exception as e:
             LOG.error(_LE('Query ports info error: %s'), e)
             raise exception.V2vException
@@ -125,11 +166,13 @@ class API(ConveyorcaaClientWrapper):
         port = None
         try:
             port = self.call('get_port')
+        except exc.HTTPNotFound:
+            LOG.error(_LE('Can not find port %s info'), port_id)
+            raise neutronclient_exceptions.NotFound
         except Exception as e:
             LOG.error(_LE('Query port %(id)s info error: %(err)s'),
                       {'id': port_id, 'err': e})
-            raise exception.ResourceNotFound(resource_type='Network',
-                                             resource_id=port_id)
+            raise exception.V2vException
         return port
 
     def vip_list(self, context, **_params):

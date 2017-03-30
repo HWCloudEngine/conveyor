@@ -111,3 +111,7 @@ class ResourceAPI(object):
     def delete_plan(self, context, plan_id):
         cctxt = self.client.prepare(version='1.18')
         return cctxt.cast(context, 'delete_plan', plan_id=plan_id)
+
+    def force_delete_plan(self, context, plan_id):
+        cctxt = self.client.prepare(version='1.18')
+        return cctxt.cast(context, 'force_delete_plan', plan_id=plan_id)

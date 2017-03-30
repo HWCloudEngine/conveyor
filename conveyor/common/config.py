@@ -192,15 +192,15 @@ global_opts = [
                help='Tenant name associated with the OpenStack privileged '
                     'account.'),
     cfg.StrOpt('plan_file_path',
-                default='/opt/HUAWEI/image/plans/',
-                help='The directory to store the resources files of plans.'),
+               default='/opt/HUAWEI/image/plans/',
+               help='The directory to store the resources files of plans.'),
     cfg.IntOpt('plan_expire_time',
                default=60,
                help='If a plan still was not be cloned or migrated after '
                     'plan_expire_time minutes, the plan will be expired.'),
     cfg.IntOpt('clear_expired_plan_interval',
-                default=300,
-                help='Interval in seconds for clearing expired plans.'),
+               default=300,
+               help='Interval in seconds for clearing expired plans.'),
     cfg.StrOpt('os_region_name',
                default='cloud.hybrid',
                help='Region name of this node'),
@@ -211,19 +211,23 @@ global_opts = [
                 default={},
                 help='map of migrate net id of different az'),
     cfg.StrOpt('vgw_info',
-                default="",
-                help='ip and id of vgw host for different az'),
+               default="",
+               help='ip and id of vgw host for different az'),
     cfg.StrOpt('data_transformer_procotol',
-                default="ftp",
-                help='protocol for data to transformer'),
+               default="ftp",
+               help='protocol for data to transformer'),
     cfg.ListOpt('trans_ports',
                 default=[12389],
                 help='A list of backend names to use. These backend names '
                      'should be backed by a unique [CONFIG] group '
                      'with its options'),
     cfg.StrOpt('clone_migrate_type',
-                default='live',
-                help='code or live clone(migrate)')
+               default='live',
+               help='code or live clone(migrate)'),
+    cfg.BoolOpt('is_active_detach_volume',
+                default=False,
+                help='Provide cloud can detach volume '
+                'in instance active or not.')
 ]
 birdie_opts = [
     cfg.IntOpt('v2vgateway_api_listen_port',
@@ -248,7 +252,7 @@ keystone_auth_opts = [
                default='admin',
                help='keystone tenant name'),
     cfg.StrOpt('auth_url',
-               default='https://identity.cloud.hybrid.huawei.com:443/identity/v2.0',
+               default='',
                help='keystone auth url'),
     ]
 

@@ -78,15 +78,15 @@ class ConsistencyGroup(base.resource):
                                                       cg_info.get('name'),
                                                       cg_name, cg_type)
         volume_types_id = cg_info.get('volume_types')
-        volume_driver = VolumeResource(self.context,
-                                       collected_resources= \
-                                       self._collected_resources,
-                                       collected_parameters= \
-                                       self._collected_parameters,
-                                       collected_dependencies= \
-                                       self._collected_dependencies)
+        volume_driver = VolumeResource(
+            self.context,
+            collected_resources=self._collected_resources,
+            collected_parameters=self._collected_parameters,
+            collected_dependencies=self._collected_dependencies)
         if volume_types_id:
-            volume_type_res = volume_driver.extract_volume_types(volume_types_id, cg_id)
+            volume_type_res = \
+                volume_driver.extract_volume_types(volume_types_id,
+                                                   cg_id)
             volume_type_property = []
             for v in volume_type_res:
                 # addd properties
@@ -106,10 +106,11 @@ class ConsistencyGroup(base.resource):
             raise exception.ResourceExtractFailed(reason=_msg)
 
         if volume_ids:
-            volume_res = volume_driver.extract_volumes(volume_ids, cg_id)
+            volume_driver.extract_volumes(volume_ids, cg_id)
 
         self._collected_resources = volume_driver.get_collected_resources()
-        self._collected_dependencies = volume_driver.get_collected_dependencies()
+        self._collected_dependencies = \
+            volume_driver.get_collected_dependencies()
 
         self._collected_resources[cg_id] = cg_res
         self._collected_dependencies[cg_id] = cg_dependencies

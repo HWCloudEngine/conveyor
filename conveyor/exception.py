@@ -116,7 +116,6 @@ class V2vException(Exception):
         return six.text_type(self.msg)
 
 
-
 class NotAuthorized(V2vException):
     message = _("Not authorized.")
     code = 403
@@ -188,6 +187,7 @@ class NotFound(V2vException):
     code = 404
     safe = True
 
+
 class FileNotFound(NotFound):
     message = _("File %(file_path)s could not be found.")
 
@@ -222,6 +222,7 @@ class QuotaError(V2vException):
     code = 413
     headers = {'Retry-After': 0}
     safe = True
+
 
 class EvaluatorParseException(Exception):
     message = _("Error during evaluator parsing: %(reason)s")
@@ -259,77 +260,107 @@ class Forbidden(V2vException):
     message = _("Not authorized.")
     code = 403
 
+
 class ReadOnlyFieldError(V2vException):
     message = _('Cannot modify readonly field %(field)s')
 
+
 class VolumeNotFound(V2vException):
     message = _('Cannot found volume')
-    
+
+
 class CinderConnectionFailed(V2vException):
     message = _('Connect cinder service failed')
 
+
 class ServerNotFound(V2vException):
     message = _('Query server  not  fount')
-    
+
+
 class InstanceNotCreated(V2vException):
     message = _("Instance %(instance_id)s did not finish being created"
                 " even after we waited %(seconds)s seconds or %(attempts)s"
                 " attempts.")
+
+
+class InstanceNotStop(V2vException):
+    message = _("Instance %(instance_id)s did not finish being stopped"
+                " even after we waited %(seconds)s seconds or %(attempts)s"
+                " attempts.")
+
+
+class InstanceNotStart(V2vException):
+    message = _("Instance %(instance_id)s did not finish being started"
+                " even after we waited %(seconds)s seconds or %(attempts)s"
+                " attempts.")
+
 
 class VolumeNotCreated(V2vException):
     message = _("Volume %(volume_id)s did not finish being created"
                 " even after we waited %(seconds)s seconds or %(attempts)s"
                 " attempts.")
 
+
 class VolumeNotAttach(V2vException):
     message = _("Volume %(volume_id)s did not finish being attached"
                 " even after we waited %(seconds)s seconds or %(attempts)s"
                 " attempts.")
+
 
 class VolumeNotdetach(V2vException):
     message = _("Volume %(volume_id)s did not finish being detached"
                 " even after we waited %(seconds)s seconds or %(attempts)s"
                 " attempts.")
 
+
 class PortNotattach(V2vException):
     message = _("Port %(port_id)s did not finish being detached"
                 " even after we waited %(seconds)s seconds or %(attempts)s"
                 " attempts.")
 
+
 class BirdieTransformNetConfigError(V2vException):
     message = _("Clone or migrate network config info error.")
-    
+
 
 class NoMigrateNetProvided(V2vException):
     message = _('No network provided for migrating server %(server_uuid)s')
-    
+
+
 class AvailabilityZoneNotFound(V2vException):
     message = _('the availability_zone of  server %(server_uuid)s not found')
-    
-##glance exception###
+
+
 class InvalidImageRef(Invalid):
     message = _("Invalid image href %(image_href)s.")
-    
+
+
 class ImageNotFound(NotFound):
     message = _("Image %(image_id)s could not be found.")
 
+
 class ImageNotAuthorized(V2vException):
     message = _("Not authorized for image %(image_id)s.")
-    
+
+
 class GlanceConnectionFailed(V2vException):
     message = _("Connection to glance host %(host)s:%(port)s failed: "
-        "%(reason)s")
+                "%(reason)s")
 
 
 class PlanTypeNotSupported(V2vException):
     message = _("The plan type '%(type)s' is unsupported. \
                 Type must be 'clone' or 'migrate'.")
+
+
 class ResourceTypeNotFound(NotFound):
     message = _("SearchOptions has no attribution 'type' or the type is None.")
-    
+
+
 class ResourceTypeNotSupported(V2vException):
     message = _("The resource type '%(resource_type)s' is unsupported.")
-    
+
+
 class PlanNotFound(NotFound):
     message = _("The plan <%(plan_id)s> could not be found.")
 
@@ -339,29 +370,36 @@ class PlanDeleteError(V2vException):
 
 
 class PlanUpdateError(V2vException):
-    message = _("Plan updated failed. The key not found or unsupported to update.")
-    
+    message = _("Plan updated failed. \
+                The key not found or unsupported to update.")
+
+
 class PlanResourcesUpdateError(V2vException):
     message = _("Plan resources updated failed.")
+
 
 class PlanFileOperationError(V2vException):
     message = _("Read or write plan file failed.")
 
-class ResourceNotFound(NotFound):
-    message = _("%(resource_type)s resource <%(resource_id)s> could not be found.")
 
-    
+class ResourceNotFound(NotFound):
+    message = _("%(resource_type)s resource \
+                <%(resource_id)s> could not be found.")
+
+
 class ResourceExtractFailed(V2vException):
     message = _("Resource extract failed! %(reason)s")
-    
+
+
 class ResourceAttributesException(V2vException):
     message = _("%(resource_type)s resource has no attribute '%(attribute)s' "
                 "or the value is None.")
 
+
 class TemplateValidateFailed(V2vException):
     message = _("Template validate failed.")
- 
- 
+
+
 class ServiceCatalogException(V2vException):
     """Raised when a requested service is not available in the
     ``ServiceCatalog`` returned by Keystone.
@@ -369,47 +407,58 @@ class ServiceCatalogException(V2vException):
     def __init__(self, service_name):
         message = 'Invalid service catalog service: %s' % service_name
         super(ServiceCatalogException, self).__init__(message)
-        
+
+
 class PlanDeployError(V2vException):
     msg_fmt = _("The plan %s(plan_id)s deploy failed")
 
 
-    
 class PlanNotFoundInDb(NotFound):
     message = _("Plan not found for id <%(id)s>.")
-    
-class InvalidID(Invalid): 
+
+
+class InvalidID(Invalid):
     message = _("Invalid ID received %(id)s.")
-    
+
+
 class DataExists(V2vException):
     code = 409
     message = _("data already exists.")
-    
+
+
 class PlanExists(DataExists):
     message = _("plan id <%(id)s> already exists in db.")
-    
+
+
 class IntegrityException(V2vException):
     code = 409
     message = _("%(msg)s.")
-    
+
+
 class PlanCreateFailed(V2vException):
     message = _("Unable to create plan")
-    
+
+
 class DownloadTemplateFailed(V2vException):
-    message = _("Download the plan <%(id)s> failed.%(msg)s")  
-    
-class ExportTemplateFailed(V2vException): 
-    message = _("export template of the plan <%(id)s> failed.%(msg)s") 
-    
+    message = _("Download the plan <%(id)s> failed.%(msg)s")
+
+
+class ExportTemplateFailed(V2vException):
+    message = _("export template of the plan <%(id)s> failed.%(msg)s")
+
+
 class PlanCloneFailed(V2vException):
     message = _("clone plan <%(id)s> failed.%(msg)s")
-    
+
+
 class PlanMigrateFailed(V2vException):
     message = _("migrate plan <%(id)s> failed.%(msg)s")
-    
-class TimeoutException(V2vException): 
+
+
+class TimeoutException(V2vException):
     message = _("%(msg)s.")
-    
+
+
 class VolumeErrorException(V2vException):
     message = _("volume <%(id)s> status is error")
 

@@ -24,6 +24,7 @@ from oslo_log import log as logging
 
 from conveyor import compute
 from conveyor.conveyoragentclient.v1 import client as birdiegatewayclient
+from conveyor.clone.resources import common
 from conveyor import exception
 from conveyor import heat
 from conveyor.i18n import _LW
@@ -94,11 +95,25 @@ class BaseDriver(object):
                             vgw_ip, str(CONF.v2vgateway_api_listen_port))
                         client.vservices._force_umount_disk(
                             "/opt/" + volume_id)
+
+                    # if provider cloud can not detach volume in active status
+                    if not CONF.is_active_detach_volume:
+                        resouce_common = common.ResourceCommon()
+                        self.nova_api.stop_server(context, vgw_id)
+                        resouce_common._await_instance_status(context,
+                                                              vgw_id,
+                                                              'SHUTOFF')
                     self.nova_api.detach_volume(context,
                                                 vgw_id,
                                                 volume_id)
                     self._wait_for_volume_status(context, volume_id, vgw_id,
                                                  'available')
+
+                    if not CONF.is_active_detach_volume:
+                        self.nova_api.start_server(context, vgw_id)
+                        resouce_common._await_instance_status(context,
+                                                              vgw_id,
+                                                              'ACTIVE')
                 except novaclient_exceptions.NotFound:
                     LOG.warn('detach the volume %s from vgw %s error,'
                              'the volume not attached to vgw',

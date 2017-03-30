@@ -20,6 +20,7 @@ from conveyor import volume
 from oslo_log import log as logging
 
 from conveyor.resource import resource
+from conveyor.resource import resource_state
 from conveyor.resource.driver import base
 
 LOG = logging.getLogger(__name__)
@@ -59,6 +60,11 @@ class VolumeResource(base.resource):
 
         for volume in volume_dicts:
             volume_id = volume['id']
+            vol_state = volume.get('status', None)
+            if vol_state not in resource_state.VOLUME_CLONE_STATE:
+                LOG.error("Volume %(id)s state is %(state)s not available \
+                           or in-use", {'id': volume_id, 'state': vol_state})
+                raise exception.PlanCreateFailed
             volume_res = self._collected_resources.get(volume_id)
             if volume_res:
                 volumeResources.append(volume_res)
@@ -84,6 +90,7 @@ class VolumeResource(base.resource):
                                                      resource_name,
                                                      resource_type)
 
+            volume_res.add_extra_property('status', vol_state)
             volume_type_name = volume['volume_type']
             if volume_type_name:
                 volume_types = self.cinder_api.volume_type_list(self.context)
@@ -168,13 +175,12 @@ class VolumeResource(base.resource):
             # 2. check volume has qos or not, if having, build qos resource
             qos_id = volume_type.get('qos_specs_id', None)
             if qos_id:
-                qos_driver = QosResource(self.context,
-                                         collected_resources= \
-                                         self._collected_resources,
-                                         collected_parameters= \
-                                         self._collected_parameters,
-                                         collected_dependencies= \
-                                         self._collected_dependencies)
+                qos_driver = \
+                    QosResource(
+                        self.context,
+                        collected_resources=self._collected_resources,
+                        collected_parameters=self._collected_parameters,
+                        collected_dependencies=self._collected_dependencies)
 
                 qos_res = qos_driver.extract_qos(qos_id)
                 properties['qos_specs_id'] = {'get_resource': qos_res.name}
@@ -195,11 +201,12 @@ class VolumeResource(base.resource):
                                                 volume_type_id,
                                                 properties=properties)
 
-            volume_type_dep = resource.ResourceDependency(volume_type_id,
-                                                          volume_type['name'],
-                                                          resource_name,
-                                                          resource_type,
-                                                          dependencies=dependencies)
+            volume_type_dep = resource.ResourceDependency(
+                                volume_type_id,
+                                volume_type['name'],
+                                resource_name,
+                                resource_type,
+                                dependencies=dependencies)
 
             self._collected_resources[volume_type_id] = volume_type_res
             self._collected_dependencies[volume_type_id] = volume_type_dep
@@ -267,6 +274,11 @@ class Volume(base.resource):
             raise exception.ResourceNotFound(message=msg)
 
         volume_id = volume.get('id')
+        vol_state = volume.get('status', None)
+        if vol_state not in resource_state.VOLUME_CLONE_STATE:
+            LOG.error("Volume %(id)s state is %(state)s not available \
+                      or in-use", {'id': volume_id, 'state': vol_state})
+            raise exception.PlanCreateFailed
         v_res = self._collected_resources.get(volume_id)
 
         # check volume resource is existing or not
@@ -295,6 +307,7 @@ class Volume(base.resource):
         self._collected_resources[volume_id] = volume_res
         self._collected_dependencies[volume_id] = volume_dep
 
+        volume_res.add_extra_property('status', vol_state)
         # 3. if volume has volume type, building volume type resource
         # and updating dependences
         volume_type_name = volume.get('volume_type')
@@ -308,13 +321,11 @@ class Volume(base.resource):
                     break
             if type_id:
                 type_driver = \
-                    VolumeType(self.context,
-                               collected_resources= \
-                               self._collected_resources,
-                               collected_parameters= \
-                               self._collected_parameters,
-                               collected_dependencies= \
-                               self._collected_dependencies)
+                    VolumeType(
+                        self.context,
+                        collected_resources=self._collected_resources,
+                        collected_parameters=self._collected_parameters,
+                        collected_dependencies=self._collected_dependencies)
                 volume_type_res = type_driver.extract_volume_type(type_id)
                 if volume_type_res:
                     t_name = volume_type_res.name
@@ -345,13 +356,12 @@ class Volume(base.resource):
         if cg_id:
             from conveyor.resource.driver.consistencygroup import \
                 ConsistencyGroup
-            consisgroup_driver = ConsistencyGroup(self.context,
-                                                  collected_resources= \
-                                                  self._collected_resources,
-                                                  collected_parameters= \
-                                                  self._collected_parameters,
-                                                  collected_dependencies= \
-                                                  self._collected_dependencies)
+            consisgroup_driver = \
+                ConsistencyGroup(
+                    self.context,
+                    collected_resources=self._collected_resources,
+                    collected_parameters=self._collected_parameters,
+                    collected_dependencies=self._collected_dependencies)
             cons_res = consisgroup_driver.extract_consistency_group(cg_id)
             volume_res.add_property('consistencygroup_id',
                                     {'get_resource': cons_res.name})
@@ -421,13 +431,12 @@ class VolumeType(base.resource):
         # 2. check volume has qos or not, if having, build qos resource
         qos_id = volume_type.get('qos_specs_id')
         if qos_id:
-            qos_driver = QosResource(self.context,
-                                     collected_resources= \
-                                     self._collected_resources,
-                                     collected_parameters= \
-                                     self._collected_parameters,
-                                     collected_dependencies= \
-                                     self._collected_dependencies)
+            qos_driver = \
+                QosResource(
+                    self.context,
+                    collected_resources=self._collected_resources,
+                    collected_parameters=self._collected_parameters,
+                    collected_dependencies=self._collected_dependencies)
 
             qos_res = qos_driver.extract_qos(qos_id)
             self._collected_resources = qos_driver.get_collected_resources()

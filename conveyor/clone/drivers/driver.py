@@ -123,6 +123,13 @@ class BaseDriver(object):
     def _handle_dep_volume(self, context, resource, gw_id, gw_ip, undo_mgr):
         volume_id = resource.id
         LOG.debug('Attach volume %s to gw host %s', volume_id, gw_id)
+        # query disk list before attaching (add wanggang)
+        client = birdiegatewayclient.get_birdiegateway_client(
+            gw_ip,
+            str(CONF.v2vgateway_api_listen_port)
+        )
+        disks = set(client.vservices.get_disk_name().get('dev_name'))
+
         attach_resp = self.compute_api.attach_volume(context,
                                                      gw_id,
                                                      volume_id,
@@ -133,6 +140,10 @@ class BaseDriver(object):
         self._wait_for_volume_status(context, volume_id,
                                      gw_id,
                                      'in-use')
+
+        n_disks = set(client.vservices.get_disk_name().get('dev_name'))
+
+        diff_disk = n_disks - disks
         resource.extra_properties['status'] = 'in-use'
         LOG.debug('Begin get info for volume,the vgw ip %s' % gw_ip)
         client = birdiegatewayclient.get_birdiegateway_client(
@@ -142,7 +153,8 @@ class BaseDriver(object):
         # sys_dev_name = client.vservices.get_disk_name(volume_id).get(
         #                 'dev_name')
         # sys_dev_name = device_name
-        sys_dev_name = attach_resp._info.get('device')
+        # sys_dev_name = attach_resp._info.get('device')
+        sys_dev_name = list(diff_disk)[0] if len(diff_disk) == 1 else None
         resource.extra_properties['sys_dev_name'] = sys_dev_name
         guest_format = client.vservices.get_disk_format(sys_dev_name)\
                              .get('disk_format')

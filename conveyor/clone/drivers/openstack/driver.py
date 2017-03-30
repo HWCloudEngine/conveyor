@@ -241,6 +241,13 @@ class OpenstackDriver(driver.BaseDriver):
                                              context,
                                              volume_id,
                                              False))
+
+        client = birdiegatewayclient.get_birdiegateway_client(
+            gw_ip,
+            str(CONF.v2vgateway_api_listen_port)
+        )
+        disks = set(client.vservices.get_disk_name().get('dev_name'))
+
         attach_resp = self.compute_api.attach_volume(context,
                                                      gw_id,
                                                      volume_id,
@@ -252,13 +259,17 @@ class OpenstackDriver(driver.BaseDriver):
                                              volume_id))
         self._wait_for_volume_status(context, volume_id, gw_id,
                                      'in-use')
+        n_disks = set(client.vservices.get_disk_name().get('dev_name'))
+
+        diff_disk = n_disks - disks
         LOG.debug('Begin get info for volume,the vgw ip %s' % gw_ip)
         client = birdiegatewayclient.get_birdiegateway_client(
             gw_ip, str(CONF.v2vgateway_api_listen_port))
 #         sys_dev_name = client.vservices.get_disk_name(volume_id).get(
 #             'dev_name')
 #         sys_dev_name = device_name
-        sys_dev_name = attach_resp._info.get('device')
+#        sys_dev_name = attach_resp._info.get('device')
+        sys_dev_name = list(diff_disk)[0] if len(diff_disk) == 1 else None
         vol_res.extra_properties['sys_dev_name'] = sys_dev_name
         guest_format = client.vservices.get_disk_format(sys_dev_name)\
                              .get('disk_format')
@@ -282,6 +293,13 @@ class OpenstackDriver(driver.BaseDriver):
                                              dev_name))
         self._wait_for_volume_status(context, volume_id, server_id,
                                      'available')
+
+        client = birdiegatewayclient.get_birdiegateway_client(
+            gw_ip,
+            str(CONF.v2vgateway_api_listen_port)
+        )
+        disks = set(client.vservices.get_disk_name().get('dev_name'))
+
         attach_resp = self.compute_api.attach_volume(context,
                                                      gw_id,
                                                      volume_id,
@@ -293,13 +311,18 @@ class OpenstackDriver(driver.BaseDriver):
                                              volume_id))
         self._wait_for_volume_status(context, volume_id, gw_id,
                                      'in-use')
+        n_disks = set(client.vservices.get_disk_name().get('dev_name'))
+
+        diff_disk = n_disks - disks
         LOG.debug('begin get info for volume,the vgw ip %s' % gw_ip)
         client = birdiegatewayclient.get_birdiegateway_client(
             gw_ip, str(CONF.v2vgateway_api_listen_port))
 #         sys_dev_name = client.vservices.get_disk_name(volume_id).get(
 #             'dev_name')
 #         sys_dev_name = device_name
-        sys_dev_name = attach_resp._info.get('device')
+        # sys_dev_name = attach_resp._info.get('device')
+        sys_dev_name = list(diff_disk)[0] if len(diff_disk) == 1 else None
+
         vol_res.extra_properties['sys_dev_name'] = sys_dev_name
         guest_format = client.vservices.get_disk_format(sys_dev_name)\
                              .get('disk_format')
@@ -391,6 +414,13 @@ class OpenstackDriver(driver.BaseDriver):
                                                  context,
                                                  volume_id,
                                                  False))
+
+        client = birdiegatewayclient.get_birdiegateway_client(
+            gw_ip,
+            str(CONF.v2vgateway_api_listen_port)
+        )
+        disks = set(client.vservices.get_disk_name().get('dev_name'))
+
         LOG.debug('Attach volume %s to gw host %s', volume_id, gw_id)
         attach_resp = self.compute_api.attach_volume(context,
                                                      gw_id,
@@ -404,16 +434,19 @@ class OpenstackDriver(driver.BaseDriver):
                                              volume_id))
         self._wait_for_volume_status(context, volume_id, gw_id,
                                      'in-use')
+        n_disks = set(client.vservices.get_disk_name().get('dev_name'))
+        diff_disk = n_disks - disks
         vol_res.get('extra_properties')['status'] = 'in-use'
         LOG.debug('Begin get info for volume,the vgw ip %s' % gw_ip)
         client = birdiegatewayclient.get_birdiegateway_client(
             gw_ip,
             str(CONF.v2vgateway_api_listen_port)
             )
-        device_name = attach_resp._info.get('device')
+        sys_dev_name = list(diff_disk)[0] if len(diff_disk) == 1 else None
+#        device_name = attach_resp._info.get('device')
 #         sys_dev_name = client.vservices.get_disk_name(volume_id).get(
 #             'dev_name')
-        sys_dev_name = device_name
+#        sys_dev_name = device_name
         vol_res.get('extra_properties')['sys_dev_name'] = sys_dev_name
         guest_format = client.vservices.get_disk_format(sys_dev_name)\
                              .get('disk_format')

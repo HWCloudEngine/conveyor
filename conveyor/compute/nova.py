@@ -433,3 +433,9 @@ class API(object):
         client = novaclient(context, admin=True)
         server = client.servers.get(server_id)
         return client.servers.reset_state(server, state)
+
+    def stop_server(self, context, server_id):
+        return novaclient(context, admin=True).servers.stop(server_id)
+
+    def start_server(self, context, server_id):
+        return novaclient(context, admin=True).servers.start(server_id)

@@ -15,13 +15,14 @@
 """
 Handles all requests to conveyorcaa.
 """
+from webob import exc
 
 from oslo_config import cfg
 from oslo_log import log as logging
 
-from conveyor import exception
-
+from cinderclient import exceptions as cinderclient_exceptions
 from conveyor.conveyorcaa.api import ConveyorcaaClientWrapper
+from conveyor import exception
 from conveyor.i18n import _LE
 
 CONF = cfg.CONF
@@ -38,11 +39,13 @@ class API(ConveyorcaaClientWrapper):
         volume = None
         try:
             volume = self.call('get_volume')
+        except exc.HTTPNotFound:
+            LOG.error(_LE('Can not find volume %s info'), volume_id)
+            raise cinderclient_exceptions.NotFound
         except Exception as e:
             LOG.error(_LE('Query volume %(id)s info error: %(err)s'),
                       {'id': volume_id, 'err': e})
-            raise exception.ResourceNotFound(resource_type='Cinder',
-                                             resource_id=volume_id)
+            raise exception.V2vException
         return volume
 
     def get_all(self, context, search_opts=None, trans_map=True):
@@ -87,11 +90,13 @@ class API(ConveyorcaaClientWrapper):
         volume_type = None
         try:
             volume_type = self.call('get_volume_type')
+        except exc.HTTPNotFound:
+            LOG.error(_LE('Can not find volume type %s info'), volume_type_id)
+            raise cinderclient_exceptions.NotFound
         except Exception as e:
             LOG.error(_LE('Query volumetype  %(id)s info error: %(err)s'),
                       {'id': volume_type_id, 'err': e})
-            raise exception.ResourceNotFound(resource_type='Cinder',
-                                             resource_id=volume_type_id)
+            raise exception.V2vException
         return volume_type
 
     def get_consisgroup(self, context, consisgroup_id):

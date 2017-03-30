@@ -116,17 +116,17 @@ class VServiceManager(base.Manager):
         
         return mount_point
 
-    def get_disk_name(self, volume_id):
+    def get_disk_name(self):
         
-        LOG.debug("Query disk: %s name start", volume_id)
-        body = {'getDiskName': {'volume_id': volume_id}}
+        LOG.debug("Query disk name start")
+        body = {'getDiskName': {'volume_id': None}}
         
         url = '/v2vGateWayServices/%s/action' % uuidutils.generate_uuid()
         
         dev_name = self._get_disk_name(url, body)
         
-        LOG.debug("Query disk: %(dev_name)s name: %(mount_point)s end", 
-                  {'dev_name': volume_id, 'mount_point': dev_name})
+        LOG.debug("Query disk name: %(mount_point)s end", 
+                  {'mount_point': dev_name})
         
         return dev_name
     

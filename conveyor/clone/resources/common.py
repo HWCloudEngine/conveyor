@@ -239,6 +239,42 @@ class ResourceCommon(object):
                                            seconds=int(time.time() - start),
                                            attempts=attempts)
 
+    def _await_instance_status(self, context, instance_id, status):
+        start = time.time()
+        retries = CONF.block_device_allocate_retries
+        if retries < 0:
+            LOG.warn(_LW("Treating negative config value (%(retries)s) for "
+                         "'block_device_retries' as 0."),
+                     {'retries': retries})
+        # (1) treat  negative config value as 0
+        # (2) the configured value is 0, one attempt should be made
+        # (3) the configured value is > 0, then the total number attempts
+        #      is (retries + 1)
+        attempts = 1
+        if retries >= 1:
+            attempts = retries + 1
+        for attempt in range(1, attempts + 1):
+            instance = self.nova_api.get_server(context, instance_id)
+            instance_status = instance.get('status', None)
+            if instance_status == status:
+                LOG.error(_("Instance id: %(id)s finished being %(st)s"),
+                          {'id': instance_id, 'st': status})
+                return attempt
+            greenthread.sleep(CONF.block_device_allocate_retries_interval)
+
+        if 'SHUTOFF' == status:
+            LOG.error(_("Instance id: %s stop failed"), instance_id)
+            raise exception.InstanceNotStop(instance_id=instance_id,
+                                            seconds=int(time.time() - start),
+                                            attempts=attempts)
+        elif 'in-use' == status:
+            LOG.error(_("Instance id: %s start failed"), instance_id)
+            raise exception.InstanceNotStart(instance_id=instance_id,
+                                             seconds=int(time.time() - start),
+                                             attempts=attempts)
+        else:
+            raise exception.Error(message="Instance option error.")
+
     def _await_port_status(self, context, port_id, ip_address):
         # TODO(yamahata): creating volume simultaneously
         #                 reduces creation time?
