@@ -44,6 +44,7 @@ class PlansActionController(wsgi.Controller):
     @wsgi.action('download_template')
     def _download_template(self, req, id, body):
         LOG.debug("download template of plan %s start in API from template", id)
+        context = req.environ['conveyor.context']
         plan = self.resource_api.get_plan_by_id(context, id)
         plan_status = plan['plan_status']
         if plan_status not in (p_status.AVAILABLE, p_status.CLONING,
@@ -53,7 +54,6 @@ class PlansActionController(wsgi.Controller):
                     'state': plan_status,
                 }
             raise exc.HTTPBadRequest(explanation=msg)
-        context = req.environ['conveyor.context']
         content = self.clone_api.download_template(context, id)
         LOG.debug('the content is %s' %content)
         return content

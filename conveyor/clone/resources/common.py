@@ -23,7 +23,7 @@ from conveyor import network
 from conveyor.brick import base
 from conveyor.conveyoragentclient.v1 import client as conveyorclient
 from conveyor.resource import api as resource_api
-from conveyor.i18n import _, _LE, _LI, _LW
+from conveyor.i18n import _, _LW
 from eventlet import greenthread
 from oslo_config import cfg
 import time
@@ -36,7 +36,6 @@ migrate_manager_opts = [
     cfg.IntOpt('block_device_allocate_retries_interval',
                default=5,
                help='clone driver'),
-                        
     cfg.IntOpt('instance_allocate_retries',
                default=120,
                help='clone driver'),
@@ -54,12 +53,13 @@ migrate_manager_opts = [
                help='clone driver'),
     cfg.IntOpt('data_transformer_state_retries_interval',
                default=5,
-               help='clone driver'),               
+               help='clone driver'),
 ]
 
 CONF = cfg.CONF
 CONF.register_opts(migrate_manager_opts)
 LOG = logging.getLogger(__name__)
+
 
 class ResourceCommon(object):
 
@@ -70,7 +70,7 @@ class ResourceCommon(object):
         self.volume_api = volume.API()
         self.network_api = network.API()
         self.resource_api = resource_api.ResourceAPI()
-        
+
     def _await_volume_status(self, context, vol_id, status):
         # TODO(yamahata): creating volume simultaneously
         #                 reduces creation time?
@@ -94,9 +94,9 @@ class ResourceCommon(object):
             if volume_status == status:
                 LOG.debug(_("Volume id: %s finished being detached"), vol_id)
                 return attempt
-                
+
             greenthread.sleep(CONF.block_device_allocate_retries_interval)
-            
+
         # NOTE(harlowja): Should only happen if we ran out of attempts
         if 'available' == status:
             LOG.error(_("Volume id: %s detach failed"), vol_id)
@@ -110,9 +110,9 @@ class ResourceCommon(object):
                                          attempts=attempts)
         else:
             raise exception.Error(message="Volume option error.")
-    
+
     def _await_data_trans_status(self, context, host, port, task_ids, state_map, plan_id=None):
-    
+
         start = time.time()
         retries = CONF.data_transformer_state_retries
         if retries < 0:
@@ -123,8 +123,8 @@ class ResourceCommon(object):
         # (2) the configured value is 0, one attempt should be made
         # (3) the configured value is > 0, then the total number attempts
         #      is (retries + 1)
-        
-        #if not volume data to copy
+
+        # if not volume data to copy
         if not host:
             plan_state = state_map.get('DATA_TRANS_FINISHED')
             values = {}
@@ -132,19 +132,19 @@ class ResourceCommon(object):
             values['task_status'] = 'DATA_TRANS_FINISHED'
             self.resource_api.update_plan(context, plan_id, values)
             return 0
-                      
+
         attempts = 1
         if retries >= 1:
             attempts = retries + 1
         for attempt in range(1, attempts + 1):
-            #record all volume data transformer task state
+            # record all volume data transformer task state
             task_states = []
             for task_id in task_ids:
                 cls = conveyorclient.get_birdiegateway_client(host, port)
                 status = cls.vservices.get_data_trans_status(task_id)
                 task_status = status.get('body').get('task_state')
-                #if one volume data transformer failed, this clone failed
-                if 'DATA_TRANS_FAILED' == task_status:         
+                # if one volume data transformer failed, this clone failed
+                if 'DATA_TRANS_FAILED' == task_status:
                     plan_state = state_map.get(task_status)
                     values = {}
                     values['plan_status'] = plan_state
@@ -152,14 +152,15 @@ class ResourceCommon(object):
                     self.resource_api.update_plan(context, plan_id, values)
                     return attempt
                 task_states.append(task_status)
-            #as long as one volume data does not transformer finished, clone plan state is cloning
+            # as long as one volume data does not transformer finished,
+            # clone plan state is cloning
             if 'DATA_TRANSFORMING' in task_states:
                     plan_state = state_map.get('DATA_TRANSFORMING')
                     values = {}
                     values['plan_status'] = plan_state
                     values['task_status'] = 'DATA_TRANSFORMING'
                     self.resource_api.update_plan(context, plan_id, values)
-            #otherwise, plan state is finished
+            # otherwise, plan state is finished
             else:
                 LOG.debug(_("Data transformer finished!"))
                 plan_state = state_map.get('DATA_TRANS_FINISHED')
@@ -167,15 +168,14 @@ class ResourceCommon(object):
                 values['plan_status'] = plan_state
                 values['task_status'] = 'DATA_TRANS_FINISHED'
                 self.resource_api.update_plan(context, plan_id, values)
-                return attempt 
-                
+                return attempt
+
             greenthread.sleep(CONF.data_transformer_state_retries_interval)
-            
+
         # NOTE(harlowja): Should only happen if we ran out of attempts
         raise exception.InstanceNotCreated(instance_id=task_id,
-                                         seconds=int(time.time() - start),
-                                         attempts=attempts)
-        
+                                           seconds=int(time.time() - start),
+                                           attempts=attempts)
 
     def _await_block_device_map_created(self, context, vol_id):
         # TODO(yamahata): creating volume simultaneously
@@ -267,7 +267,7 @@ class ResourceCommon(object):
             raise exception.InstanceNotStop(instance_id=instance_id,
                                             seconds=int(time.time() - start),
                                             attempts=attempts)
-        elif 'in-use' == status:
+        elif 'ACTIVE' == status:
             LOG.error(_("Instance id: %s start failed"), instance_id)
             raise exception.InstanceNotStart(instance_id=instance_id,
                                              seconds=int(time.time() - start),
@@ -298,9 +298,9 @@ class ResourceCommon(object):
                 return attempt
             else:
                 continue
-                
+
             greenthread.sleep(CONF.port_allocate_retries_interval)
-            
+
         # NOTE(harlowja): Should only happen if we ran out of attempts
         raise exception.PortNotattach(port_id=port_id,
                                          seconds=int(time.time() - start),
@@ -318,4 +318,4 @@ class ResourceCommon(object):
             else:
                 continue
 
-        return exit_status   
+        return exit_status
