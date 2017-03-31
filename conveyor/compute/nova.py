@@ -275,6 +275,12 @@ class API(object):
         server = client.servers.delete(server_id)
         LOG.debug(_LE("Nova client delete server %s end"), str(server))
 
+    def stop_server(self, context, server_id):
+        client = novaclient(context, admin=True)
+        LOG.debug(_LE("Nova client stop server %s start"), server_id)
+        server = client.servers.stop(server_id)
+        LOG.debug(_LE("Nova client stop server %s end"), str(server))
+
     def get_all_servers(self, context, detailed=True, search_opts=None,
                         marker=None, limit=None, is_dict=True):
         LOG.debug(_LE("Nova client query all servers start"))

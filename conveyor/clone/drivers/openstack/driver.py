@@ -38,10 +38,7 @@ LOG = logging.getLogger(__name__)
 
 class OpenstackDriver(driver.BaseDriver):
     def __init__(self):
-        self.volume_api = volume.API()
-        self.compute_api = compute.API()
-        self.neutron_api = network.API()
-        self.heat_api = heat.API()
+        super(OpenstackDriver, self).__init__()
 
     def handle_resources(self, context, plan_id, resource_map, sys_clone):
         LOG.debug('Begin handle resources')
@@ -269,47 +266,6 @@ class OpenstackDriver(driver.BaseDriver):
             vol_res.extra_properties['mount_point'] = mount_point.get(
                 'mount_disk')
 
-    def _handle_dv_for_svm(self, context, vol_res, server_id, dev_name,
-                           gw_id, gw_ip, undo_mgr):
-        volume_id = vol_res.id
-        LOG.debug('detach the volume %s form server %s', volume_id, server_id)
-        self.compute_api.detach_volume(context, server_id,
-                                       volume_id)
-        undo_mgr.undo_with(functools.partial(self._attach_volume,
-                                             context,
-                                             server_id,
-                                             volume_id,
-                                             dev_name))
-        self._wait_for_volume_status(context, volume_id, server_id,
-                                     'available')
-        attach_resp = self.compute_api.attach_volume(context,
-                                                     gw_id,
-                                                     volume_id,
-                                                     None)
-        LOG.debug('attach volume %s to gw host %s', volume_id, gw_id)
-        undo_mgr.undo_with(functools.partial(self._detach_volume,
-                                             context,
-                                             gw_id,
-                                             volume_id))
-        self._wait_for_volume_status(context, volume_id, gw_id,
-                                     'in-use')
-        LOG.debug('begin get info for volume,the vgw ip %s' % gw_ip)
-        client = birdiegatewayclient.get_birdiegateway_client(
-            gw_ip, str(CONF.v2vgateway_api_listen_port))
-#         sys_dev_name = client.vservices.get_disk_name(volume_id).get(
-#             'dev_name')
-#         sys_dev_name = device_name
-        sys_dev_name = attach_resp._info.get('device')
-        vol_res.extra_properties['sys_dev_name'] = sys_dev_name
-        guest_format = client.vservices.get_disk_format(sys_dev_name)\
-                             .get('disk_format')
-        if guest_format:
-            vol_res.extra_properties['guest_format'] = guest_format
-            mount_point = client.vservices.force_mount_disk(
-                sys_dev_name, "/opt/" + volume_id)
-            vol_res.extra_properties['mount_point'] = mount_point.get(
-                'mount_disk')
-
     def add_extra_properties_for_stack(self, context, resource, undo_mgr):
         res_prop = resource.properties
         stack_id = resource.id
@@ -353,8 +309,7 @@ class OpenstackDriver(driver.BaseDriver):
                                                           key)
                     phy_id = heat_res.physical_resource_id
                     server_info = self.compute_api.get_server(context, phy_id)
-                    vm_state = getattr(server_info, 'OS-EXT-STS:vm_state',
-                                       None)
+                    vm_state = server_info.get('OS-EXT-STS:vm_state', None)
                     v_exra_prop = value.get('extra_properties', {})
                     v_exra_prop['vm_state'] = vm_state
                     v_exra_prop['id'] = phy_id

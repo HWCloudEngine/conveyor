@@ -55,6 +55,6 @@ class API(object):
                                   update_resources={},
                                   sys_clone=False):
         LOG.debug("export template and clone plan %s" % id)
-        return self.clone_rpcapi.export_template_and_clone(context, id, destination,
-                                                           update_resources=update_resources,
-                                                           sys_clone=sys_clone)
+        return self.clone_rpcapi.export_template_and_clone(
+            context, id, destination, update_resources=update_resources,
+            sys_clone=sys_clone)
