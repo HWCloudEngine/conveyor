@@ -72,7 +72,7 @@ LOG = logging.getLogger(__name__)
 resource_plugins_opts = [
     cfg.StrOpt('resource_driver',
                default='conveyor.resource.plugins.openstack.driver.'
-                       'OpenstackDriver.',
+                       'OpenstackDriver',
                help='Driver to connect cloud')
 ]
 
@@ -103,7 +103,7 @@ class ResourceManager(manager.Manager):
         self.neutron_api = network.API()
         self.glance_api = image.API()
         self.db_api = db_api
-        resource_driver_class = importutils.import_class(CONF.clone_driver)
+        resource_driver_class = importutils.import_class(CONF.resource_driver)
         self.resource_driver = resource_driver_class()
 
         # Start periodic task to clear expired plan

@@ -59,7 +59,7 @@ manager_opts = [
 clone_opts = [
     cfg.StrOpt('clone_driver',
                default='conveyor.clone.drivers.openstack.driver.'
-                       'OpenstackDriver.',
+                       'OpenstackDriver',
                help='Driver to connect cloud')
 ]
 
