@@ -23,3 +23,5 @@ You can raise bugs here http://bugs.launchpad.net/conveyor
 Python client
 -------------
 https://github.com/openstack/python-conveyorclient.git
+
+TEST
