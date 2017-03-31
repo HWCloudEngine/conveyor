@@ -15,15 +15,11 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from conveyor import compute
+
 from conveyor.clone.drivers import driver
-from conveyor.conveyoragentclient.v1 import client as birdiegatewayclient
 from conveyor import exception
-from conveyor import heat
 from conveyor.i18n import _LE
-from conveyor import network
 from conveyor import utils
-from conveyor import volume
 
 from oslo_config import cfg
 from oslo_log import log as logging

@@ -17,7 +17,6 @@
 
 from eventlet import greenthread
 import functools
-import json
 import time
 
 from oslo_config import cfg

@@ -21,15 +21,11 @@ import json
 from oslo_config import cfg
 from oslo_log import log as logging
 
-from conveyor import compute
 from conveyor.clone.drivers import driver
 from conveyor.conveyoragentclient.v1 import client as birdiegatewayclient
 from conveyor import exception
-from conveyor import heat
 from conveyor.i18n import _LE
-from conveyor import network
 from conveyor import utils
-from conveyor import volume
 
 
 CONF = cfg.CONF
@@ -362,6 +358,11 @@ class OpenstackDriver(driver.BaseDriver):
                                                      gw_id,
                                                      volume_id,
                                                      None)
+        client = birdiegatewayclient.get_birdiegateway_client(
+            gw_ip,
+            str(CONF.v2vgateway_api_listen_port)
+            )
+        disks = set(client.vservices.get_disk_name().get('dev_name'))
         LOG.debug('The volume attachment info is %s '
                   % str(attach_resp))
         undo_mgr.undo_with(functools.partial(self._detach_volume,
@@ -370,13 +371,12 @@ class OpenstackDriver(driver.BaseDriver):
                                              volume_id))
         self._wait_for_volume_status(context, volume_id, gw_id,
                                      'in-use')
+        n_disks = set(client.vservices.get_disk_name().get('dev_name'))
+        diff_disk = n_disks - disks
         vol_res.get('extra_properties')['status'] = 'in-use'
         LOG.debug('Begin get info for volume,the vgw ip %s' % gw_ip)
-        client = birdiegatewayclient.get_birdiegateway_client(
-            gw_ip,
-            str(CONF.v2vgateway_api_listen_port)
-            )
-        device_name = attach_resp._info.get('device')
+        sys_dev_name = list(diff_disk)[0] if len(diff_disk) == 1 else None
+#         device_name = attach_resp._info.get('device')
 #         sys_dev_name = client.vservices.get_disk_name(volume_id).get(
 #             'dev_name')
 #        sys_dev_name = device_name
