@@ -272,3 +272,56 @@ class BaseDriver(object):
             else:
                 continue
         return exit_status
+
+    def _handle_dv_for_svm(self, context, vol_res, server_id, dev_name,
+                           gw_id, gw_ip, undo_mgr):
+        volume_id = vol_res.id
+        LOG.debug('detach the volume %s form server %s', volume_id, server_id)
+        self.compute_api.detach_volume(context, server_id,
+                                       volume_id)
+        undo_mgr.undo_with(functools.partial(self._attach_volume,
+                                             context,
+                                             server_id,
+                                             volume_id,
+                                             dev_name))
+        self._wait_for_volume_status(context, volume_id, server_id,
+                                     'available')
+
+        client = birdiegatewayclient.get_birdiegateway_client(
+            gw_ip,
+            str(CONF.v2vgateway_api_listen_port)
+        )
+        disks = set(client.vservices.get_disk_name().get('dev_name'))
+
+        attach_resp = self.compute_api.attach_volume(context,
+                                                     gw_id,
+                                                     volume_id,
+                                                     None)
+        LOG.debug('attach volume %s to gw host %s', volume_id, gw_id)
+        undo_mgr.undo_with(functools.partial(self._detach_volume,
+                                             context,
+                                             gw_id,
+                                             volume_id))
+        self._wait_for_volume_status(context, volume_id, gw_id,
+                                     'in-use')
+        n_disks = set(client.vservices.get_disk_name().get('dev_name'))
+
+        diff_disk = n_disks - disks
+        LOG.debug('begin get info for volume,the vgw ip %s' % gw_ip)
+        client = birdiegatewayclient.get_birdiegateway_client(
+            gw_ip, str(CONF.v2vgateway_api_listen_port))
+#         sys_dev_name = client.vservices.get_disk_name(volume_id).get(
+#             'dev_name')
+#         sys_dev_name = device_name
+        # sys_dev_name = attach_resp._info.get('device')
+        sys_dev_name = list(diff_disk)[0] if len(diff_disk) == 1 else None
+
+        vol_res.extra_properties['sys_dev_name'] = sys_dev_name
+        guest_format = client.vservices.get_disk_format(sys_dev_name)\
+                             .get('disk_format')
+        if guest_format:
+            vol_res.extra_properties['guest_format'] = guest_format
+            mount_point = client.vservices.force_mount_disk(
+                sys_dev_name, "/opt/" + volume_id)
+            vol_res.extra_properties['mount_point'] = mount_point.get(
+                'mount_disk')

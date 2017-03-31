@@ -15,40 +15,37 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 import copy
+from eventlet import greenthread
+import functools
+import json
+import time
+import yaml
 
+from cinderclient import exceptions as cinderclient_exceptions
 from oslo_config import cfg
 import oslo_messaging as messaging
 from oslo_utils import importutils
-
 from oslo_log import log as logging
-from conveyor.i18n import _, _LE, _LI, _LW
+from oslo_utils import excutils
+from oslo_utils import uuidutils
+from neutronclient.common import exceptions as neutronclient_exceptions
+from novaclient import exceptions as novaclient_exceptions
 
+from conveyor.brick import base
+from conveyor import compute
+from conveyor.i18n import _LE
 from conveyor import manager
 from conveyor import volume
-from conveyor import compute
 from conveyor import network
-from conveyor.clone import rpcapi
 from conveyor.resource import api as resource_api
 from conveyor.resource import resource
 from conveyor import exception
-from oslo_utils import excutils
-import yaml
 from conveyor.common import template_format
-import json
 from conveyor import heat
 from conveyor.common import loopingcall
-from oslo_utils import uuidutils
 from conveyor.common import plan_status
-from novaclient import exceptions as novaclient_exceptions
-from neutronclient.common import exceptions as neutronclient_exceptions
-from cinderclient import exceptions as cinderclient_exceptions
 from conveyor import utils
-import functools
-from conveyor.brick import base
-import time
-from eventlet import greenthread
-from conveyor.conveyoragentclient.v1 import client as birdiegatewayclient
-from copy import deepcopy
+
 resource_from_dict = resource.Resource.from_dict
 
 manager_opts = [
@@ -574,7 +571,7 @@ class CloneManager(manager.Manager):
                                   stack_id, plan_id)
 
     def _copy_data_for_stack(self, context, template, stack_id, plan_id):
-        volume_template = deepcopy(template)
+        volume_template = copy.deepcopy(template)
         template['stack_id'] = stack_id
         volume_resource = {}
         reses = template.get('resources')
@@ -1350,12 +1347,12 @@ class CloneManager(manager.Manager):
                            'OS::Cinder::Qos',
                            'OS::Cinder::ConsistencyGroup']
 
-        volume_template = deepcopy(template)
+        volume_template = copy.deepcopy(template)
         stack_template = template['template']
         volume_resources = volume_template['template'].get('resources', {})
         stack_resources = stack_template['resources']
         parameter = stack_template.get('parameters', {})
-        resources = deepcopy(volume_resources)
+        resources = copy.deepcopy(volume_resources)
         vol_res_name = []
         sys_vol_name = []
         # 2. generate volumes template
@@ -1368,7 +1365,7 @@ class CloneManager(manager.Manager):
             else:
                 # remove volume related resource from template
                 stack_resources.pop(k)
-                parameter[k] = deepcopy(default_parameter)
+                parameter[k] = copy.deepcopy(default_parameter)
                 vol_res_name.append(k)
             # if clone system volume, remove volume
                 # image info
@@ -1380,7 +1377,7 @@ class CloneManager(manager.Manager):
                                                                  {})
                         properties.pop('image', None)
                         sys_vol_name.append(k)
-        origin_template = deepcopy(volume_template)
+        origin_template = copy.deepcopy(volume_template)
         for key, res in volume_resources.items():
             if 'extra_properties' in res:
                 res.pop('extra_properties')
@@ -1449,7 +1446,7 @@ class CloneManager(manager.Manager):
         if not sys_volumes:
             return template
 
-        volume_template = deepcopy(template)
+        volume_template = copy.deepcopy(template)
         volume_resources = volume_template['template'].get('resources', {})
         parameter = stack_template.get('parameters', {})
         vol_res_name = []
@@ -1465,7 +1462,7 @@ class CloneManager(manager.Manager):
             vol_res_name.append(volume)
             # remove volume in source template
             stack_resources.pop(volume)
-            parameter[volume] = deepcopy(default_parameter)
+            parameter[volume] = copy.deepcopy(default_parameter)
             # change 'get_resource' to get_param'
             self._change_resource_to_param(template, volume)
             # if volume dependence volume type, add it to volume
@@ -1482,7 +1479,7 @@ class CloneManager(manager.Manager):
                         vol_res_name.append(type_name)
                         # remove volume type in source template
                         stack_resources.pop(type_name)
-                        parameter[type_name] = deepcopy(default_parameter)
+                        parameter[type_name] = copy.deepcopy(default_parameter)
                         # change 'get_resource' to 'get_param'
                         self._change_resource_to_param(template, type_name)
                         # 2.2 add volume type dependence qos
@@ -1497,14 +1494,14 @@ class CloneManager(manager.Manager):
                                     vol_res_name.append(qos_name)
                                     # remove qos in source template
                                     stack_resources.pop(qos_name)
-                                    parameter[qos_name] = deepcopy(
+                                    parameter[qos_name] = copy.deepcopy(
                                         default_parameter)
                                     # change 'get_resource' to 'get_param'
                                     self._change_resource_to_param(template,
                                                                    qos_name)
         volume_template['template']['resources'] = sys_resources
         LOG.debug('Live clone volume for %s', volume_template)
-        origin_template = deepcopy(volume_template)
+        origin_template = copy.deepcopy(volume_template)
         for key, res in volume_resources.items():
             if 'extra_properties' in res:
                 res.pop('extra_properties')
