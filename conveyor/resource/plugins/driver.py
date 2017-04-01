@@ -17,8 +17,6 @@
 
 import time
 
-from cinderclient import exceptions as cinderclient_exceptions
-from novaclient import exceptions as novaclient_exceptions
 from oslo_config import cfg
 from oslo_log import log as logging
 
@@ -27,7 +25,7 @@ from conveyor.conveyoragentclient.v1 import client as birdiegatewayclient
 from conveyor.clone.resources import common
 from conveyor import exception
 from conveyor import heat
-from conveyor.i18n import _LW
+from conveyor.i18n import _LE
 from conveyor import network
 from conveyor import volume
 from conveyor.resource import api as resource_api
@@ -114,15 +112,9 @@ class BaseDriver(object):
                         resouce_common._await_instance_status(context,
                                                               vgw_id,
                                                               'ACTIVE')
-                except novaclient_exceptions.NotFound:
-                    LOG.warn('detach the volume %s from vgw %s error,'
-                             'the volume not attached to vgw',
-                             volume_id, vgw_id)
-                    return
-                except exception.TimeoutException:
-                    LOG.error('detach the volume %s from vgw %s error')
-                    raise exception.V2vException(
-                        'handle independent volume error')
+                except Exception as e:
+                    LOG.error(_LE('Error from handle volume of vm after clone.'
+                                  'Error=%(e)s'), {'e': e})
 
     def _wait_for_volume_status(self, context, volume_id, server_id, status):
         volume = self.volume_api.get(context, volume_id)

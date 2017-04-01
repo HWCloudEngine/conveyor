@@ -15,24 +15,15 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import functools
 import json
 
-from cinderclient import exceptions as cinderclient_exceptions
-from novaclient import exceptions as novaclient_exceptions
 from oslo_config import cfg
 from oslo_log import log as logging
 
 from conveyor.clone.resources import common
 from conveyor.conveyoragentclient.v1 import client as birdiegatewayclient
-from conveyor.resource.plugins import driver
-from conveyor import compute
-from conveyor import exception
-from conveyor import heat
 from conveyor.i18n import _LE
-from conveyor import network
-from conveyor import utils
-from conveyor import volume
+from conveyor.resource.plugins import driver
 
 
 CONF = cfg.CONF
@@ -41,10 +32,7 @@ LOG = logging.getLogger(__name__)
 
 class OpenstackDriver(driver.BaseDriver):
     def __init__(self):
-        self.volume_api = volume.API()
-        self.compute_api = compute.API()
-        self.neutron_api = network.API()
-        self.heat_api = heat.API()
+        super(OpenstackDriver, self).__init__()
 
     def reset_resources(self, context, resources):
         self._reset_resources_state(context, resources)
@@ -119,19 +107,15 @@ class OpenstackDriver(driver.BaseDriver):
                                 self.cinder_api.set_volume_shareable(context,
                                                                      volume_id,
                                                                      False)
-                    except novaclient_exceptions.NotFound:
-                        LOG.warn('detach the volume %s from vgw %s error,'
-                                 'the volume not attached to vgw',
-                                 volume_id, vgw_id)
-                    except exception.TimeoutException:
-                        LOG.error('detach the volume %s from vgw %s error')
-                        raise exception.V2vException(
-                            'handle volume of stack error')
+                    except Exception as e:
+                        LOG.error(_LE('Error from handle volume of stack after'
+                                      ' clone.'
+                                      'Error=%(e)s'), {'e': e})
                 elif res_type and res_type.startswith('file://'):
                     son_template = json.loads(res.get('content'))
                     self._handle_volume_for_stack_after_clone(context,
                                                               son_template)
-        except cinderclient_exceptions.NotFound:
+        except Exception as e:
             LOG.warn('detach the volume %s from vgw %s error,'
                      'the volume not attached to vgw',
                      volume_id, vgw_id)
@@ -191,24 +175,7 @@ class OpenstackDriver(driver.BaseDriver):
                         resouce_common._await_instance_status(context,
                                                               vgw_id,
                                                               'ACTIVE')
-            except novaclient_exceptions.NotFound as e:
-                LOG.warn('handle the volume %s after clone error, error is %s',
-                         volume_id, e.msg)
-                try:
-                    volume = self.cinder_api.get(context, volume_id)
-                    volume_status = volume['status']
-                    shareable = volume['shareable']
-                    if volume_status == 'available' or shareable == 'true':
-                        self.nova_api.attach_volume(context, server_id,
-                                                    volume_id,
-                                                    device_name)
-                except Exception as e:
-                    LOG.debug('try to attach volume %s to server %s failed',
-                              volume_id, server_id)
-            except novaclient_exceptions.BadRequest as e:
-                LOG.warn('handle the volume %s after clone error, error is %s',
-                         volume_id, e.msg)
-            except exception.TimeoutException:
-                LOG.error('detach the volume %s from vgw %s error or attach volume or \
-                          attach the volume %s to server %s error')
-                raise exception.V2vException('handle independent volume error')
+            except Exception as e:
+                LOG.error(_LE('Error from handle volume of vm after'
+                              ' clone.'
+                              'Error=%(e)s'), {'e': e})

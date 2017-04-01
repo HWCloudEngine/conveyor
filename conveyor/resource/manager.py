@@ -439,7 +439,8 @@ class ResourceManager(manager.Manager):
             resource = plan.updated_resources.get(resource_id)
 
         if not resource:
-            msg = "Resource <%s> not found in plan <%s>" % (resource_id, plan_id)
+            msg = "Resource <%s> not found in plan <%s>" % (resource_id,
+                                                            plan_id)
             LOG.error(msg)
             raise exception.ResourceNotFound(message=msg)
         return resource.to_dict()

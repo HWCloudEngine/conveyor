@@ -78,10 +78,9 @@ class CloneActionController(wsgi.Controller):
             raise exc.HTTPBadRequest(explanation=msg)
         plan_status = plan['plan_status']
         if plan_status not in (p_status.INITIATING, p_status.CREATING):
-            msg = _("the plan %(plan_id)s in state %(state)s can't export template") % {
-                'plan_id': id,
-                'state': plan_status,
-            }
+            msg = _('the plan %(plan_id)s in state %(state)s'
+                    " can't export template") % {'plan_id': id,
+                                                 'state': plan_status}
             raise exc.HTTPBadRequest(explanation=msg)
         clone_body = body['export_clone_template']
         sys_clone = clone_body.get('sys_clone', False)
