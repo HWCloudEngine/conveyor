@@ -157,8 +157,7 @@ class ResourceManager(manager.Manager):
 
         if resource_type in method_map.keys():
             try:
-                res_obj = eval(method_map[resource_type])(context, resource_id)
-                res = self._objects_to_dict(res_obj, resource_type)
+                res = eval(method_map[resource_type])(context, resource_id)
                 if isinstance(res, list) and len(res) == 1:
                     return res[0]
             except Exception as e:
@@ -1364,29 +1363,6 @@ class ResourceManager(manager.Manager):
                             msg = "%s is not string type." % v
                             LOG.error(msg)
                             raise exception.PlanResourcesUpdateError(message=msg)
-
-    def _objects_to_dict(self, objs, rtype):
-
-        if not isinstance(objs, list):
-            objs = [objs]
-
-        res = []
-        client_type = rtype.split('::')[1]
-        res_type = rtype.split('::')[2]
-
-        if client_type == "Nova":
-            for obj in objs:
-                dt = obj.to_dict()
-                if len(dt) == 1 and dt.keys()[0].lower() == res_type.lower():
-                    res.append(dt.values()[0])
-                else:
-                    res.append(dt)
-        elif client_type in ("Neutron", "Glance", "Cinder"):
-            return objs
-        else:
-            LOG.error("The resource type %s is unsupported.", rtype)
-            raise exception.ResourceTypeNotSupported(resource_type=rtype)
-        return res
 
     def _actual_id_to_resource_id(self, res_or_dep):
         new_res = {}
