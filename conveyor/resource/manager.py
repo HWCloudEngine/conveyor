@@ -14,12 +14,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-
-import os
-import time
 import yaml
 import copy
-import json
 import six
 import numbers
 import netaddr
@@ -27,23 +23,14 @@ import random
 from oslo_config import cfg
 from oslo_utils import importutils
 import oslo_messaging as messaging
-from cinderclient import exceptions as cinderclient_exceptions
-from novaclient import exceptions as novaclient_exceptions
-from keystoneclient.v2_0 import client as kc
-from keystoneclient import service_catalog
-from conveyor.conveyoragentclient.v1 import client as birdiegatewayclient
 
 from conveyor.common import plan_status as p_status
-from conveyor.common import template_format
-from conveyor.common import loopingcall
 from oslo_utils import fileutils
 from oslo_utils import uuidutils
 from oslo_utils import timeutils
-from oslo_utils import strutils
 from oslo_log import log as logging
 from conveyor.db import api as db_api
 
-from conveyor import context as ctxt
 from conveyor import exception
 from conveyor import compute
 from conveyor import volume
@@ -63,7 +50,6 @@ from conveyor.resource.driver.volumes import VolumeType
 from conveyor.resource.driver.volumes import QosResource
 from conveyor.resource.driver.volumes import Volume
 from conveyor.resource.driver.stacks import StackResource
-from conveyor.resource.resource import Resource
 
 CONF = cfg.CONF
 
@@ -157,10 +143,10 @@ class ResourceManager(manager.Manager):
 
         if resource_type in method_map.keys():
             try:
-                res_obj = eval(method_map[resource_type])(context, resource_id)
-                res = self._objects_to_dict(res_obj, resource_type)
+                res = eval(method_map[resource_type])(context, resource_id)
                 if isinstance(res, list) and len(res) == 1:
                     return res[0]
+                return res
             except Exception as e:
                 msg = "Get %s resource <%s> failed. %s" % \
                             (resource_type, resource_id, unicode(e))
@@ -210,12 +196,12 @@ class ResourceManager(manager.Manager):
             res = self.neutron_api.list_pools(context, **search_opts)
         elif res_type == "OS::Glance::Image":
             opts = {
-                    'marker': search_opts.pop('marker', None),
-                    'limit': search_opts.pop('limit', None),
-                    'page_size': search_opts.pop('page_size', None),
-                    'sort_key': search_opts.pop('sort_key', None),
-                    'sort_dir': search_opts.pop('sort_dir', None)
-                    }
+                'marker': search_opts.pop('marker', None),
+                'limit': search_opts.pop('limit', None),
+                'page_size': search_opts.pop('page_size', None),
+                'sort_key': search_opts.pop('sort_key', None),
+                'sort_dir': search_opts.pop('sort_dir', None)
+            }
             opts['filters'] = search_opts
             res = self.glance_api.get_all(context, **opts)
         else:
@@ -1365,29 +1351,6 @@ class ResourceManager(manager.Manager):
                             msg = "%s is not string type." % v
                             LOG.error(msg)
                             raise exception.PlanResourcesUpdateError(message=msg)
-
-    def _objects_to_dict(self, objs, rtype):
-
-        if not isinstance(objs, list):
-            objs = [objs]
-
-        res = []
-        client_type = rtype.split('::')[1]
-        res_type = rtype.split('::')[2]
-
-        if client_type == "Nova":
-            for obj in objs:
-                dt = obj.to_dict()
-                if len(dt) == 1 and dt.keys()[0].lower() == res_type.lower():
-                    res.append(dt.values()[0])
-                else:
-                    res.append(dt)
-        elif client_type in ("Neutron", "Glance", "Cinder"):
-            return objs
-        else:
-            LOG.error("The resource type %s is unsupported.", rtype)
-            raise exception.ResourceTypeNotSupported(resource_type=rtype)
-        return res
 
     def _actual_id_to_resource_id(self, res_or_dep):
         new_res = {}
