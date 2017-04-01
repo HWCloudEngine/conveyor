@@ -241,7 +241,8 @@ class InstanceResource(base.resource):
             resource_name = "flavor_%d" % self._get_resource_num(resource_type)
             flavor_res = resource.Resource(resource_name, resource_type,
                                            resource_id, properties=properties)
-            flavor_dep = resource.ResourceDependency(resource_id, flavor.name,
+            name = flavor.get('name', "")
+            flavor_dep = resource.ResourceDependency(resource_id, name,
                                                      resource_name,
                                                      resource_type)
 

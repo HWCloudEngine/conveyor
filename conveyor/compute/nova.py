@@ -213,6 +213,7 @@ class API(object):
 
     def _dict_flavor(self, flavor):
         flavor_id = getattr(flavor, 'id', '')
+        flavor_name = getattr(flavor, 'name', '')
         flavor_ram = getattr(flavor, 'ram', '')
         flavor_vcpus = getattr(flavor, 'vcpus', '')
         flavor_disk = getattr(flavor, 'disk', '')
@@ -224,6 +225,7 @@ class API(object):
 
         flavor = {
                   "id": flavor_id,
+                  "name": flavor_name,
                   "ram": flavor_ram,
                   "vcpus": flavor_vcpus,
                   "disk": flavor_disk,

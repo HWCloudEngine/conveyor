@@ -184,8 +184,8 @@ class Plan(object):
         self.created_at = created_at or timeutils.utcnow()
         self.updated_at = updated_at or None
         self.deleted_at = deleted_at or None
-        self.expire_at = expire_at or \
-                         timeutils.utc_after_given_minutes(cfg.CONF.plan_expire_time)
+        self.expire_at = expire_at
+                         #timeutils.utc_after_given_minutes(cfg.CONF.plan_expire_time)
 
         self.deleted = deleted or False
         self.plan_status = plan_status or p_status.INITIATING
@@ -412,7 +412,7 @@ def _write_json_to_file(full_path, data):
     if not data or not full_path:
         return
     try:
-        with fileutils.file_open(full_path, 'w') as fp:
+        with open(full_path, 'w') as fp:
             jsonutils.dump(data, fp, indent=4)
     except Exception as e:
         msg = "Write plan file (%s) failed, %s" % (full_path, unicode(e))
@@ -424,7 +424,7 @@ def _read_json_from_file(full_path):
     if not full_path:
         return
     try:
-        with fileutils.file_open(full_path, 'r') as fp:
+        with open(full_path, 'r') as fp:
             return jsonutils.load(fp)
     except Exception as e:
         msg = "Read plan file (%s) failed, %s" % (full_path, unicode(e))

@@ -410,7 +410,7 @@ class ResourceManager(manager.Manager):
             resource.update_plan_to_db(context, plan_file_dir, plan_id, update_values)
 
             # Save template file
-            with fileutils.file_open(tpl_full_path, 'w') as fp:
+            with open(tpl_full_path, 'w') as fp:
                 yaml.safe_dump(template, fp, default_flow_style=False)
 
             LOG.info("Create plan by template finished. Plan_id is %s, "

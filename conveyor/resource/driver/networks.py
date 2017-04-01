@@ -293,14 +293,14 @@ class NetworkResource(base.resource):
                     port.get('allowed_address_pairs')
 
             value_specs = {}
-            if port.get('binding:profile') is not None:
-                value_specs['binding:profile'] = port.get('binding:profile')
-            if port.get('binding:vnic_type') is not None:
-                value_specs['binding:vnic_type'] = \
-                    port.get('binding:vnic_type')
+            #if port.get('binding:profile') is not None:
+            #    value_specs['binding:profile'] = port.get('binding:profile')
+            #if port.get('binding:vnic_type') is not None:
+            #    value_specs['binding:vnic_type'] = \
+            #        port.get('binding:vnic_type')
 
-            if value_specs:
-                properties['value_specs'] = value_specs
+            #if value_specs:
+            #    properties['value_specs'] = value_specs
 
             if port.get('security_groups'):
                 secgroup_ids = port.get('security_groups')
