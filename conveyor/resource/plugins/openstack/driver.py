@@ -23,6 +23,7 @@ from oslo_log import log as logging
 from conveyor.clone.resources import common
 from conveyor.conveyoragentclient.v1 import client as birdiegatewayclient
 from conveyor.i18n import _LE
+from conveyor.i18n import _LW
 from conveyor.resource.plugins import driver
 
 
@@ -81,7 +82,8 @@ class OpenstackDriver(driver.BaseDriver):
                 elif resource_type == 'OS::Heat::Stack':
                     self._reset_resources_state_for_stack(context, value)
             except Exception as e:
-                LOG.warn('reset resource state error, error is %s', e.msg)
+                LOG.warn(_LW('Reset resource state error, Error=%(e)s'),
+                         {'e': e})
 
     def handle_stack_after_clone(self, context, resource, resources):
         template_str = resource.get('properties', {}).get('template')
