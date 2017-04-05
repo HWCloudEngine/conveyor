@@ -309,7 +309,7 @@ class CloneManager(manager.Manager):
         return self._export_template(context, id, sys_clone)
 
     def export_template_and_clone(self, context, id, destination,
-                                  update_resources={}, sys_clone=False):
+                                  update_resources, sys_clone=False):
         LOG.debug('Export template and clone start in clone manager')
         if update_resources:
             self.resource_api.update_plan_resources(context, id,

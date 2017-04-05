@@ -60,7 +60,7 @@ class CloneActionController(wsgi.Controller):
         # remove expire_time info in template
         template.pop('expire_time')
         # remove plan type info
-        if template.has_key('plan_type'):
+        if 'plan_type' in template:
             template.pop('plan_type')
         LOG.debug("Clone from template: %s", temp_info)
         self.clone_api.start_template_clone(context, temp_info)
@@ -120,7 +120,7 @@ class CloneActionController(wsgi.Controller):
     @wsgi.response(202)
     @wsgi.action('export_template_and_clone')   
     def _export_template_and_clone(self, req, id, body):
-        LOG.debug(" start export_template_and_clone in API,the plan id is %s" % id)
+        LOG.debug("start export_template_and_clone,the plan id is %s" % id)
         context = req.environ['conveyor.context']
         if not self.is_valid_body(body, 'export_template_and_clone'):
             LOG.debug("clone request body has not key:clone")
@@ -128,11 +128,12 @@ class CloneActionController(wsgi.Controller):
         clone_body = body['export_template_and_clone']
         destination = clone_body.get('destination')
         sys_clone = clone_body.get('sys_clone', False)
-        resources = clone_body.get('resources', {})
+        resources = clone_body.get('resources')
         plan = self._resource_api.get_plan_by_id(context, id)
         plan_status = plan['plan_status']
         if plan_status not in (p_status.INITIATING, p_status.CREATING):
-            msg = _("the plan %(plan_id)s in state %(state)s can't export_template_and_clone") % {
+            msg = _("the plan %(plan_id)s in state %(state)s"
+                    "can't export_template_and_clone") % {
                 'plan_id': id,
                 'state': plan_status,
             }

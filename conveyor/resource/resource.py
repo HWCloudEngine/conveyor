@@ -14,19 +14,20 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import datetime
+
 import copy
 import six
-from oslo_config import cfg
 
+from oslo_config import cfg
 from oslo_serialization import jsonutils
 from oslo_utils import fileutils
 from oslo_utils import timeutils
 from oslo_log import log as logging
-from conveyor.common import plan_status as p_status
-from conveyor import exception
 
+from conveyor.common import plan_status as p_status
+from conveyor.common import utils
 from conveyor.db import api as db_api
+from conveyor import exception
 
 LOG = logging.getLogger(__name__)
 
@@ -184,8 +185,8 @@ class Plan(object):
         self.created_at = created_at or timeutils.utcnow()
         self.updated_at = updated_at or None
         self.deleted_at = deleted_at or None
-        self.expire_at = expire_at
-                         #timeutils.utc_after_given_minutes(cfg.CONF.plan_expire_time)
+        self.expire_at = expire_at or \
+            utils.utc_after_given_minutes(cfg.CONF.plan_expire_time)
 
         self.deleted = deleted or False
         self.plan_status = plan_status or p_status.INITIATING
