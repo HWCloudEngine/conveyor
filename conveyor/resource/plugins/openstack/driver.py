@@ -167,7 +167,10 @@ class OpenstackDriver(driver.BaseDriver):
                     vgw_ip = vgw_url.split(':')[0]
                     client = birdiegatewayclient.get_birdiegateway_client(
                         vgw_ip, str(CONF.v2vgateway_api_listen_port))
-                    client.vservices._force_umount_disk("/opt/" + volume_id)
+
+                    if boot_index not in ['0', 0] or sys_clone:
+                        client.vservices._force_umount_disk(
+                            "/opt/" + volume_id)
 
                     # if provider cloud can not detcah volume in active status
                     if not CONF.is_active_detach_volume:
