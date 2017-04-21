@@ -56,9 +56,9 @@ class OpenstackDriver(driver.BaseDriver):
             if not server_id or not migrate_port:
                 return
             try:
-                self.nova_api.migrate_interface_detach(context,
-                                                       server_id,
-                                                       migrate_port)
+                self.compute_api.migrate_interface_detach(context,
+                                                          server_id,
+                                                          migrate_port)
                 LOG.debug("Detach migrate port of server <%s> succeed.",
                           server_id)
             except Exception as e:
@@ -73,17 +73,42 @@ class OpenstackDriver(driver.BaseDriver):
                 if resource_type == 'OS::Nova::Server':
                     vm_state = value.get('extra_properties', {}) \
                                     .get('vm_state')
-                    self.nova_api.reset_state(context, resource_id, vm_state)
+                    self.compute_api.reset_state(context, resource_id,
+                                                 vm_state)
                 elif resource_type == 'OS::Cinder::Volume':
                     volume_state = value.get('extra_properties', {}) \
                                         .get('status')
-                    self.cinder_api.reset_state(context, resource_id,
+                    self.volume_api.reset_state(context, resource_id,
                                                 volume_state)
                 elif resource_type == 'OS::Heat::Stack':
                     self._reset_resources_state_for_stack(context, value)
             except Exception as e:
                 LOG.warn(_LW('Reset resource state error, Error=%(e)s'),
                          {'e': e})
+
+    def _reset_resources_state_for_stack(self, context, stack_res):
+        template_str = stack_res.get('properties', {}).get('template')
+        template = json.loads(template_str)
+
+        def _reset_state(template):
+            temp_res = template.get('resources')
+            for key, value in temp_res.items():
+                res_type = value.get('type')
+                if res_type == 'OS::Cinder::Volume':
+                    vid = value.get('extra_properties', {}).get('id')
+                    v_state = value.get('extra_properties', {}).get('status')
+                    if vid:
+                        self.volume_api.reset_state(context, vid, v_state)
+                elif res_type == 'OS::Nova::Server':
+                    sid = value.get('extra_properties', {}).get('id')
+                    s_state = value.get('extra_properties', {}).get('vm_state')
+                    if sid:
+                        self.compute_api.reset_state(context, sid, s_state)
+                elif res_type and res_type.startswith('file://'):
+                    son_template = value.get('content')
+                    son_template = json.loads(son_template)
+                    _reset_state(son_template)
+        _reset_state(template)
 
     def handle_stack_after_clone(self, context, resource, resources):
         template_str = resource.get('properties', {}).get('template')
@@ -106,7 +131,7 @@ class OpenstackDriver(driver.BaseDriver):
                             vgw_id = res.get('extra_properties').get('gw_id')
                             self._detach_volume(context, vgw_id, volume_id)
                             if set_shareable:
-                                self.cinder_api.set_volume_shareable(context,
+                                self.volume_api.set_volume_shareable(context,
                                                                      volume_id,
                                                                      False)
                     except Exception as e:
@@ -147,33 +172,34 @@ class OpenstackDriver(driver.BaseDriver):
                     # if provider cloud can not detcah volume in active status
                     if not CONF.is_active_detach_volume:
                         resouce_common = common.ResourceCommon()
-                        self.nova_api.stop_server(context, vgw_id)
+                        self.compute_api.stop_server(context, vgw_id)
                         resouce_common._await_instance_status(context,
                                                               vgw_id,
                                                               'SHUTOFF')
                     if boot_index in ['0', 0]:
                         if sys_clone:
-                            self.nova_api.detach_volume(context, vgw_id,
-                                                        volume_id)
+                            self.compute_api.detach_volume(context, vgw_id,
+                                                           volume_id)
                             self._wait_for_volume_status(context, volume_id,
                                                          vgw_id, 'available')
-                            self.cinder_api.set_volume_shareable(context,
+                            self.volume_api.set_volume_shareable(context,
                                                                  volume_id,
                                                                  False)
                     else:
-                        self.nova_api.detach_volume(context, vgw_id, volume_id)
+                        self.compute_api.detach_volume(context, vgw_id,
+                                                       volume_id)
                         self._wait_for_volume_status(context, volume_id,
                                                      vgw_id, 'available')
                         server_id = server_resource.get('extra_properties', {}) \
                                                    .get('id')
-                        self.nova_api.attach_volume(context, server_id,
-                                                    volume_id,
-                                                    device_name)
+                        self.compute_api.attach_volume(context, server_id,
+                                                       volume_id,
+                                                       device_name)
                         self._wait_for_volume_status(context, volume_id,
                                                      server_id, 'in-use')
 
                     if not CONF.is_active_detach_volume:
-                        self.nova_api.start_server(context, vgw_id)
+                        self.compute_api.start_server(context, vgw_id)
                         resouce_common._await_instance_status(context,
                                                               vgw_id,
                                                               'ACTIVE')
