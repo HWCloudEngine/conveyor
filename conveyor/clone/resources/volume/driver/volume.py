@@ -71,6 +71,7 @@ class VolumeCloneDriver(object):
         if not sys_clone and boot_index in ['0', 0]:
             plan_state = 'DATA_TRANS_FINISHED'
             set_plan_state(context, plan_id, plan_state, plan_status.STATE_MAP)
+            return
 
         # 3. get volume info
         try:

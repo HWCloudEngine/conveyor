@@ -70,7 +70,8 @@ from conveyor.common import config as __
 from conveyor import config
 from conveyor import context
 from conveyor import db
-from conveyor.db import migration
+from conveyor.db.sqlalchemy import migration
+from conveyor.db import api as db_api
 from conveyor import exception
 from conveyor import version
 
@@ -174,7 +175,7 @@ class DbCommands(object):
     @args('--version', metavar='<version>', help='Database version')
     def sync(self, version=None):
         """Sync the database up to the most recent version."""
-        return migration.db_sync(version)
+        return migration.db_sync(db_api.get_engine(), version)
 
     def version(self):
         """Print the current database version."""

@@ -47,7 +47,8 @@ class RequestContext(object):
                  roles=None, remote_address=None, timestamp=None,
                  request_id=None, auth_token=None, overwrite=True,
                  quota_class=None, user_name=None, project_name=None,
-                 service_catalog=None, instance_lock_checked=False, **kwargs):
+                 service_catalog=None, instance_lock_checked=False,
+                 auth_token_info=None, auth_url=None, tenant_id=None, **kwargs):
         """:param read_deleted: 'no' indicates deleted records are hidden,
                 'yes' indicates deleted records are visible,
                 'only' indicates that *only* deleted records are visible.
@@ -77,6 +78,9 @@ class RequestContext(object):
             request_id = generate_request_id()
         self.request_id = request_id
         self.auth_token = auth_token
+        self.auth_token_info = auth_token_info
+        self.auth_url = auth_url
+        self.tenant_id = tenant_id
 
         if service_catalog:
             # Only include required parts of service_catalog
@@ -133,7 +137,10 @@ class RequestContext(object):
                 'project_name': self.project_name,
                 'instance_lock_checked': self.instance_lock_checked,
                 'tenant': self.tenant,
-                'user': self.user}
+                'user': self.user,
+                'auth_token_info': self.auth_token_info,
+                'auth_url': self.auth_url,
+                'tenant_id': self.tenant_id}
 
     @classmethod
     def from_dict(cls, values):

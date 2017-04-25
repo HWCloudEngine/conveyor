@@ -76,4 +76,19 @@ def get_value_from_dict(d, keys):
                 if r: return r
     return None
 
- 
+
+# add from heat
+IMPL = LazyPluggable('backend',
+                     sqlalchemy='conveyor.db.sqlalchemy.api')
+
+
+def purge_deleted(age, granularity='days'):
+    IMPL.purge_deleted(age, granularity)
+
+
+def encrypt_parameters_and_properties(ctxt, encryption_key):
+    IMPL.db_encrypt_parameters_and_properties(ctxt, encryption_key)
+
+
+def decrypt_parameters_and_properties(ctxt, encryption_key):
+    IMPL.db_decrypt_parameters_and_properties(ctxt, encryption_key)

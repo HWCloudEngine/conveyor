@@ -17,4 +17,4 @@
 DB abstraction for Cinder
 """
 
-from conveyor.db.api import *  # noqa
+#from conveyor.db.api import *  # noqa

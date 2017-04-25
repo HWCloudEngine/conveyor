@@ -291,7 +291,7 @@ class OpenstackDriver(driver.BaseDriver):
                     if not v_exra_prop or not v_exra_prop.get('gw_url'):
                         heat_res = self.heat_api.get_resource(context,
                                                               stack_id,
-                                                              key)
+                                                              key, is_original=True)
                         phy_id = heat_res.physical_resource_id
                         res_info = self.volume_api.get(context, phy_id)
                         az = res_info.get('availability_zone')
@@ -313,7 +313,7 @@ class OpenstackDriver(driver.BaseDriver):
                 elif res_type == 'OS::Nova::Server':
                     heat_res = self.heat_api.get_resource(context,
                                                           stack_id,
-                                                          key)
+                                                          key, is_original=True)
                     phy_id = heat_res.physical_resource_id
                     server_info = self.compute_api.get_server(context, phy_id)
                     vm_state = server_info.get('OS-EXT-STS:vm_state', None)

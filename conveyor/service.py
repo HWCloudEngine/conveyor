@@ -79,9 +79,9 @@ service_opts = [
 
 profiler_opts = [
     cfg.BoolOpt("profiler_enabled", default=False,
-                help=_('If False fully disable profiling feature.')),
-    cfg.BoolOpt("trace_sqlalchemy", default=False,
-                help=_("If False doesn't trace SQL requests."))
+                help=_('If False fully disable profiling feature.'))
+    # cfg.BoolOpt("trace_sqlalchemy", default=False,
+    #             help=_("If False doesn't trace SQL requests."))
 ]
 
 CONF = cfg.CONF

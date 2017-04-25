@@ -45,6 +45,7 @@ from conveyor import heat
 from conveyor.common import loopingcall
 from conveyor.common import plan_status
 from conveyor import utils
+from conveyor.db import api as db_api
 
 resource_from_dict = resource.Resource.from_dict
 
@@ -187,7 +188,7 @@ class CloneManager(manager.Manager):
             LOG.error("Heat create resource error: %s", e)
             if not template.get('disable_rollback') and stack:
                 stack_id = stack.get('stack').get('id')
-                self.heat_api.delete_stack(context, stack_id)
+                self.heat_api.delete_stack(context, stack_id, template.get('plan_id'))
             return None
         # if plan status is error after create resources
         plan_id = template.get('plan_id')
@@ -197,7 +198,7 @@ class CloneManager(manager.Manager):
             LOG.error("Plans deploy error in resources create.")
             if not template.get('disable_rollback') and stack:
                 stack_id = stack.get('stack').get('id')
-                self.heat_api.delete_stack(context, stack_id)
+                self.heat_api.delete_stack(context, stack_id, plan_id)
             return None
         stack_info = stack.get('stack')
         # 5. after stack creating success,  start copy data and other steps
@@ -250,7 +251,7 @@ class CloneManager(manager.Manager):
             # if clone failed and rollback parameter is true,
             # rollback all resource
             if not template.get('disable_rollback'):
-                self.heat_api.delete_stack(context, stack_info['id'])
+                self.heat_api.delete_stack(context, stack_info['id'], plan_id)
 
             # set plan status is error
             values = {}
@@ -537,6 +538,9 @@ class CloneManager(manager.Manager):
         stack = None
         try:
             stack = self.heat_api.create_stack(context, **stack_kwargs)
+            db_api.plan_stack_create(context,
+                                     {'stack_id': stack.get('stack').get('id'),
+                                      'plan_id': plan_id})
             origin_template_dict['stack_id'] = stack.get('stack').get('id')
             LOG.debug("Create stack info: %s", stack)
         except Exception as e:
@@ -546,7 +550,7 @@ class CloneManager(manager.Manager):
                                           {'plan_status': plan_status.ERROR})
             if stack:
                 stack_id = stack.get('stack').get('id')
-                self.heat_api.delete_stack(context, stack_id)
+                self.heat_api.delete_stack(context, stack_id, plan_id)
             raise exception.PlanDeployError(plan_id=plan_id)
         stack_id = stack.get('stack').get('id')
 
@@ -563,7 +567,7 @@ class CloneManager(manager.Manager):
         stack = self.heat_api.get_stack(context, stack_id)
         state = stack.stack_status
         if state == 'CREATE_FAILED':
-            self.heat_api.delete_stack(context, stack_id)
+            self.heat_api.delete_stack(context, stack_id, plan_id)
             self.resource_api.update_plan(context, plan_id,
                                           {'plan_status': plan_status.ERROR})
             raise exception.PlanDeployError(plan_id=plan_id)
@@ -794,7 +798,7 @@ class CloneManager(manager.Manager):
             # if clone failed and rollback parameter is true,
             # rollback all resource
             if not template.get('disable_rollback'):
-                self.heat_api.delete_stack(context, stack_info['id'])
+                self.heat_api.delete_stack(context, stack_info['id'], template.get('plan_id'))
             return None
         LOG.debug("Migrate resources end in clone manager")
 
@@ -818,6 +822,9 @@ class CloneManager(manager.Manager):
                             )
         try:
             stack = self.heat_api.create_stack(context, **stack_kwargs)
+            db_api.plan_stack_create(context,
+                                     {'stack_id': stack.get('stack').get('id'),
+                                      'plan_id': plan_id})
             LOG.debug("Create stack info: %s", stack)
         except Exception as e:
             LOG.debug(("Deploy plan %(plan_id)s, with stack error %(error)s."),
@@ -1201,7 +1208,7 @@ class CloneManager(manager.Manager):
                             port_id_new,
                             fixed_address=fix_ip)
                         undo_mgr.undo_with(functools.partial(
-                            self.heat_api.delete_stack, context, stack_id))
+                            self.heat_api.delete_stack, context, stack_id, id))
             except Exception as e:
                 LOG.exception("Failed migrate server_id %s due to %s,"
                               "so rollback it.",
@@ -1211,7 +1218,7 @@ class CloneManager(manager.Manager):
                 self.resource_api.update_plan(
                     context, id, {'plan_status': plan_status.ERROR})
                 try:
-                    self.heat_api.delete_stack(context, stack_id)
+                    self.heat_api.delete_stack(context, stack_id, id)
                 except Exception:
                     pass
                 LOG.error("END rollback for %s ......", server_id)
@@ -1584,7 +1591,7 @@ class CloneManager(manager.Manager):
             # if clone failed and rollback parameter is true,
             # rollback all resource
             if not template.get('disable_rollback'):
-                self.heat_api.delete_stack(context, stack_id)
+                self.heat_api.delete_stack(context, stack_id, plan_id)
 
             # set plan status is error
             values = {}

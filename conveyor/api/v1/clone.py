@@ -45,7 +45,7 @@ class CloneController(wsgi.Controller):
         """Return data about the given resource."""
         LOG.debug("show is start.")
         context = req.environ['conveyor.context']
-        stack = self.heat_api.stack_get(context, id)
+        stack = self.heat_api.get_stack(context, id)
         LOG.debug("Heat test: %s", stack)
 
     def delete(self, req, id):

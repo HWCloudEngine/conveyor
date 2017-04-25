@@ -88,6 +88,7 @@ class ResourceManager(manager.Manager):
         self.cinder_api = volume.API()
         self.neutron_api = network.API()
         self.glance_api = image.API()
+        self.heat_api = heat.API()
         self.db_api = db_api
         resource_driver_class = importutils.import_class(CONF.resource_driver)
         self.resource_driver = resource_driver_class()
@@ -489,6 +490,8 @@ class ResourceManager(manager.Manager):
             resource.update_plan_to_db(context, plan_file_dir, plan_id, 
                                        {'plan_status': p_status.ERROR_DELETING})
             raise exception.PlanDeleteError(message=msg)
+
+        self.heat_api.delete_stack(context, plan['stack_id'], plan_id)
 
         # Delete plan in memory
         _plans.pop(plan_id, None)

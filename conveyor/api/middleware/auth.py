@@ -123,7 +123,10 @@ class V2vKeystoneContext(base_wsgi.Middleware):
                                      auth_token=auth_token,
                                      remote_address=remote_address,
                                      service_catalog=service_catalog,
-                                     request_id=req_id)
+                                     request_id=req_id,
+                                     auth_token_info=req.environ['keystone.token_info'],
+                                     auth_url=CONF.keystone_authtoken.auth_url,
+                                     tenant_id=project_id)
 
         req.environ['conveyor.context'] = ctx
         return self.application
