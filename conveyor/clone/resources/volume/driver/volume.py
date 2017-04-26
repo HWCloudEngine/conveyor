@@ -84,7 +84,7 @@ class VolumeCloneDriver(object):
         v_shareable = volume_info.get('shareable', False)
         volume_az = volume_info.get('availability_zone')
         need_set_shareable = False
-        if volume_status =='in-use' and not v_shareable:
+        if volume_status == 'in-use' and not v_shareable:
             need_set_shareable = True
 
         # 3. attach volume to gateway vm
@@ -115,7 +115,8 @@ class VolumeCloneDriver(object):
                 # des_dev_name = attach_resp._info.get('device')
             n_disks = set(client.vservices.get_disk_name().get('dev_name'))
             diff_disk = n_disks - disks
-            des_dev_name = list(diff_disk)[0] if len(diff_disk) == 1 else None
+            des_dev_name = list(diff_disk)[0] if len(diff_disk) >= 1 else None
+            LOG.debug("dev_name = %s", des_dev_name)
         except Exception as e:
             LOG.error('Volume clone error: attach volume failed:%(id)s,%(e)s',
                       {'id': volume_id, 'e': e})

@@ -227,7 +227,11 @@ global_opts = [
     cfg.BoolOpt('is_active_detach_volume',
                 default=False,
                 help='Provide cloud can detach volume '
-                'in instance active or not.')
+                'in instance active or not.'),
+    cfg.StrOpt('sys_image',
+               default='',
+               help='Provide cloud can detach volume '
+               'in instance active or not.')
 ]
 birdie_opts = [
     cfg.IntOpt('v2vgateway_api_listen_port',

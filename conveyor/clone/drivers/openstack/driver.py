@@ -118,9 +118,9 @@ class OpenstackDriver(driver.BaseDriver):
                             volume_resource.extra_properties['sys_clone'] = \
                                 sys_clone
                             if sys_clone:
-                                self._handle_sv_for_svm(context,
-                                                        volume_resource,
-                                                        gw_id, gw_ip, undo_mgr)
+                                self._handle_dv_for_svm(context, volume_resource,
+                                                    server_id, dev_name,
+                                                    gw_id, gw_ip, undo_mgr)
                         else:
                             self._handle_dv_for_svm(context, volume_resource,
                                                     server_id, dev_name,
@@ -262,7 +262,8 @@ class OpenstackDriver(driver.BaseDriver):
 #             'dev_name')
 #         sys_dev_name = device_name
 #        sys_dev_name = attach_resp._info.get('device')
-        sys_dev_name = list(diff_disk)[0] if len(diff_disk) == 1 else None
+        sys_dev_name = list(diff_disk)[0] if len(diff_disk) >= 1 else None
+        LOG.debug("dev_name = %s", sys_dev_name)
         vol_res.extra_properties['sys_dev_name'] = sys_dev_name
         guest_format = client.vservices.get_disk_format(sys_dev_name)\
                              .get('disk_format')
@@ -375,7 +376,8 @@ class OpenstackDriver(driver.BaseDriver):
         diff_disk = n_disks - disks
         vol_res.get('extra_properties')['status'] = 'in-use'
         LOG.debug('Begin get info for volume,the vgw ip %s' % gw_ip)
-        sys_dev_name = list(diff_disk)[0] if len(diff_disk) == 1 else None
+        sys_dev_name = list(diff_disk)[0] if len(diff_disk) >= 1 else None
+        LOG.debug("dev_name = %s", sys_dev_name)
 #         device_name = attach_resp._info.get('device')
 #         sys_dev_name = client.vservices.get_disk_name(volume_id).get(
 #             'dev_name')

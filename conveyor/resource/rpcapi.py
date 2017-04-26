@@ -91,7 +91,7 @@ class ResourceAPI(object):
 
     def update_plan(self, context, plan_id, values):
         cctxt = self.client.prepare(version='1.18')
-        return cctxt.cast(context, 'update_plan',
+        return cctxt.call(context, 'update_plan',
                           plan_id=plan_id, values=values)
 
     def update_plan_resources(self, context, plan_id, resources):

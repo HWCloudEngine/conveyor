@@ -1382,7 +1382,8 @@ class CloneManager(manager.Manager):
                     if sys_clone:
                         properties = volume_resources.get(k).get('properties',
                                                                  {})
-                        properties.pop('image', None)
+                        # properties.pop('image', None)
+                        properties['image'] = CONF.sys_image
                         sys_vol_name.append(k)
         origin_template = copy.deepcopy(volume_template)
         for key, res in volume_resources.items():
@@ -1401,12 +1402,12 @@ class CloneManager(manager.Manager):
                 self._afther_resource_created_handler(context,
                                                       origin_template,
                                                       stack_id)
-                for sys_vol in sys_vol_name:
-                    heat_resource = self.heat_api.get_resource(context,
-                                                               stack_id,
-                                                               sys_vol)
-                    res_id = heat_resource.physical_resource_id
-                    self.volume_api.set_volume_bootable(context, res_id, True)
+#                for sys_vol in sys_vol_name:
+#                    heat_resource = self.heat_api.get_resource(context,
+#                                                               stack_id,
+#                                                               sys_vol)
+#                    res_id = heat_resource.physical_resource_id
+#                    self.volume_api.set_volume_bootable(context, res_id, True)
             except Exception as e:
                 LOG.error('Code clone error: %s', e)
                 raise

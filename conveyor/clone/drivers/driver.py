@@ -153,7 +153,8 @@ class BaseDriver(object):
         #                 'dev_name')
         # sys_dev_name = device_name
         # sys_dev_name = attach_resp._info.get('device')
-        sys_dev_name = list(diff_disk)[0] if len(diff_disk) == 1 else None
+        sys_dev_name = list(diff_disk)[0] if len(diff_disk) >= 1 else None
+        LOG.debug("in _handle_dep_volume dev_name = %s", sys_dev_name)
         resource.extra_properties['sys_dev_name'] = sys_dev_name
         guest_format = client.vservices.get_disk_format(sys_dev_name)\
                              .get('disk_format')
@@ -313,7 +314,8 @@ class BaseDriver(object):
 #             'dev_name')
 #         sys_dev_name = device_name
         # sys_dev_name = attach_resp._info.get('device')
-        sys_dev_name = list(diff_disk)[0] if len(diff_disk) == 1 else None
+        sys_dev_name = list(diff_disk)[0] if len(diff_disk) >= 1 else None
+        LOG.debug("dev_name = %s", sys_dev_name)
 
         vol_res.extra_properties['sys_dev_name'] = sys_dev_name
         guest_format = client.vservices.get_disk_format(sys_dev_name)\
