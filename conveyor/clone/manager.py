@@ -1292,6 +1292,7 @@ class CloneManager(manager.Manager):
         subnet_prefix = 'subnet_id'
         resources = t.get('resources', {})
         new_resources = {}
+        is_floatingIp = False
         fip_file_template = {
             'description': 'Generated template',
             'heat_template_version': '2013-05-23',
@@ -1302,6 +1303,7 @@ class CloneManager(manager.Manager):
             if rs.get('type') != 'OS::Neutron::FloatingIP':
                 new_resources[name] = rs
                 continue
+            is_floatingIp = True
             net_id = rs.get('properties', {}).get('floating_network_id', {})\
                                              .get('get_resource', None)
             if not net_id:
@@ -1337,9 +1339,13 @@ class CloneManager(manager.Manager):
                 }
             })
             idx += 1
-        new_resources[fip_prefix] = fip_template_resource
-        return {
-            file_name: json.dumps(fip_file_template)},  \
+
+        fip_temp = None
+        if is_floatingIp:
+            new_resources[fip_prefix] = fip_template_resource
+            fip_temp = {file_name: json.dumps(fip_file_template)}
+
+        return fip_temp,  \
             {'description': 'Generated template',
              'heat_template_version': '2013-05-23',
              'parameters': t.get('parameters', {}),
