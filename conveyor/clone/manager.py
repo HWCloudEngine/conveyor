@@ -516,6 +516,11 @@ class CloneManager(manager.Manager):
         timer = loopingcall.FixedIntervalLoopingCall(_wait_for_plan_finished,
                                                      context)
         timer.start(interval=0.5).wait()
+
+        # add reback resource status after clone finished (wanggang)
+        plan = self.resource_api.get_plan_by_id(context, id)
+        clone_resources = plan.get('updated_resources', {})
+        self.clone_driver.reset_resources(context, clone_resources)
         LOG.error('liuling end time of clone is %s' %
                   (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())))
 

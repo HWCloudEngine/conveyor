@@ -467,15 +467,9 @@ class ResourceManager(manager.Manager):
         if not plan:
             LOG.error('get plan %s failed' % plan_id)
             raise exception.PlanNotFound(plan_id=plan_id)
-        plan_status = plan['plan_status'] 
         resource.update_plan_to_db(context, plan_file_dir, plan_id,
                                    {'plan_status': p_status.DELETING})
-        resources = plan.get('updated_resources', {})
         try:
-            if plan_status not in (p_status.INITIATING, p_status.EXPIRED):
-                # reset state Detach temporary port of servers and handle volume.
-                self.resource_driver.reset_resources(context, resources)
-
             # Delete template files
             fileutils.delete_if_exists(plan_file_dir + plan_id + '.template')
 

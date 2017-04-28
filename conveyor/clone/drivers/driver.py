@@ -326,3 +326,76 @@ class BaseDriver(object):
                 sys_dev_name, "/opt/" + volume_id)
             vol_res.extra_properties['mount_point'] = mount_point.get(
                 'mount_disk')
+
+    def reset_resources(self, context, resources):
+        raise NotImplementedError()
+
+    def _handle_resources_after_clone(self, context, resources):
+        for key, res in resources.items():
+            if res['type'] == 'OS::Nova::Server':
+                self.handle_server_after_clone(context, res, resources)
+            elif res['type'] == 'OS::Heat::Stack':
+                self.handle_stack_after_clone(context, res, resources)
+            elif res['type'] == 'OS::Cinder::Volume':
+                self.handle_volume_after_clone(context, res, key, resources)
+
+    def handle_server_after_clone(self, context, resource, resources):
+        raise NotImplementedError()
+
+    def handle_stack_after_clone(self, context, resource, resources):
+        raise NotImplementedError()
+
+    def handle_volume_after_clone(self, context, resource,
+                                  resource_name, resources):
+        clone_along_with_vm = False
+        for k, v in resources.items():
+            if v['type'] == 'OS::Nova::Server':
+                for p in v['properties'].get('block_device_mapping_v2', []):
+                    volume_key = p.get('volume_id', {}).get('get_resource')
+                    if volume_key and resource_name == volume_key:
+                        clone_along_with_vm = True
+                        break
+            if clone_along_with_vm:
+                break
+        if not clone_along_with_vm:
+            self._handle_dep_volume_after_clone(context, resource)
+
+    def _handle_dep_volume_after_clone(self, context, resource):
+        volume_id = resource.get('extra_properties', {}).get('id')
+        if resource.get('extra_properties', {}).get('is_deacidized'):
+            extra_properties = resource.get('extra_properties', {})
+            vgw_id = extra_properties.get('gw_id')
+            if vgw_id:
+                try:
+                    mount_point = resource.get('extra_properties', {}) \
+                                          .get('mount_point')
+                    if mount_point:
+                        vgw_url = resource.get('extra_properties', {}) \
+                                          .get('gw_url')
+                        vgw_ip = vgw_url.split(':')[0]
+                        client = birdiegatewayclient.get_birdiegateway_client(
+                            vgw_ip, str(CONF.v2vgateway_api_listen_port))
+                        client.vservices._force_umount_disk(
+                            "/opt/" + volume_id)
+
+                    # if provider cloud can not detach volume in active status
+                    if not CONF.is_active_detach_volume:
+                        resouce_common = common.ResourceCommon()
+                        self.nova_api.stop_server(context, vgw_id)
+                        resouce_common._await_instance_status(context,
+                                                              vgw_id,
+                                                              'SHUTOFF')
+                    self.nova_api.detach_volume(context,
+                                                vgw_id,
+                                                volume_id)
+                    self._wait_for_volume_status(context, volume_id, vgw_id,
+                                                 'available')
+
+                    if not CONF.is_active_detach_volume:
+                        self.nova_api.start_server(context, vgw_id)
+                        resouce_common._await_instance_status(context,
+                                                              vgw_id,
+                                                              'ACTIVE')
+                except Exception as e:
+                    LOG.error(_LE('Error from handle volume of vm after clone.'
+                                  'Error=%(e)s'), {'e': e})
