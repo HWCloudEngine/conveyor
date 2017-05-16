@@ -26,7 +26,7 @@ from conveyor.conveyoragentclient.v1 import client as birdiegatewayclient
 from conveyor.common import plan_status
 from conveyor import network
 import time
-from conveyor import heat
+from conveyor.conveyorheat.api import api as heat
 
 temp_opts = [
              ]

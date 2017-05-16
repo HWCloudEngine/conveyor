@@ -159,16 +159,15 @@ class SoftwareConfig(resource.Resource):
         self.resource_id_set(sc[rpc_api.SOFTWARE_CONFIG_ID])
 
     def handle_delete(self):
-        return
 
-        # if self.resource_id is None:
-        #     return
-        #
-        # try:
-        #     self.rpc_client().delete_software_config(
-        #         self.context, self.resource_id)
-        # except Exception as ex:
-        #     self.rpc_client().ignore_error_named(ex, 'NotFound')
+        if self.resource_id is None:
+            return
+
+        try:
+            self.rpc_client().delete_software_config(
+                self.context, self.resource_id)
+        except Exception as ex:
+            self.rpc_client().ignore_error_named(ex, 'NotFound')
 
     def _resolve_attribute(self, name):
         """Retrieve attributes of the SoftwareConfig resource.

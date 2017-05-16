@@ -200,13 +200,12 @@ class VPNService(neutron.NeutronResource):
                                             {'vpnservice': prop_diff})
 
     def handle_delete(self):
-        return True
-        # try:
-        #     self.client().delete_vpnservice(self.resource_id)
-        # except Exception as ex:
-        #     self.client_plugin().ignore_not_found(ex)
-        # else:
-        #     return True
+        try:
+            self.client().delete_vpnservice(self.resource_id)
+        except Exception as ex:
+            self.client_plugin().ignore_not_found(ex)
+        else:
+            return True
 
 
 class IPsecSiteConnection(neutron.NeutronResource):
@@ -449,13 +448,12 @@ class IPsecSiteConnection(neutron.NeutronResource):
                 self.resource_id, {'ipsec_site_connection': prop_diff})
 
     def handle_delete(self):
-        return True
-        # try:
-        # #     self.client().delete_ipsec_site_connection(self.resource_id)
-        # # except Exception as ex:
-        # #     self.client_plugin().ignore_not_found(ex)
-        # # else:
-        # #     return True
+        try:
+            self.client().delete_ipsec_site_connection(self.resource_id)
+        except Exception as ex:
+            self.client_plugin().ignore_not_found(ex)
+        else:
+            return True
 
 
 class IKEPolicy(neutron.NeutronResource):
@@ -625,13 +623,13 @@ class IKEPolicy(neutron.NeutronResource):
     def handle_delete(self):
         if not self.resource_id:
             return
-        return True
-        # try:
-        #     self.client().delete_ikepolicy(self.resource_id)
-        # except Exception as ex:
-        #     self.client_plugin().ignore_not_found(ex)
-        # else:
-        #     return True
+
+        try:
+            self.client().delete_ikepolicy(self.resource_id)
+        except Exception as ex:
+            self.client_plugin().ignore_not_found(ex)
+        else:
+            return True
 
 
 class IPsecPolicy(neutron.NeutronResource):
@@ -802,13 +800,13 @@ class IPsecPolicy(neutron.NeutronResource):
     def handle_delete(self):
         if not self.resource_id:
             return
-        return True
-        # try:
-        #     self.client().delete_ipsecpolicy(self.resource_id)
-        # except Exception as ex:
-        #     self.client_plugin().ignore_not_found(ex)
-        # else:
-        #     return True
+
+        try:
+            self.client().delete_ipsecpolicy(self.resource_id)
+        except Exception as ex:
+            self.client_plugin().ignore_not_found(ex)
+        else:
+            return True
 
 
 def resource_mapping():

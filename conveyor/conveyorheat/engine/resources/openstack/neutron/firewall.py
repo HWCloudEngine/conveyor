@@ -152,16 +152,15 @@ class Firewall(neutron.NeutronResource):
                 self.resource_id, {'firewall': prop_diff})
 
     def handle_delete(self):
-        return True
-        # if not self.resource_id:
-        #     return
-        #
-        # try:
-        #     self.client().delete_firewall(self.resource_id)
-        # except Exception as ex:
-        #     self.client_plugin().ignore_not_found(ex)
-        # else:
-        #     return True
+        if not self.resource_id:
+            return
+
+        try:
+            self.client().delete_firewall(self.resource_id)
+        except Exception as ex:
+            self.client_plugin().ignore_not_found(ex)
+        else:
+            return True
 
     def _resolve_attribute(self, name):
         if name == self.SHARED_ATTR:
@@ -273,16 +272,15 @@ class FirewallPolicy(neutron.NeutronResource):
                 self.resource_id, {'firewall_policy': prop_diff})
 
     def handle_delete(self):
-        return True
-        # if not self.resource_id:
-        #     return
-        #
-        # try:
-        #     self.client().delete_firewall_policy(self.resource_id)
-        # except Exception as ex:
-        #     self.client_plugin().ignore_not_found(ex)
-        # else:
-        #     return True
+        if not self.resource_id:
+            return
+
+        try:
+            self.client().delete_firewall_policy(self.resource_id)
+        except Exception as ex:
+            self.client_plugin().ignore_not_found(ex)
+        else:
+            return True
 
 
 class FirewallRule(neutron.NeutronResource):
@@ -477,16 +475,15 @@ class FirewallRule(neutron.NeutronResource):
                 self.resource_id, {'firewall_rule': prop_diff})
 
     def handle_delete(self):
-        return True
-        # if not self.resource_id:
-        #     return
-        #
-        # try:
-        #     self.client().delete_firewall_rule(self.resource_id)
-        # except Exception as ex:
-        #     self.client_plugin().ignore_not_found(ex)
-        # else:
-        #     return True
+        if not self.resource_id:
+            return
+
+        try:
+            self.client().delete_firewall_rule(self.resource_id)
+        except Exception as ex:
+            self.client_plugin().ignore_not_found(ex)
+        else:
+            return True
 
 
 def resource_mapping():

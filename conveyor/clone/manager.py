@@ -41,7 +41,7 @@ from conveyor.resource import api as resource_api
 from conveyor.resource import resource
 from conveyor import exception
 from conveyor.common import template_format
-from conveyor import heat
+from conveyor.conveyorheat.api import api as heat
 from conveyor.common import loopingcall
 from conveyor.common import plan_status
 from conveyor import utils

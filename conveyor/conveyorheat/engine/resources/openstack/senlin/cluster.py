@@ -176,9 +176,9 @@ class Cluster(resource.Resource):
             )
 
     def handle_delete(self):
-        # if self.resource_id is not None:
-        #     with self.client_plugin().ignore_not_found:
-        #         self.client().delete_cluster(self.resource_id)
+        if self.resource_id is not None:
+            with self.client_plugin().ignore_not_found:
+                self.client().delete_cluster(self.resource_id)
         return self.resource_id
 
     def check_delete_complete(self, resource_id):

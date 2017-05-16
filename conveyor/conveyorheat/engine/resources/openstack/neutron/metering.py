@@ -96,14 +96,12 @@ class MeteringLabel(neutron.NeutronResource):
         if not self.resource_id:
             return
 
-        return True
-
-        # try:
-        #     self.client().delete_metering_label(self.resource_id)
-        # except Exception as ex:
-        #     self.client_plugin().ignore_not_found(ex)
-        # else:
-        #     return True
+        try:
+            self.client().delete_metering_label(self.resource_id)
+        except Exception as ex:
+            self.client_plugin().ignore_not_found(ex)
+        else:
+            return True
 
 
 class MeteringRule(neutron.NeutronResource):
@@ -195,14 +193,12 @@ class MeteringRule(neutron.NeutronResource):
         if not self.resource_id:
             return
 
-        return True
-
-        # try:
-        #     self.client().delete_metering_label_rule(self.resource_id)
-        # except Exception as ex:
-        #     self.client_plugin().ignore_not_found(ex)
-        # else:
-        #     return True
+        try:
+            self.client().delete_metering_label_rule(self.resource_id)
+        except Exception as ex:
+            self.client_plugin().ignore_not_found(ex)
+        else:
+            return True
 
 
 def resource_mapping():

@@ -22,14 +22,28 @@ import uuid
 
 import six
 
+from keystoneclient import access
+from keystoneclient import auth
+from keystoneclient.auth.identity import access as access_plugin
+from keystoneclient.auth.identity import v3
+from keystoneclient.auth import token_endpoint
+from oslo_config import cfg
+
 import exception
 from conveyor.i18n import _
+from conveyor.i18n import _LE
+from conveyor.i18n import _LW
 from conveyor.common import local
 from oslo_log import log as logging
 from oslo_utils import timeutils
+from conveyor.db import api as db_api
+from conveyor.conveyorheat.engine import clients
+from conveyor.conveyorheat.common import endpoint_utils
 
 
 LOG = logging.getLogger(__name__)
+
+TRUSTEE_CONF_GROUP = 'trustee'
 
 
 def generate_request_id():
@@ -48,7 +62,10 @@ class RequestContext(object):
                  request_id=None, auth_token=None, overwrite=True,
                  quota_class=None, user_name=None, project_name=None,
                  service_catalog=None, instance_lock_checked=False,
-                 auth_token_info=None, auth_url=None, tenant_id=None, **kwargs):
+                 auth_token_info=None, auth_url=None, tenant_id=None,
+                 show_deleted=False, region_name=None, auth_plugin=None,
+                 trust_id=None, trusts_auth_plugin=None, password=None,
+                 user_domain_id=None, iam_assume_token=None, **kwargs):
         """:param read_deleted: 'no' indicates deleted records are hidden,
                 'yes' indicates deleted records are visible,
                 'only' indicates that *only* deleted records are visible.
@@ -81,6 +98,16 @@ class RequestContext(object):
         self.auth_token_info = auth_token_info
         self.auth_url = auth_url
         self.tenant_id = tenant_id
+        self.show_deleted = show_deleted
+        self._clients = None
+        self.username = user_name
+        self.region_name = region_name
+        self._auth_plugin = auth_plugin
+        self.trust_id = trust_id
+        self._trusts_auth_plugin = trusts_auth_plugin
+        self.password = password
+        self.user_domain = user_domain_id
+        self.iam_assume_token = iam_assume_token
 
         if service_catalog:
             # Only include required parts of service_catalog
@@ -100,8 +127,104 @@ class RequestContext(object):
         self.user_name = user_name
         self.project_name = project_name
         self.is_admin = is_admin
+        self._session = None
+        # self.session = db_api.get_session()
         if overwrite or not hasattr(local.store, 'context'):
             self.update_store()
+
+    @property
+    def keystone_v3_endpoint(self):
+        if self.auth_url:
+            return self.auth_url.replace('v2.0', 'v3')
+        else:
+            auth_uri = endpoint_utils.get_auth_uri()
+            if auth_uri:
+                return auth_uri
+            else:
+                LOG.error('Keystone API endpoint not provided. Set '
+                          'auth_uri in section [clients_keystone] '
+                          'of the configuration file.')
+                raise exception.AuthorizationFailure()
+
+    @property
+    def trusts_auth_plugin(self):
+        if self._trusts_auth_plugin:
+            return self._trusts_auth_plugin
+
+        self._trusts_auth_plugin = auth.load_from_conf_options(
+            cfg.CONF, TRUSTEE_CONF_GROUP, trust_id=self.trust_id)
+
+        if self._trusts_auth_plugin:
+            return self._trusts_auth_plugin
+
+        LOG.warning(_LW('Using the keystone_authtoken user as the conveyorheat '
+                        'trustee user directly is deprecated. Please add the '
+                        'trustee credentials you need to the %s section of '
+                        'your heat.conf file.') % TRUSTEE_CONF_GROUP)
+
+        cfg.CONF.import_group('keystone_authtoken',
+                              'keystonemiddleware.auth_token')
+
+        trustee_user_domain = 'default'
+        if 'user_domain_id' in cfg.CONF.keystone_authtoken:
+            trustee_user_domain = cfg.CONF.keystone_authtoken.user_domain_id
+
+        self._trusts_auth_plugin = v3.Password(
+            username=cfg.CONF.keystone_authtoken.admin_user,
+            password=cfg.CONF.keystone_authtoken.admin_password,
+            user_domain_id=trustee_user_domain,
+            auth_url=self.keystone_v3_endpoint,
+            trust_id=self.trust_id)
+        return self._trusts_auth_plugin
+
+    def _create_auth_plugin(self):
+        if self.auth_token_info:
+            auth_ref = access.AccessInfo.factory(body=self.auth_token_info,
+                                                 auth_token=self.auth_token)
+            return access_plugin.AccessInfoPlugin(
+                auth_url=self.keystone_v3_endpoint,
+                auth_ref=auth_ref)
+
+        if self.auth_token:
+            # FIXME(jamielennox): This is broken but consistent. If you
+            # only have a token but don't load a service catalog then
+            # url_for wont work. Stub with the keystone endpoint so at
+            # least it might be right.
+            return token_endpoint.Token(endpoint=self.keystone_v3_endpoint,
+                                        token=self.auth_token)
+
+        if self.password:
+            return v3.Password(username=self.username,
+                               password=self.password,
+                               project_id=self.tenant_id,
+                               user_domain_id=self.user_domain,
+                               auth_url=self.keystone_v3_endpoint)
+
+        LOG.error(_LE("Keystone v3 API connection failed, no password "
+                      "trust or auth_token!"))
+        raise exception.AuthorizationFailure()
+
+    @property
+    def auth_plugin(self):
+        if not self._auth_plugin:
+            if self.trust_id:
+                self._auth_plugin = self.trusts_auth_plugin
+            else:
+                self._auth_plugin = self._create_auth_plugin()
+
+        return self._auth_plugin
+
+    @property
+    def session(self):
+        if self._session is None:
+            self._session = db_api.get_session()
+        return self._session
+
+    @property
+    def clients(self):
+        if self._clients is None:
+            self._clients = clients.Clients(self)
+        return self._clients
 
     def _get_read_deleted(self):
         return self._read_deleted
@@ -140,7 +263,9 @@ class RequestContext(object):
                 'user': self.user,
                 'auth_token_info': self.auth_token_info,
                 'auth_url': self.auth_url,
-                'tenant_id': self.tenant_id}
+                'tenant_id': self.tenant_id,
+                'show_deleted': self.show_deleted,
+                'iam_assume_token': self.iam_assume_token}
 
     @classmethod
     def from_dict(cls, values):

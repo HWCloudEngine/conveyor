@@ -103,10 +103,10 @@ class SaharaImageRegistry(resource.Resource):
         if self.resource_id is None:
             return
 
-        # try:
-        #     self.client().images.unregister_image(self.resource_id)
-        # except Exception as ex:
-        #     self.client_plugin().ignore_not_found(ex)
+        try:
+            self.client().images.unregister_image(self.resource_id)
+        except Exception as ex:
+            self.client_plugin().ignore_not_found(ex)
 
 
 def resource_mapping():

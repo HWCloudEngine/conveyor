@@ -36,7 +36,7 @@ from conveyor import compute
 from conveyor import volume
 from conveyor import network
 from conveyor import image
-from conveyor import heat
+from conveyor.conveyorheat.api import api as heat
 from conveyor import utils
 from conveyor import manager
 from conveyor.resource import resource
@@ -485,7 +485,7 @@ class ResourceManager(manager.Manager):
                                        {'plan_status': p_status.ERROR_DELETING})
             raise exception.PlanDeleteError(message=msg)
 
-        self.heat_api.delete_stack(context, plan['stack_id'], plan_id)
+        self.heat_api.clear_table(context, plan['stack_id'], plan_id)
 
         # Delete plan in memory
         _plans.pop(plan_id, None)

@@ -172,13 +172,12 @@ class CloudWatchAlarm(resource.Resource):
             wr.store()
 
     def handle_delete(self):
-        return
-        # try:
-        #     wr = watchrule.WatchRule.load(
-        #         self.context, watch_name=self.physical_resource_name())
-        #     wr.destroy()
-        # except exception.EntityNotFound:
-        #     pass
+        try:
+            wr = watchrule.WatchRule.load(
+                self.context, watch_name=self.physical_resource_name())
+            wr.destroy()
+        except exception.EntityNotFound:
+            pass
 
     def handle_suspend(self):
         wr = watchrule.WatchRule.load(self.context,

@@ -314,13 +314,12 @@ class Router(neutron.NeutronResource):
         if not self.resource_id:
             return
 
-        return True
-        # try:
-        #     self.client().delete_router(self.resource_id)
-        # except Exception as ex:
-        #     self.client_plugin().ignore_not_found(ex)
-        # else:
-        #     return True
+        try:
+            self.client().delete_router(self.resource_id)
+        except Exception as ex:
+            self.client_plugin().ignore_not_found(ex)
+        else:
+            return True
 
     def handle_update(self, json_snippet, tmpl_diff, prop_diff):
         if self.EXTERNAL_GATEWAY in prop_diff:
@@ -514,17 +513,16 @@ class RouterInterface(neutron.NeutronResource):
         self.resource_id_set('%s:%s=%s' % (router_id, key, value))
 
     def handle_delete(self):
-        return
-        # if not self.resource_id:
-        #     return
-        # tokens = self.resource_id.replace('=', ':').split(':')
-        # if len(tokens) == 2:    # compatible with old data
-        #     tokens.insert(1, 'subnet_id')
-        # (router_id, key, value) = tokens
-        # with self.client_plugin().ignore_not_found:
-        #     self.client().remove_interface_router(
-        #         router_id,
-        #         {key: value})
+        if not self.resource_id:
+            return
+        tokens = self.resource_id.replace('=', ':').split(':')
+        if len(tokens) == 2:    # compatible with old data
+            tokens.insert(1, 'subnet_id')
+        (router_id, key, value) = tokens
+        with self.client_plugin().ignore_not_found:
+            self.client().remove_interface_router(
+                router_id,
+                {key: value})
 
 
 class RouterGateway(neutron.NeutronResource):
@@ -629,13 +627,12 @@ class RouterGateway(neutron.NeutronResource):
         self.resource_id_set('%s:%s' % (router_id, network_id))
 
     def handle_delete(self):
-        return
-        # if not self.resource_id:
-        #     return
-        #
-        # (router_id, network_id) = self.resource_id.split(':')
-        # with self.client_plugin().ignore_not_found:
-        #     self.client().remove_gateway_router(router_id)
+        if not self.resource_id:
+            return
+
+        (router_id, network_id) = self.resource_id.split(':')
+        with self.client_plugin().ignore_not_found:
+            self.client().remove_gateway_router(router_id)
 
 
 def resource_mapping():

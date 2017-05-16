@@ -212,22 +212,20 @@ class NetworkGateway(neutron.NeutronResource):
         if not self.resource_id:
             return
 
-        return True
-
-        # connections = self.properties[self.CONNECTIONS]
-        # for connection in connections:
-        #     with self.client_plugin().ignore_not_found:
-        #         if self.NETWORK in connection:
-        #             connection['network_id'] = connection.pop(self.NETWORK)
-        #         self.client().disconnect_network_gateway(
-        #             self.resource_id, connection
-        #         )
-        # try:
-        #     self.client().delete_network_gateway(self.resource_id)
-        # except Exception as ex:
-        #     self.client_plugin().ignore_not_found(ex)
-        # else:
-        #     return True
+        connections = self.properties[self.CONNECTIONS]
+        for connection in connections:
+            with self.client_plugin().ignore_not_found:
+                if self.NETWORK in connection:
+                    connection['network_id'] = connection.pop(self.NETWORK)
+                self.client().disconnect_network_gateway(
+                    self.resource_id, connection
+                )
+        try:
+            self.client().delete_network_gateway(self.resource_id)
+        except Exception as ex:
+            self.client_plugin().ignore_not_found(ex)
+        else:
+            return True
 
     def handle_update(self, json_snippet, tmpl_diff, prop_diff):
         connections = None

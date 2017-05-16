@@ -30,9 +30,10 @@ from oslo_db.sqlalchemy import session as db_session
 from oslo_log import log as logging
 
 import conveyor.context
-from conveyor import exception
+from conveyor import exception as conveyor_exception
 from conveyor.db.sqlalchemy import models, utils
 from conveyor.i18n import _
+from conveyor.i18n import _LE
 
 # add from heat
 from oslo_serialization import jsonutils
@@ -50,8 +51,6 @@ from sqlalchemy.orm import session as orm_session
 import osprofiler.sqlalchemy
 from conveyor.conveyorheat.common import crypt
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _
-from conveyor.conveyorheat.common.i18n import _LE
 from conveyor.db.sqlalchemy import filters as db_filters
 import migration
 # from conveyor.db.sqlalchemy import models
@@ -69,12 +68,20 @@ db_opts = [
 
 CONF = cfg.CONF
 CONF.register_opts(db_opts)
+# CONF = cfg.CONF
+CONF.import_opt('hidden_stack_tags',
+                'conveyor.conveyorheat.common.config')
+CONF.import_opt('max_events_per_stack',
+                'conveyor.conveyorheat.common.config')
+CONF.import_group('profiler',
+                  'conveyor.conveyorheat.common.config')
 
 LOG = logging.getLogger(__name__)
 # LOG.basicConfig(filename='myapp.log', level=LOG.INFO)
 
 
 _ENGINE_FACADE = None
+_facade = None
 _LOCK = threading.Lock()
 
 
@@ -85,16 +92,33 @@ def _create_facade_lazily():
             if _ENGINE_FACADE is None:
                 _ENGINE_FACADE = db_session.EngineFacade.from_config(CONF)
     return _ENGINE_FACADE
+    # global _facade
+    #
+    # if not _facade:
+    #     _facade = db_session.EngineFacade.from_config(CONF)
+    #     if CONF.profiler.enabled:
+    #         if CONF.profiler.trace_sqlalchemy:
+    #             osprofiler.sqlalchemy.add_tracing(sqlalchemy,
+    #                                               _facade.get_engine(),
+    #                                               "db")
+    #
+    # return _facade
 
 
 def get_engine(use_slave=False):
     facade = _create_facade_lazily()
-    return facade.get_engine(use_slave=use_slave)
+    return facade.get_engine()
+    # return facade.get_engine(use_slave=use_slave)
 
 
 def get_session(use_slave=False, **kwargs):
     facade = _create_facade_lazily()
-    return facade.get_session(use_slave=use_slave, **kwargs)
+    return facade.get_session()
+    # return facade.get_session(use_slave=use_slave, **kwargs)
+
+
+# def get_session_heat():
+#     return get_facade().get_session()
 
 
 _SHADOW_TABLE_PREFIX = 'shadow_'
@@ -142,9 +166,40 @@ def _retry_on_deadlock(f):
     return wrapped
 
 
-def model_query_heat(context, *args):
+def model_query_heat_original(context, *args):
     session = _session(context)
+    session.begin(subtransactions=True)
     query = session.query(*args)
+    session.commit()
+    return query
+
+
+def model_query_heat(context, model, *args, **kwargs):
+    # session = _session(context)
+    # with session.begin():
+    #     query = session.query(*args)
+    # return query
+    use_slave = kwargs.get('use_slave') or False
+    if CONF.database.slave_connection == '':
+        use_slave = False
+
+    session = get_session()
+    # session = kwargs.get('session') or get_session(use_slave=use_slave)
+    # read_deleted = kwargs.get('read_deleted') or context.read_deleted
+
+    def issubclassof_gw_base(obj):
+        return isinstance(obj, type) and issubclass(obj, models.CopyBase)
+
+    base_model = model
+    if not issubclassof_gw_base(base_model):
+        base_model = kwargs.get('base_model', None)
+        if not issubclassof_gw_base(base_model):
+            raise Exception(_("model or base_model parameter should be "
+                              "subclass of CopyBase"))
+
+    session.begin(subtransactions=True)
+    query = session.query(model, *args)
+    session.commit()
     return query
 
 
@@ -198,13 +253,15 @@ def model_query(context, model, *args, **kwargs):
 
 ###################
 
+
 def _plan_get(context, id, session=None, read_deleted='no'):
     result = model_query(context, models.Plan, session=session, read_deleted='no').\
                filter_by(plan_id=id).\
                 first()
     if not result:
-        raise exception.PlanNotFoundInDb(id = id)
+        raise conveyor_exception.PlanNotFoundInDb(id = id)
     return result
+
 
 @require_context
 def plan_get(context, id):
@@ -213,7 +270,7 @@ def plan_get(context, id):
     except db_exc.DBError:
         msg = _("Invalid plan id %s in request") % id
         LOG.warn(msg)
-        raise exception.InvalidID(id=id)
+        raise conveyor_exception.InvalidID(id=id)
     return dict(result)
 
 
@@ -224,13 +281,14 @@ def plan_create(context, values):
     try:
         plan_ref.save()
     except db_exc.DBDuplicateEntry as e:
-        raise exception.PlanExists( id=values.get('id'))
+        raise conveyor_exception.PlanExists( id=values.get('id'))
     except db_exc.DBReferenceError as e:
-        raise exception.IntegrityException(msg=str(e))
+        raise conveyor_exception.IntegrityException(msg=str(e))
     except db_exc.DBError as e:
         LOG.exception('DB error:%s', e)
-        raise exception.PlanCreateFailed()
+        raise conveyor_exception.PlanCreateFailed()
     return dict(plan_ref)
+
 
 @require_context
 def plan_update(context, id, values):
@@ -238,14 +296,15 @@ def plan_update(context, id, values):
     with session.begin():
         plan_ref = _plan_get(context, id, session=session)
         if not plan_ref:
-            raise exception.PlanNotFoundInDb(id=id)
+            raise conveyor_exception.PlanNotFoundInDb(id=id)
         plan_ref.update(values)
         try:
             plan_ref.save(session=session)
         except db_exc.DBDuplicateEntry:
-            raise exception.PlanExists()
+            raise conveyor_exception.PlanExists()
 
     return dict(plan_ref)
+
 
 @require_context
 def plan_get_all(context):
@@ -253,39 +312,70 @@ def plan_get_all(context):
                      all()
     return [dict(r) for r in plans ]
 
+
 def plan_delete(context, id):
     session = get_session()
     with session.begin():
         plan_ref = _plan_get(context, id, session=session)
-        # if not plan_ref: raise exception.planNotFound(id=id)
+        # if not plan_ref: raise conveyor_exception.planNotFound(id=id)
         #plan_ref.soft_delete(session=session)
         session.delete(plan_ref)
 
 
+@require_context
+def plan_stack_create(context, values):
+    stack_ref = models.PlanStack()
+    stack_ref.update(values)
+    try:
+        stack_ref.save()
+    except db_exc.DBDuplicateEntry as e:
+        raise conveyor_exception.PlanExists(id=values.get('id'))
+    except db_exc.DBReferenceError as e:
+        raise conveyor_exception.IntegrityException(msg=str(e))
+    except db_exc.DBError as e:
+        LOG.exception('DB error:%s', e)
+        raise conveyor_exception.PlanCreateFailed()
+    return dict(stack_ref)
+
+
+@require_context
+def plan_stack_get(context, plan_id, session=None):
+    results = (model_query(context, models.PlanStack, session=session)
+               .filter_by(plan_id=plan_id)
+               .all())
+    return results
+
+
+@require_context
+def plan_stack_delete(context, plan_id):
+    session = get_session()
+    with session.begin():
+        ps = plan_stack_get(context, plan_id, session=session)
+        if not ps:
+            raise exception.NotFound(_('Attempt to delete plan_id: '
+                                       '%(id)s %(msg)s') % {
+                                         'id': plan_id,
+                                         'msg': 'that does not exist'})
+        for p in ps:
+            session.delete(p)
+
+
 # add from heat
-CONF = cfg.CONF
-CONF.import_opt('hidden_stack_tags',
-                'conveyor.conveyorheat.common.config')
-CONF.import_opt('max_events_per_stack',
-                'conveyor.conveyorheat.common.config')
-CONF.import_group('profiler',
-                  'conveyor.conveyorheat.common.config')
-
-_facade = None
-
-
-def get_facade():
-    global _facade
-
-    if not _facade:
-        _facade = db_session.EngineFacade.from_config(CONF)
-        if CONF.profiler.enabled:
-            if CONF.profiler.trace_sqlalchemy:
-                osprofiler.sqlalchemy.add_tracing(sqlalchemy,
-                                                  _facade.get_engine(),
-                                                  "db")
-
-    return _facade
+# _facade = None
+#
+#
+# def get_facade():
+#     global _facade
+#
+#     if not _facade:
+#         _facade = db_session.EngineFacade.from_config(CONF)
+#         if CONF.profiler.enabled:
+#             if CONF.profiler.trace_sqlalchemy:
+#                 osprofiler.sqlalchemy.add_tracing(sqlalchemy,
+#                                                   _facade.get_engine(),
+#                                                   "db")
+#
+#     return _facade
 
 
 def soft_delete_aware_query(context, *args, **kwargs):
@@ -302,8 +392,12 @@ def soft_delete_aware_query(context, *args, **kwargs):
     return query
 
 
-def _session(context):
+def _session(context=None):
+    # return get_session()
+    # return get_session()
     return (context and context.session) or get_session()
+    # return (context and context.session) or get_session_heat()
+    # return get_session(use_slave=False)
 
 
 def raw_template_get(context, template_id):
@@ -340,8 +434,8 @@ def raw_template_delete(context, template_id):
 
 
 def resource_get(context, resource_id):
-    result = model_query_heat(context, models.Resource).get(resource_id)
-
+    # result = model_query_heat(context, models.Resource).get(resource_id)
+    result = model_query_heat_original(context, models.Resource).get(resource_id)
     if not result:
         raise exception.NotFound(_("resource with id %s not found") %
                                  resource_id)
@@ -558,10 +652,11 @@ def stack_get_by_name(context, stack_name):
 
 def stack_get(context, stack_id, show_deleted=False, tenant_safe=True,
               eager_load=False):
-    query = model_query_heat(context, models.Stack)
-    if eager_load:
-        query = query.options(orm.joinedload("raw_template"))
-    result = query.get(stack_id)
+    # query = model_query_heat_original(context, models.Stack)
+    # if eager_load:
+    #     query = query.options(orm.joinedload("raw_template"))
+    # result = query.get(stack_id)
+    result = model_query_heat(context, models.Stack).filter_by(id=stack_id).first()
 
     deleted_ok = show_deleted or context.show_deleted
     if result is None or result.deleted_at is not None and not deleted_ok:
@@ -746,9 +841,10 @@ def stack_update(context, stack_id, values, exp_trvsl=None):
         # stack updated by another update
         return False
 
-    session = _session(context)
+    # session = _session(context)
+    session = get_session()
 
-    with session.begin():
+    with session.begin(subtransactions=True):
         rows_updated = (session.query(models.Stack)
                         .filter(models.Stack.id == stack.id)
                         .filter(models.Stack.current_traversal\
@@ -759,17 +855,25 @@ def stack_update(context, stack_id, values, exp_trvsl=None):
 
 
 def stack_delete(context, stack_id):
-    s = stack_get(context, stack_id)
+    # s = stack_get(context, stack_id)
+    session = get_session()
+    s = session.query(models.Stack). \
+        filter(models.Stack.id == stack_id).first()
+    # query = model_query_heat_original(context, models.Stack)
+    # s = query.get(stack_id)
     if not s:
         raise exception.NotFound(_('Attempt to delete a stack with id: '
                                  '%(id)s %(msg)s') % {
                                      'id': stack_id,
                                      'msg': 'that does not exist'})
-    session = orm_session.Session.object_session(s)
-    with session.begin():
-        for r in s.resources:
-            session.delete(r)
-        s.soft_delete(session=session)
+    # session = orm_session.Session.object_session(s)
+    for r in s.resources:
+        session.delete(r)
+    s.soft_delete(session=session)
+    # with session.begin():
+    #     for r in s.resources:
+    #         session.delete(r)
+    #     s.soft_delete(session=session)
 
 
 @oslo_db_api.wrap_db_retry(max_retries=3, retry_on_deadlock=True,
@@ -896,14 +1000,20 @@ def user_creds_get(user_creds_id):
 
 @db_utils.retry_on_stale_data_error
 def user_creds_delete(context, user_creds_id):
-    creds = model_query_heat(context, models.UserCreds).get(user_creds_id)
+    session = get_session()
+    creds = session.query(models.UserCreds).\
+        filter(models.UserCreds.id == user_creds_id).first()
+    # creds = model_query_heat(context, models.UserCreds).get(user_creds_id)
     if not creds:
         raise exception.NotFound(
             _('Attempt to delete user creds with id '
               '%(id)s that does not exist') % {'id': user_creds_id})
-    session = orm_session.Session.object_session(creds)
-    with session.begin():
-        session.delete(creds)
+    creds.delete()
+    # session.commit()
+    # session = orm_session.Session.object_session(creds)
+    # session = get_session()
+    # with session.begin(subtransactions=True):
+    #     session.delete(creds)
 
 
 def event_get(context, event_id):
@@ -990,7 +1100,12 @@ def _events_filter_and_page_query(context, query,
 
 
 def event_count_all_by_stack(context, stack_id):
-    query = model_query_heat(context, func.count(models.Event.id))
+    # query = model_query_heat_original(context, func.count(models.Event.id))
+    session = get_session()
+    session.begin(subtransactions=True)
+    query = session.query(func.count(models.Event.id))
+    session.commit()
+    # return query
     return query.filter_by(stack_id=stack_id).scalar()
 
 
@@ -1018,7 +1133,11 @@ def event_create(context, values):
                 context, values['stack_id'], cfg.CONF.event_purge_batch_size)
     event_ref = models.Event()
     event_ref.update(values)
-    event_ref.save(_session(context))
+    # session = _session(context)
+    session = get_session()
+    session.begin(subtransactions=True)
+    event_ref.save(session)
+    session.commit()
     return event_ref
 
 
@@ -1789,41 +1908,3 @@ def gw_member_get(context, member_id):
         raise exception.NotFound(_('Member with id %s not found') %
                                  member_id)
     return result
-
-
-@require_context
-def plan_stack_create(context, values):
-    stack_ref = models.PlanStack()
-    stack_ref.update(values)
-    try:
-        stack_ref.save()
-    except db_exc.DBDuplicateEntry as e:
-        raise exception.PlanExists(id=values.get('id'))
-    except db_exc.DBReferenceError as e:
-        raise exception.IntegrityException(msg=str(e))
-    except db_exc.DBError as e:
-        LOG.exception('DB error:%s', e)
-        raise exception.PlanCreateFailed()
-    return dict(stack_ref)
-
-
-@require_context
-def plan_stack_get(context, plan_id, session=None):
-    results = (model_query(context, models.PlanStack, session=session)
-               .filter_by(plan_id=plan_id)
-               .all())
-    return results
-
-
-@require_context
-def plan_stack_delete(context, plan_id):
-    session = get_session()
-    with session.begin():
-        ps = plan_stack_get(context, plan_id, session=session)
-        if not ps:
-            raise exception.NotFound(_('Attempt to delete plan_id: '
-                                     '%(id)s %(msg)s') % {
-                                         'id': plan_id,
-                                         'msg': 'that does not exist'})
-        for p in ps:
-            session.delete(p)

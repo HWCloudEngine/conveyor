@@ -66,6 +66,100 @@ class ConveyorBase(models.SoftDeleteMixin,
 
         super(ConveyorBase, self).save(session=session)
 
+    def expire(self, session=None, attrs=None):
+        """Expire this object ()."""
+        if not session:
+            session = get_session()
+        session.expire(self, attrs)
+
+    def refresh(self, session=None, attrs=None):
+        """Refresh this object."""
+        if not session:
+            session = get_session()
+        session.refresh(self, attrs)
+
+    def delete(self, session=None):
+        """Delete this object."""
+        if not session:
+            session = get_session()
+        session.begin(subtransactions=True)
+        session.delete(self)
+        session.commit()
+
+    def update_and_save(self, values, session=None):
+        if not session:
+            session = get_session()
+        session.begin(subtransactions=True)
+        for k, v in six.iteritems(values):
+            setattr(self, k, v)
+        session.commit()
+
+
+class CopyBase(models.TimestampMixin,
+               models.ModelBase):
+    metadata = None
+
+    # TODO(ekudryashova): remove this after both conveyor and oslo.db
+    # will use oslo.utils library
+    # NOTE: Both projects(conveyor and oslo.db) use `timeutils.utcnow`, which
+    # returns specified time(if override_time is set). Time overriding is
+    # only used by unit tests, but in a lot of places, temporarily overriding
+    # this columns helps to avoid lots of calls of timeutils.set_override
+    # from different places in unit tests.
+    created_at = Column(DateTime, default=lambda: timeutils.utcnow())
+    updated_at = Column(DateTime, onupdate=lambda: timeutils.utcnow())
+
+    # def save(self, session=None):
+    #     from conveyor.db.sqlalchemy import api
+    #
+    #     if session is None:
+    #         session = api.get_session()
+    #     session.begin(subtransactions=True)
+    #     super(CopyBase, self).save(session=session)
+    #     session.commit()
+
+    def expire(self, session=None, attrs=None):
+        """Expire this object ()."""
+        if not session:
+            session = orm_session.Session.object_session(self)
+            if not session:
+                session = get_session()
+        session.expire(self, attrs)
+
+    def refresh(self, session=None, attrs=None):
+        """Refresh this object."""
+        if not session:
+            session = orm_session.Session.object_session(self)
+            if not session:
+                session = get_session()
+#        session.begin(subtransactions=True)
+        session.refresh(self, attrs)
+#        session.commit()
+
+    def delete(self, session=None):
+        """Delete this object."""
+        if not session:
+            session = orm_session.Session.object_session(self)
+            if not session:
+                session = get_session()
+        session.begin(subtransactions=True)
+        session.delete(self)
+        session.commit()
+
+    def update_and_save(self, values, session=None):
+        if not session:
+            session = orm_session.Session.object_session(self)
+            if not session:
+                session = get_session()
+                # from conveyor.db.sqlalchemy import api as db_api
+                # session = db_api.get_session_heat()
+        session.begin(subtransactions=True)
+        for k, v in six.iteritems(values):
+            setattr(self, k, v)
+        super(CopyBase, self).save(session=session)
+        # session.update(self)
+        session.commit()
+
 
 class Plan(BASE, ConveyorBase):
     """Represents a plan."""
@@ -154,7 +248,7 @@ class StateAware(object):
     status_reason = sqlalchemy.Column('status_reason', sqlalchemy.Text)
 
 
-class RawTemplate(BASE, HeatBase):
+class RawTemplate(BASE, CopyBase):
     """Represents an unparsed template which should be in JSON format."""
 
     __tablename__ = 'raw_template'
@@ -164,7 +258,7 @@ class RawTemplate(BASE, HeatBase):
     environment = sqlalchemy.Column('environment', types.Json)
 
 
-class StackTag(BASE, HeatBase):
+class StackTag(BASE, CopyBase):
     """Key/value store of arbitrary stack tags."""
 
     __tablename__ = 'stack_tag'
@@ -180,7 +274,7 @@ class StackTag(BASE, HeatBase):
                                  nullable=False)
 
 
-class SyncPoint(BASE, HeatBase):
+class SyncPoint(BASE, CopyBase):
     """Represents a syncpoint for a stack that is being worked on."""
 
     __tablename__ = 'sync_point'
@@ -201,7 +295,7 @@ class SyncPoint(BASE, HeatBase):
     input_data = sqlalchemy.Column(types.Json)
 
 
-class Stack(BASE, HeatBase, SoftDelete, StateAware):
+class Stack(BASE, CopyBase, SoftDelete, StateAware):
     """Represents a stack created by the heat engine."""
 
     __tablename__ = 'stack'
@@ -218,13 +312,15 @@ class Stack(BASE, HeatBase, SoftDelete, StateAware):
         sqlalchemy.ForeignKey('raw_template.id'),
         nullable=False)
     raw_template = relationship(RawTemplate, backref=backref('stack'),
-                                foreign_keys=[raw_template_id])
+                                foreign_keys=[raw_template_id],
+                                lazy='subquery')
     prev_raw_template_id = sqlalchemy.Column(
         'prev_raw_template_id',
         sqlalchemy.Integer,
         sqlalchemy.ForeignKey('raw_template.id'))
     prev_raw_template = relationship(RawTemplate,
-                                     foreign_keys=[prev_raw_template_id])
+                                     foreign_keys=[prev_raw_template_id],
+                                     lazy='subquery')
     username = sqlalchemy.Column(sqlalchemy.String(256))
     tenant = sqlalchemy.Column(sqlalchemy.String(256))
     user_creds_id = sqlalchemy.Column(
@@ -239,7 +335,8 @@ class Stack(BASE, HeatBase, SoftDelete, StateAware):
     nested_depth = sqlalchemy.Column('nested_depth', sqlalchemy.Integer)
     convergence = sqlalchemy.Column('convergence', sqlalchemy.Boolean)
     tags = relationship(StackTag, cascade="all,delete",
-                        backref=backref('stack'))
+                        backref=backref('stack'), lazy='subquery')
+    # lazy='joined'
     current_traversal = sqlalchemy.Column('current_traversal',
                                           sqlalchemy.String(36))
     current_deps = sqlalchemy.Column('current_deps', types.Json)
@@ -250,7 +347,7 @@ class Stack(BASE, HeatBase, SoftDelete, StateAware):
     updated_at = sqlalchemy.Column(sqlalchemy.DateTime)
 
 
-class StackLock(BASE, HeatBase):
+class StackLock(BASE, CopyBase):
     """Store stack locks for deployments with multiple-engines."""
 
     __tablename__ = 'stack_lock'
@@ -261,7 +358,7 @@ class StackLock(BASE, HeatBase):
     engine_id = sqlalchemy.Column(sqlalchemy.String(36))
 
 
-class UserCreds(BASE, HeatBase):
+class UserCreds(BASE, CopyBase):
     """Represents user credentials.
 
     Also, mirrors the 'context' handed in by wsgi.
@@ -280,10 +377,10 @@ class UserCreds(BASE, HeatBase):
     trust_id = sqlalchemy.Column(sqlalchemy.String(255))
     trustor_user_id = sqlalchemy.Column(sqlalchemy.String(64))
     stack = relationship(Stack, backref=backref('user_creds'),
-                         cascade_backrefs=False)
+                         cascade_backrefs=False, lazy='subquery')
 
 
-class Event(BASE, HeatBase):
+class Event(BASE, CopyBase):
     """Represents an event generated by the heat engine."""
 
     __tablename__ = 'event'
@@ -292,7 +389,7 @@ class Event(BASE, HeatBase):
     stack_id = sqlalchemy.Column(sqlalchemy.String(36),
                                  sqlalchemy.ForeignKey('stack.id'),
                                  nullable=False)
-    stack = relationship(Stack, backref=backref('events'))
+    stack = relationship(Stack, backref=backref('events'), lazy='subquery')
 
     uuid = sqlalchemy.Column(sqlalchemy.String(36),
                              default=lambda: str(uuid.uuid4()),
@@ -315,7 +412,7 @@ class Event(BASE, HeatBase):
         self._resource_status_reason = reason and reason[:255] or ''
 
 
-class ResourceData(BASE, HeatBase):
+class ResourceData(BASE, CopyBase):
     """Key/value store of arbitrary, resource-specific data."""
 
     __tablename__ = 'resource_data'
@@ -334,7 +431,7 @@ class ResourceData(BASE, HeatBase):
                                     nullable=False)
 
 
-class Resource(BASE, HeatBase, StateAware):
+class Resource(BASE, CopyBase, StateAware):
     """Represents a resource created by the heat engine."""
 
     __tablename__ = 'resource'
@@ -351,11 +448,12 @@ class Resource(BASE, HeatBase, StateAware):
     stack_id = sqlalchemy.Column(sqlalchemy.String(36),
                                  sqlalchemy.ForeignKey('stack.id'),
                                  nullable=False)
-    stack = relationship(Stack, backref=backref('resources'))
+    stack = relationship(Stack, backref=backref('resources'), lazy='subquery')
     root_stack_id = sqlalchemy.Column(sqlalchemy.String(36), index=True)
     data = relationship(ResourceData,
                         cascade="all,delete",
-                        backref=backref('resource'))
+                        backref=backref('resource'),
+                        lazy='subquery')
 
     # Override timestamp column to store the correct value: it should be the
     # time the create/update call was issued, not the time the DB entry is
@@ -379,7 +477,7 @@ class Resource(BASE, HeatBase, StateAware):
         sqlalchemy.ForeignKey('raw_template.id'))
 
 
-class WatchRule(BASE, HeatBase):
+class WatchRule(BASE, CopyBase):
     """Represents a watch_rule created by the heat engine."""
 
     __tablename__ = 'watch_rule'
@@ -394,10 +492,11 @@ class WatchRule(BASE, HeatBase):
     stack_id = sqlalchemy.Column(sqlalchemy.String(36),
                                  sqlalchemy.ForeignKey('stack.id'),
                                  nullable=False)
-    stack = relationship(Stack, backref=backref('watch_rule'))
+    stack = relationship(Stack, backref=backref('watch_rule'),
+                         lazy='subquery')
 
 
-class WatchData(BASE, HeatBase):
+class WatchData(BASE, CopyBase):
     """Represents a watch_data created by the heat engine."""
 
     __tablename__ = 'watch_data'
@@ -409,10 +508,11 @@ class WatchData(BASE, HeatBase):
         sqlalchemy.Integer,
         sqlalchemy.ForeignKey('watch_rule.id'),
         nullable=False)
-    watch_rule = relationship(WatchRule, backref=backref('watch_data'))
+    watch_rule = relationship(WatchRule, backref=backref('watch_data'),
+                              lazy='subquery')
 
 
-class SoftwareConfig(BASE, HeatBase):
+class SoftwareConfig(BASE, CopyBase):
     """Represents a software configuration resource.
 
     Represents a software configuration resource to be applied to one or more
@@ -430,7 +530,7 @@ class SoftwareConfig(BASE, HeatBase):
         'tenant', sqlalchemy.String(64), nullable=False, index=True)
 
 
-class SoftwareDeployment(BASE, HeatBase, StateAware):
+class SoftwareDeployment(BASE, CopyBase, StateAware):
     """Represents a software deployment resource.
 
     Represents applying a software configuration resource to a single server
@@ -448,7 +548,8 @@ class SoftwareDeployment(BASE, HeatBase, StateAware):
         sqlalchemy.String(36),
         sqlalchemy.ForeignKey('software_config.id'),
         nullable=False)
-    config = relationship(SoftwareConfig, backref=backref('deployments'))
+    config = relationship(SoftwareConfig, backref=backref('deployments'),
+                          lazy='subquery')
     server_id = sqlalchemy.Column('server_id', sqlalchemy.String(36),
                                   nullable=False, index=True)
     input_values = sqlalchemy.Column('input_values', types.Json)
@@ -459,7 +560,7 @@ class SoftwareDeployment(BASE, HeatBase, StateAware):
     updated_at = sqlalchemy.Column(sqlalchemy.DateTime)
 
 
-class Snapshot(BASE, HeatBase):
+class Snapshot(BASE, CopyBase):
 
     __tablename__ = 'snapshot'
 
@@ -474,10 +575,10 @@ class Snapshot(BASE, HeatBase):
         'tenant', sqlalchemy.String(64), nullable=False, index=True)
     status = sqlalchemy.Column('status', sqlalchemy.String(255))
     status_reason = sqlalchemy.Column('status_reason', sqlalchemy.String(255))
-    stack = relationship(Stack, backref=backref('snapshot'))
+    stack = relationship(Stack, backref=backref('snapshot'), lazy='subquery')
 
 
-class Service(BASE, HeatBase, SoftDelete):
+class Service(BASE, CopyBase, SoftDelete):
 
     __tablename__ = 'service'
 
@@ -505,7 +606,7 @@ class Service(BASE, HeatBase, SoftDelete):
                                         nullable=False)
 
 
-class GWGroup(BASE, HeatBase):
+class GWGroup(BASE, CopyBase):
 
     __tablename__ = 'gw_group'
 
@@ -525,7 +626,7 @@ class GWGroup(BASE, HeatBase):
                              nullable=False)
 
 
-class GWMember(BASE, HeatBase):
+class GWMember(BASE, CopyBase):
 
     __tablename__ = 'gw_member'
 
@@ -538,10 +639,10 @@ class GWMember(BASE, HeatBase):
     name = sqlalchemy.Column('name', sqlalchemy.String(255),
                              nullable=True)
 
-    group = relationship(GWGroup, backref="members")
+    group = relationship(GWGroup, backref="members", lazy='subquery')
 
 
-class GWAlarm(BASE, HeatBase):
+class GWAlarm(BASE, CopyBase):
 
     __tablename__ = 'gw_alarm'
 

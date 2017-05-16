@@ -45,7 +45,7 @@ from conveyor.conveyorheat.engine import support
 from conveyor.conveyorheat.objects import resource as resource_objects
 from conveyor.conveyorheat.objects import resource_data as resource_data_objects
 from conveyor.conveyorheat.objects import stack as stack_objects
-from conveyor.conveyorheat.rpc import client as rpc_client
+# from conveyor.conveyorheat.rpc import client as rpc_client
 
 cfg.CONF.import_opt('action_retry_limit', 'conveyor.conveyorheat.common.config')
 cfg.CONF.import_opt('observe_on_update', 'conveyor.conveyorheat.common.config')
@@ -237,11 +237,11 @@ class Resource(object):
             self.id = stack.cache_data[name]['id']
             self.uuid = stack.cache_data[name]['uuid']
 
-    def rpc_client(self):
-        """Return a client for making engine RPC calls."""
-        if not self._rpc_client:
-            self._rpc_client = rpc_client.EngineClient()
-        return self._rpc_client
+    # def rpc_client(self):
+    #     """Return a client for making engine RPC calls."""
+    #     if not self._rpc_client:
+    #         self._rpc_client = rpc_client.EngineClient()
+    #     return self._rpc_client
 
     def _load_data(self, resource):
         """Load the resource state from its DB representation."""
@@ -1514,6 +1514,19 @@ class Resource(object):
         if self.id is None:
             return
 
+        try:
+            resource_objects.Resource.delete(self.context, self.id)
+        except exception.NotFound:
+            # Don't fail on delete if the db entry has
+            # not been created yet.
+            pass
+
+        self.id = None
+
+    @scheduler.wrappertask
+    def clear_table(self):
+        """A task to remove resource from the database."""
+        yield
         try:
             resource_objects.Resource.delete(self.context, self.id)
         except exception.NotFound:

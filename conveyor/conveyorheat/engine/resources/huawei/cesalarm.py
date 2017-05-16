@@ -373,18 +373,18 @@ class CesAlarm(resource.Resource):
         if not resource_id:
             return
 
-        # try:
-        #     self.client('groupwatch').alarms.delete(resource_id)
-        # except Exception as ex:
-        #     self.client_plugin('groupwatch').ignore_not_found(ex)
+        try:
+            self.client('groupwatch').alarms.delete(resource_id)
+        except Exception as ex:
+            self.client_plugin('groupwatch').ignore_not_found(ex)
 
     def handle_delete(self):
         if self.resource_id is not None:
             self._delete_groupwatch_alarm(self.resource_id)
-            # try:
-            #     self.client('ces').alarms.delete(self.resource_id)
-            # except Exception as ex:
-            #     self.client_plugin().ignore_not_found(ex)
+            try:
+                self.client('ces').alarms.delete(self.resource_id)
+            except Exception as ex:
+                self.client_plugin().ignore_not_found(ex)
 
 
 def resource_mapping():

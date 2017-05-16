@@ -378,12 +378,12 @@ class CeilometerAlarm(resource.Resource):
                                         enabled=True)
 
     def handle_delete(self):
-        # try:
-        #     wr = watchrule.WatchRule.load(
-        #         self.context, watch_name=self.physical_resource_name())
-        #     wr.destroy()
-        # except exception.EntityNotFound:
-        #     pass
+        try:
+            wr = watchrule.WatchRule.load(
+                self.context, watch_name=self.physical_resource_name())
+            wr.destroy()
+        except exception.EntityNotFound:
+            pass
 
         return super(CeilometerAlarm, self).handle_delete()
 

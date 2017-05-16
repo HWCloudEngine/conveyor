@@ -114,29 +114,28 @@ class SwiftSignalHandle(resource.Resource):
                         self.data().get(self.ENDPOINT))
 
     def handle_delete(self):
-        return
-        # cplugin = self.client_plugin()
-        # client = cplugin.client()
-        #
-        # # Delete all versioned objects
-        # while True:
-        #     try:
-        #         client.delete_object(self.stack.id,
-        #                              self.physical_resource_name())
-        #     except Exception as exc:
-        #         cplugin.ignore_not_found(exc)
-        #         break
-        #
-        # # Delete the container if it is empty
-        # try:
-        #     client.delete_container(self.stack.id)
-        # except Exception as exc:
-        #     if cplugin.is_not_found(exc) or cplugin.is_conflict(exc):
-        #         pass
-        #     else:
-        #         raise
-        #
-        # self.data_delete(self.ENDPOINT)
+        cplugin = self.client_plugin()
+        client = cplugin.client()
+
+        # Delete all versioned objects
+        while True:
+            try:
+                client.delete_object(self.stack.id,
+                                     self.physical_resource_name())
+            except Exception as exc:
+                cplugin.ignore_not_found(exc)
+                break
+
+        # Delete the container if it is empty
+        try:
+            client.delete_container(self.stack.id)
+        except Exception as exc:
+            if cplugin.is_not_found(exc) or cplugin.is_conflict(exc):
+                pass
+            else:
+                raise
+
+        self.data_delete(self.ENDPOINT)
 
     def get_reference_id(self):
         return self.data().get(self.ENDPOINT)

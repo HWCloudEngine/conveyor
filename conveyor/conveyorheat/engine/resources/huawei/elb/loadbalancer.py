@@ -172,32 +172,31 @@ class LoadBalancer(elb_res_base.ElbBaseResource):
                 loadbalancer_id=self.resource_id, **prop_diff)['job_id']
 
     def handle_delete(self):
-        return
-        # if not self.resource_id:
-        #     job_info = self._get_job()
-        #     job_id = job_info.get('job_id')
-        #     if not job_id:
-        #         return
-        #
-        #     try:
-        #         job_status, entities, error_code = self._get_job_info(job_id)
-        #     except Exception as e:
-        #         if self.client_plugin().is_not_found(e):
-        #             LOG.info('job %s not found', job_id)
-        #             return
-        #         raise e
-        #
-        #     elb_info = entities.get('elb', {})
-        #     elb_id = elb_info.get('id')
-        #     if not elb_id:
-        #         return
-        #     self.resource_id_set(elb_id)
-        #
-        # try:
-        #     lb = self.client().loadbalancer.get(self.resource_id)
-        #     return self.client().loadbalancer.delete(lb.id)['job_id']
-        # except Exception as e:
-        #     self.client_plugin().ignore_not_found(e)
+        if not self.resource_id:
+            job_info = self._get_job()
+            job_id = job_info.get('job_id')
+            if not job_id:
+                return
+
+            try:
+                job_status, entities, error_code = self._get_job_info(job_id)
+            except Exception as e:
+                if self.client_plugin().is_not_found(e):
+                    LOG.info('job %s not found', job_id)
+                    return
+                raise e
+
+            elb_info = entities.get('elb', {})
+            elb_id = elb_info.get('id')
+            if not elb_id:
+                return
+            self.resource_id_set(elb_id)
+
+        try:
+            lb = self.client().loadbalancer.get(self.resource_id)
+            return self.client().loadbalancer.delete(lb.id)['job_id']
+        except Exception as e:
+            self.client_plugin().ignore_not_found(e)
 
     def check_create_complete(self, job_id):
         if self.resource_id is None:

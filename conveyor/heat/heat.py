@@ -9,30 +9,13 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-
-import contextlib
 from oslo_config import cfg
-import six
-import itertools
 
 from heatclient import client as heat_client
-from conveyor.heat import client as rpc_client
-# from conveyor.conveyorheat.rpc import api as rpc_api
-from conveyor.conveyorheat.common import template_format
-from conveyor.heat import urlfetch
-from conveyor.conveyorheat.common import environment_format
-from conveyor.conveyorheat.common import param_utils
-from conveyor.conveyorheat.common import identifier
-from conveyor.conveyorheat.rpc import api as rpc_api
-
-from conveyor.common._i18n import _
-from webob import exc
 
 from conveyor import exception
 from oslo_log import log as logging
 from conveyor.common import client as url_client
-
-from conveyor.db import api as db_api
 
 LOG = logging.getLogger(__name__)
 
@@ -146,519 +129,76 @@ def url_for(context, service_type, endpoint_type=None, region=None):
             return url
     raise exception.ServiceCatalogException(service_type)
 
-
-def make_url(req, identity):
-    """Return the URL for the supplied identity dictionary."""
+def heatclient(context, password=None):
+    api_version = "1"
+    insecure = getattr(CONF, 'OPENSTACK_SSL_NO_VERIFY', True)
+    cacert = getattr(CONF, 'OPENSTACK_SSL_CACERT', None)
     try:
-        stack_identity = identifier.HeatIdentifier(**identity)
-    except ValueError:
-        err_reason = _('Invalid Stack address')
-        raise exc.HTTPInternalServerError(err_reason)
+        endpoint = url_for(context, 'orchestration')
+    except Exception as e:
+        LOG.error("HeatClient get URL from context.service_catalog error: %s" % e)
+        cs = url_client.Client()
+        endpoint = cs.get_service_endpoint(context, 'orchestration',
+                                          region_name=CONF.os_region_name)
+        LOG.debug("HeatClient get URL from common function: %s" % endpoint)
+    
+    if not endpoint:
+        endpoint = CONF.heat.heat_url + '/' + context.project_id
+    kwargs = {
+        'token': context.auth_token,
+        'insecure': insecure,
+        'ca_file': cacert,
+        'username': context.user_id,
+        'password': password
+        # 'timeout': args.timeout,
+        # 'ca_file': args.ca_file,
+        # 'cert_file': args.cert_file,
+        # 'key_file': args.key_file,
+    }
+    client = heat_client.Client(api_version, endpoint, **kwargs)
+    client.format_parameters = format_parameters
+    return client
 
-    if cfg.CONF.FusionSphere.pubcloud:
-        url = cfg.CONF.FusionSphere.heat_orchestration_url
-        if url:
-            return '%s/%s' % (url.rstrip('/'), stack_identity.url_path())
-
-    return req.relative_url(stack_identity.url_path(), True)
-
-
-def format_stack(stack, keys=None, tenant_safe=True):
-    def transform(key, value):
-        if keys and key not in keys:
-            return
-
-        if key == rpc_api.STACK_ID:
-            yield ('id', value['stack_id'])
-            #yield ('links', [make_link(req, value)])
-            if not tenant_safe:
-                yield ('project', value['tenant'])
-        elif key == rpc_api.STACK_ACTION:
-            return
-        elif (key == rpc_api.STACK_STATUS and
-              rpc_api.STACK_ACTION in stack):
-            # To avoid breaking API compatibility, we join RES_ACTION
-            # and RES_STATUS, so the API format doesn't expose the
-            # internal split of state into action/status
-            yield (key, '_'.join((stack[rpc_api.STACK_ACTION], value)))
-        else:
-            # TODO(zaneb): ensure parameters can be formatted for XML
-            # elif key == rpc_api.STACK_PARAMETERS:
-            #     return key, json.dumps(value)
-            yield (key, value)
-
-    return dict(itertools.chain.from_iterable(
-        transform(k, v) for k, v in stack.items()))
-
-
-def format_resource(res, keys=None):
-    keys = keys or []
-
-    def include_key(k):
-        return k in keys if keys else True
-
-    def transform(key, value):
-        if not include_key(key):
-            return
-
-        if key == rpc_api.RES_ID:
-            identity = identifier.ResourceIdentifier(**value)
-            # links = [util.make_link(req, identity),
-            #          util.make_link(req, identity.stack(), 'stack')]
-
-            # nested_id = res.get(rpc_api.RES_NESTED_STACK_ID)
-            # if nested_id:
-            #     nested_identity = identifier.HeatIdentifier(**nested_id)
-            #     links.append(util.make_link(req, nested_identity, 'nested'))
-            #
-            # yield ('links', links)
-        elif (key == rpc_api.RES_STACK_NAME or
-              key == rpc_api.RES_STACK_ID or
-              key == rpc_api.RES_ACTION or
-              key == rpc_api.RES_NESTED_STACK_ID):
-            return
-        elif (key == rpc_api.RES_METADATA):
-            return
-        elif (key == rpc_api.RES_STATUS and rpc_api.RES_ACTION in res):
-            # To avoid breaking API compatibility, we join RES_ACTION
-            # and RES_STATUS, so the API format doesn't expose the
-            # internal split of state into action/status
-            yield (key, '_'.join((res[rpc_api.RES_ACTION], value)))
-        elif (key == rpc_api.RES_NAME):
-            yield ('logical_resource_id', value)
-            yield (key, value)
-
-        else:
-            yield (key, value)
-
-    return dict(itertools.chain.from_iterable(
-        transform(k, v) for k, v in res.items()))
-
-
-def format_event(event, keys=None):
-
-    def include_key(k):
-        return k in keys if keys else True
-
-    def transform(key, value):
-        if not include_key(key):
-            return
-
-        if key == rpc_api.EVENT_ID:
-            identity = identifier.EventIdentifier(**value)
-            yield ('id', identity.event_id)
-            # yield ('links', [util.make_link(req, identity),
-            #                  util.make_link(req, identity.resource(),
-            #                                 'resource'),
-            #                  util.make_link(req, identity.stack(),
-            #                                 'stack')])
-        elif key in (rpc_api.EVENT_STACK_ID, rpc_api.EVENT_STACK_NAME,
-                     rpc_api.EVENT_RES_ACTION):
-            return
-        elif (key == rpc_api.EVENT_RES_STATUS and
-              rpc_api.EVENT_RES_ACTION in event):
-            # To avoid breaking API compatibility, we join RES_ACTION
-            # and RES_STATUS, so the API format doesn't expose the
-            # internal split of state into action/status
-            yield (key, '_'.join((event[rpc_api.EVENT_RES_ACTION], value)))
-        elif (key == rpc_api.RES_NAME):
-            yield ('logical_resource_id', value)
-            yield (key, value)
-
-        else:
-            yield (key, value)
-
-    return dict(itertools.chain.from_iterable(
-        transform(k, v) for k, v in event.items()))
-
-
-def heatclient(context, password=None, is_original=False):
-    if not is_original:
-        return rpc_client.EngineClient()
-    else:
-        api_version = "1"
-        insecure = getattr(CONF, 'OPENSTACK_SSL_NO_VERIFY', True)
-        cacert = getattr(CONF, 'OPENSTACK_SSL_CACERT', None)
-        try:
-            endpoint = url_for(context, 'orchestration')
-        except Exception as e:
-            LOG.error("HeatClient get URL from context.service_catalog error: %s" % e)
-            cs = url_client.Client()
-            endpoint = cs.get_service_endpoint(context, 'orchestration',
-                                              region_name=CONF.os_region_name)
-            LOG.debug("HeatClient get URL from common function: %s" % endpoint)
-
-        if not endpoint:
-            endpoint = CONF.heat.heat_url + '/' + context.project_id
-        kwargs = {
-            'token': context.auth_token,
-            'insecure': insecure,
-            'ca_file': cacert,
-            'username': context.user_id,
-            'password': password
-            # 'timeout': args.timeout,
-            # 'ca_file': args.ca_file,
-            # 'cert_file': args.cert_file,
-            # 'key_file': args.key_file,
-        }
-        client = heat_client.Client(api_version, endpoint, **kwargs)
-        client.format_parameters = format_parameters
-        return client
-
-
-class InstantiationData(object):
-    """The data to create or update a stack.
-
-    The data accompanying a PUT or POST request.
-    """
-
-    PARAMS = (
-        PARAM_STACK_NAME,
-        PARAM_TEMPLATE,
-        PARAM_TEMPLATE_URL,
-        PARAM_USER_PARAMS,
-        PARAM_ENVIRONMENT,
-        PARAM_FILES,
-        PARAM_ENVIRONMENT_FILES,
-    ) = (
-        'stack_name',
-        'template',
-        'template_url',
-        'parameters',
-        'environment',
-        'files',
-        'environment_files',
-    )
-
-    def __init__(self, data, patch=False):
-        """Initialise from the request object.
-
-        If called from the PATCH api, insert a flag for the engine code
-        to distinguish.
-        """
-        self.data = data
-        self.patch = patch
-        if patch:
-            self.data[rpc_api.PARAM_EXISTING] = True
-
-    @staticmethod
-    @contextlib.contextmanager
-    def parse_error_check(data_type):
-        try:
-            yield
-        except ValueError as parse_ex:
-            mdict = {'type': data_type, 'error': six.text_type(parse_ex)}
-            msg = _("%(type)s not in valid format: %(error)s") % mdict
-            raise exc.HTTPBadRequest(msg)
-
-    def stack_name(self):
-        """Return the stack name."""
-        if self.PARAM_STACK_NAME not in self.data:
-            raise exc.HTTPBadRequest(_("No stack name specified"))
-        return self.data[self.PARAM_STACK_NAME]
-
-    def template(self):
-        """Get template file contents.
-
-        Get template file contents, either inline, from stack adopt data or
-        from a URL, in JSON or YAML format.
-        """
-        template_data = None
-        if rpc_api.PARAM_ADOPT_STACK_DATA in self.data:
-            adopt_data = self.data[rpc_api.PARAM_ADOPT_STACK_DATA]
-            try:
-                adopt_data = template_format.simple_parse(adopt_data)
-                template_format.validate_template_limit(
-                    six.text_type(adopt_data['template']))
-                return adopt_data['template']
-            except (ValueError, KeyError) as ex:
-                err_reason = _('Invalid adopt data: %s') % ex
-                raise exc.HTTPBadRequest(err_reason)
-        elif self.PARAM_TEMPLATE in self.data:
-            template_data = self.data[self.PARAM_TEMPLATE]
-            if isinstance(template_data, dict):
-                template_format.validate_template_limit(six.text_type(
-                    template_data))
-                return template_data
-
-        elif self.PARAM_TEMPLATE_URL in self.data:
-            url = self.data[self.PARAM_TEMPLATE_URL]
-            LOG.debug('TemplateUrl %s' % url)
-            try:
-                template_data = urlfetch.get(url)
-            except IOError as ex:
-                err_reason = _('Could not retrieve template: %s') % ex
-                raise exc.HTTPBadRequest(err_reason)
-
-        if template_data is None:
-            if self.patch:
-                return None
-            else:
-                raise exc.HTTPBadRequest(_("No template specified"))
-
-        with self.parse_error_check('Template'):
-            return template_format.parse(template_data)
-
-    def environment(self):
-        """Get the user-supplied environment for the stack in YAML format.
-
-        If the user supplied Parameters then merge these into the
-        environment global options.
-        """
-        env = {}
-        if self.PARAM_ENVIRONMENT in self.data:
-            env_data = self.data[self.PARAM_ENVIRONMENT]
-            if isinstance(env_data, dict):
-                env = env_data
-            else:
-                with self.parse_error_check('Environment'):
-                    env = environment_format.parse(env_data)
-
-        environment_format.default_for_missing(env)
-        parameters = self.data.get(self.PARAM_USER_PARAMS, {})
-        env[self.PARAM_USER_PARAMS].update(parameters)
-        return env
-
-    def files(self):
-        return self.data.get(self.PARAM_FILES, {})
-
-    def environment_files(self):
-        return self.data.get(self.PARAM_ENVIRONMENT_FILES, None)
-
-    def args(self):
-        """Get any additional arguments supplied by the user."""
-        params = self.data.items()
-        return dict((k, v) for k, v in params if k not in self.PARAMS)
-
-
-class base(object):
-    def __init__(self, info, loaded=True):
-        """Populate and bind to a manager.
-
-        :param info: dictionary representing resource attributes
-        :param loaded: prevent lazy-loading if set to True
-        """
-        self._info = info
-        self._add_details(info)
-        self._loaded = loaded
-
-    def _add_details(self, info):
-        for (k, v) in six.iteritems(info):
-            try:
-                setattr(self, k, v)
-                self._info[k] = v
-            except AttributeError:
-                # In this case we already defined the attribute on the class
-                pass
-
-    def __getattr__(self, k):
-        return self.__dict__[k]
-
-
-class Stack(base):
-    @property
-    def action(self):
-        s = self.stack_status
-        # Return everything before the first underscore
-        return s[:s.index('_')]
-
-    @property
-    def status(self):
-        s = self.stack_status
-        # Return everything after the first underscore
-        return s[s.index('_') + 1:]
-
-    @property
-    def identifier(self):
-        return '%s/%s' % (self.stack_name, self.id)
-
-
-class Event(base):
-    def __repr__(self):
-        return "<Event %s>" % self._info
-
-
-class Resource(base):
-    def __repr__(self):
-        return "<Resource %s>" % self._info
-
-    @property
-    def stack_name(self):
-        if not hasattr(self, 'links'):
-            return
-        for l in self.links:
-            if l['rel'] == 'stack':
-                return l['href'].split('/')[-2]
 
 
 class API(object):
-    def _extract_int_param(self, name, value,
-                           allow_zero=True, allow_negative=False):
-        try:
-            return param_utils.extract_int(name, value,
-                                           allow_zero, allow_negative)
-        except ValueError as e:
-            raise exc.HTTPBadRequest(six.text_type(e))
-
-    def _extract_tags_param(self, tags):
-        try:
-            return param_utils.extract_tags(tags)
-        except ValueError as e:
-            raise exc.HTTPBadRequest(six.text_type(e))
-
-    def prepare_args(self, data):
-        args = data.args()
-        key = rpc_api.PARAM_TIMEOUT
-        if key in args:
-            args[key] = self._extract_int_param(key, args[key])
-        key = rpc_api.PARAM_TAGS
-        if args.get(key) is not None:
-            args[key] = self._extract_tags_param(args[key])
-        return args
-
-    def _make_identity(self, tenant, stack_name, stack_id):
-        stack_identity = {'tenant': tenant,
-                          'stack_name': stack_name,
-                          'stack_id': stack_id}
-        return stack_identity
     
-    def get_stack(self, context, stack_id, is_original=False):
-        if not is_original:
-            stack_identity = self._make_identity(context.project_id,
-                                                 '', stack_id)
-            stack_list = heatclient(context).show_stack(context, stack_identity)
-            # for st in stacks:
-            #     if st['id'] == stack_id:
-            #         return st
-            if not stack_list:
-                return stack_list
-            stack = stack_list[0]
-            return Stack(format_stack(stack))
-        return heatclient(context, is_original=is_original).stacks.get(stack_id)
+    def get_stack(self, context, stack_id):
+        return heatclient(context).stacks.get(stack_id)
     
-    def delete_stack(self, context, stack_id, plan_id, is_heat_stack=False,
-                     is_original=False):
-        if not is_original:
-            # need stackname not id
-            hc = heatclient(context)
-            try:
-                stacks = db_api.plan_stack_get(context, plan_id)
-                for st in stacks:
-                    stack_identity = self._make_identity(context.project_id,
-                                                         '', st['stack_id'])
-                    hc.delete_stack(context, stack_identity, is_heat_stack=is_heat_stack)
-                db_api.plan_stack_delete(context, plan_id)
-                return
-            except Exception as e:
-                LOG.error("delete stack fail")
-                raise
-        return heatclient(context, is_original=is_original).stacks.delete(stack_id)
+    def delete_stack(self, context, stack_id):
+        return heatclient(context).stacks.delete(stack_id)
 
-    def create_stack(self, context, password=None, is_original=False, **kwargs):
-        if not is_original:
-            data = InstantiationData(kwargs)
-            args = self.prepare_args(data)
-            result = heatclient(context,
-                                password).create_stack(context,
-                                                       data.stack_name(),
-                                                       data.template(),
-                                                       data.environment(),
-                                                       data.files(),
-                                                       args,
-                                                       environment_files=data.environment_files())
-            formatted_stack = format_stack(
-                {rpc_api.STACK_ID: result}
-            )
-            LOG.debug("create stack with formatted_stack=%s", formatted_stack)
-            return {'stack': formatted_stack}
-        return heatclient(context, password, is_original=True).stacks.create(**kwargs)
+    def create_stack(self, context, password=None, **kwargs):
+        return heatclient(context, password).stacks.create(**kwargs)
 
-    def preview_stack(self, context, is_original=False, password=None, **kwargs):
-        if not is_original:
-            data = InstantiationData(kwargs)
-            args = self.prepare_args(data)
-            stacks = heatclient(context,
-                                password).preview_stack(context,
-                                                        data.stack_name(),
-                                                        data.template(),
-                                                        data.environment(),
-                                                        data.files(),
-                                                        args,
-                                                        environment_files=data.environment_files())
-            return Stack(format_stack(stacks))
-        return heatclient(context, password, is_original=True).stacks.preview(**kwargs)
+    def preview_stack(self, context, password=None, **kwargs):
+        return heatclient(context, password).stacks.preview(**kwargs)
 
     def validate_template(self, context, **kwargs):
-        return heatclient(context, is_original=True).stacks.validate(**kwargs)
+        return heatclient(context).stacks.validate(**kwargs)
     
-    def resources_list(self, context, stack_name, is_original=False):
-        if not is_original:
-            hc = heatclient(context)
-            stack_identity = self._make_identity(context.project_id,
-                                                 '', stack_name)
-            res_list = hc.list_stack_resources(context, stack_identity)
-            data = [format_resource(res) for res in res_list]
-            return [Event(res) for res in data]
-        return heatclient(context, is_original=True).resources.list(stack_name)
+    def resources_list(self, context, stack_name):
+        return heatclient(context).resources.list(stack_name)
 
-    def get_resource(self, context, stack_id, resource_name,
-                     is_original=False):
-        if not is_original:
-            hc = heatclient(context)
-            stack_identity = self._make_identity(context.project_id,
-                                                 '', stack_id)
-            res = hc.describe_stack_resource(context, stack_identity,
-                                             resource_name)
-            return Resource(format_resource(res))
-        return heatclient(context, is_original=True).resources.get(stack_id, resource_name)
+    def get_resource(self, context, stack_id, resource_name):
+        return heatclient(context).resources.get(stack_id, resource_name)
     
-    def get_resource_type(self, context, resource_type, is_original=False):
-        if not is_original:
-            hc = heatclient(context)
-            return hc.resource_schema(context, resource_type)
-        return heatclient(context, is_original=True).resource_types.get(resource_type)
+    def get_resource_type(self, context, resource_type):
+        return heatclient(context).resource_types.get(resource_type)
     
     def resource_type_list(self, context):
-        return heatclient(context, is_original=True).resource_types.list()
+        return heatclient(context).resource_types.list()
     
-    def events_list(self, context, stack_id, is_original=False):
-        if not is_original:
-            hc = heatclient(context)
-            stack_identity = self._make_identity(context.project_id,
-                                                 '', stack_id)
-            events = hc.list_events(context, stack_identity)
-            if not events:
-                return None
-            data = [format_event(e) for e in events]
-            # data = data['values']
-            return [Event(res) for res in data]
-        return heatclient(context, is_original=True).events.list(stack_id)
+    def events_list(self, context, stack_id):
+        return heatclient(context).events.list(stack_id)
     
-    def get_event(self, context, stack_id, resource_name, event_id,
-                  is_original=False):
-        if not is_original:
-            hc = heatclient(context)
-            stack_identity = self._make_identity(context.project_id,
-                                                 '', stack_id)
-            filters = {"resource_name": resource_name, "uuid": event_id}
-            events = hc.list_events(context, stack_identity, filters=filters)
-            if not events:
-                return None
-            return Event(events)
-
-        return heatclient(context, is_original=True).events.get(stack_id, resource_name, event_id)
+    def get_event(self, context, stack_id, resource_name, event_id):
+        return heatclient(context).events.get(stack_id, resource_name, event_id)
     
-    def get_template(self, context, stack_id, is_original=False):
-        if not is_original:
-            hc = heatclient(context)
-            stack_identity = self._make_identity(context.project_id,
-                                                 '', stack_id)
-            return hc.get_template(context, stack_identity)
-        return heatclient(context, is_original=is_original).stacks.template(stack_id)
+    def get_template(self, context, stack_id):
+        return heatclient(context).stacks.template(stack_id)
     
-    def stack_list(self, context, is_original=False, **kwargs):
-        if not is_original:
-            stacks = heatclient(context).list_stacks(context, **kwargs)
-            data = [format_stack(s) for s in stacks]
-            return [Stack(s) for s in data]
-        return heatclient(context, is_original=is_original).stacks.list(**kwargs)
+    def stack_list(self, context, **kwargs):
+        return heatclient(context).stacks.list(**kwargs)
+    

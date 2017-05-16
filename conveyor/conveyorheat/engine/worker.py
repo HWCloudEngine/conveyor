@@ -29,8 +29,8 @@ from conveyor.conveyorheat.engine import scheduler
 from conveyor.conveyorheat.engine import stack as parser
 from conveyor.conveyorheat.engine import sync_point
 from conveyor.conveyorheat.objects import resource as resource_objects
-from conveyor.conveyorheat.rpc import listener_client
-from conveyor.conveyorheat.rpc import worker_client as rpc_client
+# from conveyor.conveyorheat.rpc import listener_client
+# from conveyor.conveyorheat.rpc import worker_client as rpc_client
 
 LOG = logging.getLogger(__name__)
 
@@ -59,7 +59,7 @@ class WorkerService(service.Service):
         self.engine_id = engine_id
         self.thread_group_mgr = thread_group_mgr
 
-        self._rpc_client = rpc_client.WorkerClient()
+        self._rpc_client = None# rpc_client.WorkerClient()
         self._rpc_server = None
         self.target = None
 
@@ -97,11 +97,11 @@ class WorkerService(service.Service):
                                                    resource_id)
         if (rs_obj.engine_id != self.engine_id and
                 rs_obj.engine_id is not None):
-            if not listener_client.EngineListenerClient(
-                    rs_obj.engine_id).is_alive(cnxt):
+            # if not listener_client.EngineListenerClient(
+            #         rs_obj.engine_id).is_alive(cnxt):
                 # steal the lock.
-                rs_obj.update_and_save({'engine_id': None})
-                return True
+            rs_obj.update_and_save({'engine_id': None})
+            return True
         return False
 
     def _trigger_rollback(self, stack):

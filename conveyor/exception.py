@@ -465,3 +465,7 @@ class VolumeErrorException(V2vException):
 
 class RetryException(V2vException):
     msg_fmt = _('Need to retry, error info: %(error_info)s')
+
+
+class AuthorizationFailure(V2vException):
+    msg_fmt = _("Authorization failed.")

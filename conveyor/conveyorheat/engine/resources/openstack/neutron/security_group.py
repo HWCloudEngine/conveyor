@@ -233,13 +233,12 @@ class SecurityGroup(neutron.NeutronResource):
                         self.client_plugin().ignore_not_found(ex)
 
     def handle_delete(self):
-        return
-        # if self.resource_id is None:
-        #     return
-        #
-        # self._delete_rules()
-        # with self.client_plugin().ignore_not_found:
-        #     self.client().delete_security_group(self.resource_id)
+        if self.resource_id is None:
+            return
+
+        self._delete_rules()
+        with self.client_plugin().ignore_not_found:
+            self.client().delete_security_group(self.resource_id)
 
     def handle_update(self, json_snippet, tmpl_diff, prop_diff):
         # handle rules changes by:

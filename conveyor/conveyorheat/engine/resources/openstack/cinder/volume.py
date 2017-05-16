@@ -544,15 +544,13 @@ class CinderVolume(vb.BaseVolume, sh.SchedulerHintsMixin):
         backup_id = snapshot['resource_data'].get('backup_id')
         if not backup_id:
             return
+        try:
+            self.client().backups.delete(backup_id)
+        except Exception as ex:
+            self.client_plugin().ignore_not_found(ex)
+            return
         else:
             return backup_id
-        # try:
-        #     self.client().backups.delete(backup_id)
-        # except Exception as ex:
-        #     self.client_plugin().ignore_not_found(ex)
-        #     return
-        # else:
-        #     return backup_id
 
     def check_delete_snapshot_complete(self, backup_id):
         if not backup_id:

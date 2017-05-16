@@ -36,11 +36,11 @@ if cfg.CONF.FusionSphere.pubcloud:
 else:
     from keystoneclient.v3 import client as kc_v3
 
-LOG = logging.getLogger('heat.common.keystoneclient')
+LOG = logging.getLogger('conveyor.conveyorheat.common.keystoneclient')
 
 AccessKey = collections.namedtuple('AccessKey', ['id', 'access', 'secret'])
 
-_default_keystone_backend = "heat.common.heat_keystoneclient.KeystoneClientV3"
+_default_keystone_backend = "conveyor.conveyorheat.common.heat_keystoneclient.KeystoneClientV3"
 
 keystone_opts = [
     cfg.StrOpt('keystone_backend',

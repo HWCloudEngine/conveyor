@@ -180,10 +180,9 @@ class SubnetPool(neutron.NeutronResource):
         self.resource_id_set(subnetpool['id'])
 
     def handle_delete(self):
-        return
-        # if self.resource_id is not None:
-        #     with self.client_plugin().ignore_not_found:
-        #         self.client().delete_subnetpool(self.resource_id)
+        if self.resource_id is not None:
+            with self.client_plugin().ignore_not_found:
+                self.client().delete_subnetpool(self.resource_id)
 
     def _show_resource(self):
         return self.client().show_subnetpool(self.resource_id)['subnetpool']

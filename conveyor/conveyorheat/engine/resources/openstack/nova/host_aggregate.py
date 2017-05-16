@@ -121,10 +121,10 @@ class HostAggregate(resource.Resource):
         if self.resource_id is None:
             return
 
-        # with self.client_plugin().ignore_not_found:
-        #     aggregate = self.client().aggregates.get(self.resource_id)
-        #     for host in aggregate.hosts:
-        #         aggregate.remove_host(host)
+        with self.client_plugin().ignore_not_found:
+            aggregate = self.client().aggregates.get(self.resource_id)
+            for host in aggregate.hosts:
+                aggregate.remove_host(host)
         super(HostAggregate, self).handle_delete()
 
 

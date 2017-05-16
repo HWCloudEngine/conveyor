@@ -25,12 +25,14 @@ from oslo_log import log as logging
 from conveyor import compute
 from conveyor.conveyoragentclient.v1 import client as birdiegatewayclient
 from conveyor import exception
-from conveyor import heat
+from conveyor.conveyorheat.api import api as heat
 from conveyor.i18n import _LW
+from conveyor.i18n import _LE
 from conveyor import network
 from conveyor import utils
 from conveyor import volume
 from conveyor.resource import api as resource_api
+from conveyor.clone.resources import common
 
 
 CONF = cfg.CONF
@@ -379,20 +381,21 @@ class BaseDriver(object):
                             "/opt/" + volume_id)
 
                     # if provider cloud can not detach volume in active status
+                    resouce_common = common.ResourceCommon()
                     if not CONF.is_active_detach_volume:
-                        resouce_common = common.ResourceCommon()
-                        self.nova_api.stop_server(context, vgw_id)
+                        # resouce_common = common.ResourceCommon()
+                        self.compute_api.stop_server(context, vgw_id)
                         resouce_common._await_instance_status(context,
                                                               vgw_id,
                                                               'SHUTOFF')
-                    self.nova_api.detach_volume(context,
+                    self.compute_api.detach_volume(context,
                                                 vgw_id,
                                                 volume_id)
                     self._wait_for_volume_status(context, volume_id, vgw_id,
                                                  'available')
 
                     if not CONF.is_active_detach_volume:
-                        self.nova_api.start_server(context, vgw_id)
+                        self.compute_api.start_server(context, vgw_id)
                         resouce_common._await_instance_status(context,
                                                               vgw_id,
                                                               'ACTIVE')

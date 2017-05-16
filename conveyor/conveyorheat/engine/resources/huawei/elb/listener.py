@@ -237,19 +237,18 @@ class Listener(elb_res_base.ElbBaseResource):
                                           **prop_diff)
 
     def handle_delete(self):
-        return
-        # if not self.resource_id:
-        #     return
-        #
-        # try:
-        #     self.client().listener.delete(self.resource_id)
-        # except Exception as e:
-        #     # here we don't use ignore_not_found, because elb raises:
-        #     # BadRequest("Bad Request {'message': 'find listener failed',
-        #     # 'code': 'ELB.6030'}",)
-        #     if 'ELB.6030' in e.message:
-        #         return
-        #     raise
+        if not self.resource_id:
+            return
+
+        try:
+            self.client().listener.delete(self.resource_id)
+        except Exception as e:
+            # here we don't use ignore_not_found, because elb raises:
+            # BadRequest("Bad Request {'message': 'find listener failed',
+            # 'code': 'ELB.6030'}",)
+            if 'ELB.6030' in e.message:
+                return
+            raise
 
     def check_create_complete(self, ls_status):
         return self._check_active(ls_status)

@@ -62,18 +62,17 @@ class Certificate(elb_res_base.ElbBaseResource):
                                              **prop_diff)
 
     def handle_delete(self):
-        return
-        # if not self.resource_id:
-        #     return
-        # try:
-        #     self.client().certificate.delete(self.resource_id)
-        # except Exception as e:
-        #     # here we don't use ignore_not_found, because elb raises:
-        #     # BadRequest("Bad Request {'message': 'The certificate is
-        #     # not exist', 'code': 'ELB.5005'}",)
-        #     if 'ELB.5005' in e.message:
-        #         return
-        #     raise
+        if not self.resource_id:
+            return
+        try:
+            self.client().certificate.delete(self.resource_id)
+        except Exception as e:
+            # here we don't use ignore_not_found, because elb raises:
+            # BadRequest("Bad Request {'message': 'The certificate is
+            # not exist', 'code': 'ELB.5005'}",)
+            if 'ELB.5005' in e.message:
+                return
+            raise
 
 
 def resource_mapping():

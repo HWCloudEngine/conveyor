@@ -35,5 +35,6 @@ def send(stack):
                                stack.action.lower(),
                                suffix)
 
-    notification.notify(stack.context, event_type, level,
-                        engine_api.format_notification_body(stack))
+    # notification.notify(stack.context, event_type, level,
+    #                     engine_api.format_notification_body(stack))
+    engine_api.format_notification_body(stack)

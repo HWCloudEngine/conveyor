@@ -116,6 +116,10 @@ class V2vKeystoneContext(base_wsgi.Middleware):
 
         if CONF.use_forwarded_for:
             remote_address = req.headers.get('X-Forwarded-For', remote_address)
+        try:
+            user_name = req.environ['keystone.token_info']['access']['user']['username']
+        except KeyError:
+            user_name = None
         ctx = context.RequestContext(user_id,
                                      project_id,
                                      project_name=project_name,
@@ -126,7 +130,8 @@ class V2vKeystoneContext(base_wsgi.Middleware):
                                      request_id=req_id,
                                      auth_token_info=req.environ['keystone.token_info'],
                                      auth_url=CONF.keystone_authtoken.auth_url,
-                                     tenant_id=project_id)
+                                     tenant_id=project_id,
+                                     user_name=user_name)
 
         req.environ['conveyor.context'] = ctx
         return self.application

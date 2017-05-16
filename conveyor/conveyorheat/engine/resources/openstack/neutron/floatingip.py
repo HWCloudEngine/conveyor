@@ -241,12 +241,11 @@ class FloatingIP(neutron.NeutronResource):
         return self.client().show_floatingip(self.resource_id)['floatingip']
 
     def handle_delete(self):
-        return
-        # if not self.resource_id:
-        #     return
-        #
-        # with self.client_plugin().ignore_not_found:
-        #     self.client().delete_floatingip(self.resource_id)
+        if not self.resource_id:
+            return
+
+        with self.client_plugin().ignore_not_found:
+            self.client().delete_floatingip(self.resource_id)
 
     def handle_update(self, json_snippet, tmpl_diff, prop_diff):
         if prop_diff:
@@ -338,14 +337,13 @@ class FloatingIPAssociation(neutron.NeutronResource):
         self.resource_id_set(self.id)
 
     def handle_delete(self):
-        return
-        # if not self.resource_id:
-        #     return
-        #
-        # with self.client_plugin().ignore_not_found:
-        #     self.client().update_floatingip(
-        #         self.properties[self.FLOATINGIP_ID],
-        #         {'floatingip': {'port_id': None}})
+        if not self.resource_id:
+            return
+
+        with self.client_plugin().ignore_not_found:
+            self.client().update_floatingip(
+                self.properties[self.FLOATINGIP_ID],
+                {'floatingip': {'port_id': None}})
 
     def handle_update(self, json_snippet, tmpl_diff, prop_diff):
         if prop_diff:

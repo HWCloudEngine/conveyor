@@ -317,8 +317,8 @@ class EngineService(service.Service):
         self.stack_watch = None
         self.listener = None
         self.worker_service = None
-        self.engine_id = None
-        self.thread_group_mgr = None
+        self.engine_id = stack_lock.StackLock.generate_engine_id()
+        self.thread_group_mgr = ThreadGroupManager()
         self.target = None
         self.service_id = None
         self.manage_thread_grp = None
@@ -332,6 +332,7 @@ class EngineService(service.Service):
                             'and heat will delegate all roles of trustor. '
                             'Please keep the same if you do not want to '
                             'delegate subset roles when upgrading.'))
+        # self.start()
 
     def create_periodic_tasks(self):
         LOG.debug("Starting periodic watch tasks pid=%s" % os.getpid())
@@ -365,31 +366,31 @@ class EngineService(service.Service):
 
     def start(self):
         self.engine_id = stack_lock.StackLock.generate_engine_id()
-        if self.thread_group_mgr is None:
-            self.thread_group_mgr = ThreadGroupManager()
-        self.listener = EngineListener(self.host, self.engine_id,
-                                       self.thread_group_mgr)
-        LOG.debug("Starting listener for engine %s" % self.engine_id)
-        self.listener.start()
-
-        if cfg.CONF.convergence_engine:
-            self.worker_service = worker.WorkerService(
-                host=self.host,
-                topic=rpc_worker_api.TOPIC,
-                engine_id=self.engine_id,
-                thread_group_mgr=self.thread_group_mgr
-            )
-            self.worker_service.start()
-
-        target = messaging.Target(
-            version=self.RPC_API_VERSION, server=self.host,
-            topic=self.topic)
-
-        self.target = target
-        self._rpc_server = rpc_messaging.get_rpc_server(target, self)
-        self._rpc_server.start()
-        self._client = rpc_messaging.get_rpc_client(
-            version=self.RPC_API_VERSION)
+        # if self.thread_group_mgr is None:
+        #     self.thread_group_mgr = ThreadGroupManager()
+        # self.listener = EngineListener(self.host, self.engine_id,
+        #                                self.thread_group_mgr)
+        # LOG.debug("Starting listener for engine %s" % self.engine_id)
+        # self.listener.start()
+        #
+        # if cfg.CONF.convergence_engine:
+        #     self.worker_service = worker.WorkerService(
+        #         host=self.host,
+        #         topic=rpc_worker_api.TOPIC,
+        #         engine_id=self.engine_id,
+        #         thread_group_mgr=self.thread_group_mgr
+        #     )
+        #     self.worker_service.start()
+        #
+        # target = messaging.Target(
+        #     version=self.RPC_API_VERSION, server=self.host,
+        #     topic=self.topic)
+        #
+        # self.target = target
+        # self._rpc_server = rpc_messaging.get_rpc_server(target, self)
+        # self._rpc_server.start()
+        # self._client = rpc_messaging.get_rpc_client(
+        #     version=self.RPC_API_VERSION)
 
         self._configure_db_conn_pool_size()
         self.service_manage_cleanup()
@@ -399,7 +400,7 @@ class EngineService(service.Service):
                                          self.service_manage_report)
         self.manage_thread_grp.add_thread(self.reset_stack_status)
 
-        super(EngineService, self).start()
+        # super(EngineService, self).start()
 
     def _configure_db_conn_pool_size(self):
         # bug #1491185
@@ -1309,12 +1310,11 @@ class EngineService(service.Service):
             return False
 
     @context.request_context
-    def delete_stack(self, cnxt, stack_identity, is_heat_stack=False):
+    def delete_stack(self, cnxt, stack_identity):
         """Delete a given stack.
 
         :param cnxt: RPC context.
         :param stack_identity: Name of the stack you want to delete.
-        :param is_heat_stack: judge if the stack created by heat.
         """
 
         st = self._get_stack(cnxt, stack_identity)
@@ -1366,6 +1366,65 @@ class EngineService(service.Service):
 
         self.thread_group_mgr.start_with_lock(cnxt, stack, self.engine_id,
                                               stack.delete)
+        return None
+
+    @context.request_context
+    def clear_table(self, cnxt, stack_identity):
+        """Delete a given stack.
+
+        :param cnxt: RPC context.
+        :param stack_identity: Name of the stack you want to delete.
+        """
+
+        st = self._get_stack(cnxt, stack_identity)
+        LOG.info(_LI('Clearing stack table %s'), st.name)
+        stack = parser.Stack.load(cnxt, stack=st)
+        self.resource_enforcer.enforce_stack(stack)
+
+        if stack.convergence and cfg.CONF.convergence_engine:
+            template = templatem.Template.create_empty_template()
+            stack.thread_group_mgr = self.thread_group_mgr
+            stack.converge_stack(template=template, action=stack.DELETE)
+            return
+
+        lock = stack_lock.StackLock(cnxt, stack.id, self.engine_id)
+        with lock.try_thread_lock() as acquire_result:
+
+            # Successfully acquired lock
+            if acquire_result is None:
+                self.thread_group_mgr.stop_timers(stack.id)
+                self.thread_group_mgr.start_with_acquired_lock(stack, lock,
+                                                               stack.clear_table)
+                return
+
+        # Current engine has the lock
+        if acquire_result == self.engine_id:
+            # give threads which are almost complete an opportunity to
+            # finish naturally before force stopping them
+            eventlet.sleep(0.2)
+            self.thread_group_mgr.stop(stack.id)
+
+        # Another active engine has the lock
+        elif stack_lock.StackLock.engine_alive(cnxt, acquire_result):
+            stop_result = self._remote_call(
+                cnxt, acquire_result, STOP_STACK_TIMEOUT,
+                self.listener.STOP_STACK,
+                stack_identity=stack_identity)
+            if stop_result is None:
+                LOG.debug("Successfully stopped remote task on engine %s"
+                          % acquire_result)
+            else:
+                raise exception.StopActionFailed(stack_name=stack.name,
+                                                 engine_id=acquire_result)
+
+        # There may be additional resources that we don't know about
+        # if an update was in-progress when the stack was stopped, so
+        # reload the stack from the database.
+        st = self._get_stack(cnxt, stack_identity)
+        stack = parser.Stack.load(cnxt, stack=st)
+
+        self.thread_group_mgr.start_with_lock(cnxt, stack, self.engine_id,
+                                              stack.clear_table)
         return None
 
     @context.request_context

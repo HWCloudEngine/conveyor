@@ -221,42 +221,41 @@ class Member(elb_res_base.ElbBaseResource):
         return None, None
 
     def handle_delete(self):
-        return
-        # ls_id = self.properties[self.LISTENER_ID]
-        # # if there is no ls_id, maybe the listener resource
-        # # of the backup stack has not been created yet, in
-        # # this case, we don't have to call remove_member
-        # # with invalid listener id
-        # if not ls_id:
-        #     return
-        #
-        # if not self.resource_id:
-        #     job_info = self._get_job()
-        #     job_id = job_info.get('job_id')
-        #     if not job_id:
-        #         return
-        #
-        #     try:
-        #         job_status, entities, error_code = self._get_job_info(job_id)
-        #     except Exception as e:
-        #         if self.client_plugin().is_not_found(e):
-        #             LOG.info('job %s not found', job_id)
-        #             return
-        #         raise e
-        #
-        #     if job_status == utils.SUCCESS:
-        #         members_info = entities.get('members', [])
-        #         member_ids, base_info = self._parse_members_entities(
-        #             members_info)
-        #         self.resource_id_set(','.join(set(member_ids)))
-        #     return
-        # member_id_list = self.resource_id.split(',')
-        # remove_members = [{'id': m} for m in member_id_list]
-        # job_id = self.client().listener.remove_member(
-        #     listener_id=ls_id,
-        #     removeMember=remove_members)['job_id']
-        #
-        # return job_id
+        ls_id = self.properties[self.LISTENER_ID]
+        # if there is no ls_id, maybe the listener resource
+        # of the backup stack has not been created yet, in
+        # this case, we don't have to call remove_member
+        # with invalid listener id
+        if not ls_id:
+            return
+
+        if not self.resource_id:
+            job_info = self._get_job()
+            job_id = job_info.get('job_id')
+            if not job_id:
+                return
+
+            try:
+                job_status, entities, error_code = self._get_job_info(job_id)
+            except Exception as e:
+                if self.client_plugin().is_not_found(e):
+                    LOG.info('job %s not found', job_id)
+                    return
+                raise e
+
+            if job_status == utils.SUCCESS:
+                members_info = entities.get('members', [])
+                member_ids, base_info = self._parse_members_entities(
+                    members_info)
+                self.resource_id_set(','.join(set(member_ids)))
+            return
+        member_id_list = self.resource_id.split(',')
+        remove_members = [{'id': m} for m in member_id_list]
+        job_id = self.client().listener.remove_member(
+            listener_id=ls_id,
+            removeMember=remove_members)['job_id']
+
+        return job_id
 
     def check_create_complete(self, job_id):
         job_status, entities, error_code = self._get_job_info(job_id)

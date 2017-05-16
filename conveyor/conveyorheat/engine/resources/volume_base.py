@@ -117,16 +117,15 @@ class BaseVolume(resource.Resource):
         True otherwise.
         """
         try:
-            return True
-            # cinder = self.client()
-            # vol = cinder.volumes.get(self.resource_id)
-            # if vol.status == 'in-use':
-            #     raise exception.Error(_('Volume in use'))
-            # # if the volume is already in deleting status,
-            # # just wait for the deletion to complete
-            # if vol.status != 'deleting':
-            #     cinder.volumes.delete(self.resource_id)
-            # return False
+            cinder = self.client()
+            vol = cinder.volumes.get(self.resource_id)
+            if vol.status == 'in-use':
+                raise exception.Error(_('Volume in use'))
+            # if the volume is already in deleting status,
+            # just wait for the deletion to complete
+            if vol.status != 'deleting':
+                cinder.volumes.delete(self.resource_id)
+            return False
         except Exception as ex:
             self.client_plugin().ignore_not_found(ex)
             return True
@@ -188,12 +187,10 @@ class BaseVolumeAttachment(resource.Resource):
         if self.resource_id:
             server_id = self.properties[self.INSTANCE_ID]
             vol_id = self.properties[self.VOLUME_ID]
-            # self.client_plugin('nova').detach_volume(server_id,
-            #                                          self.resource_id)
-            # prg = progress.VolumeDetachProgress(
-            #     server_id, vol_id, self.resource_id)
+            self.client_plugin('nova').detach_volume(server_id,
+                                                     self.resource_id)
             prg = progress.VolumeDetachProgress(
-                server_id, vol_id, self.resource_id, task_complete=True)
+                server_id, vol_id, self.resource_id)
             prg.called = True
 
         return prg

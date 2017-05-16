@@ -97,20 +97,19 @@ class ExtraRoute(neutron.NeutronResource):
             '%(router_id)s:%(destination)s:%(nexthop)s' % new_route)
 
     def handle_delete(self):
-        return
-        # if not self.resource_id:
-        #     return
-        # (router_id, destination, nexthop) = self.resource_id.split(':')
-        # with self.client_plugin().ignore_not_found:
-        #     routes = self.client().show_router(
-        #         router_id).get('router').get('routes', [])
-        #     try:
-        #         routes.remove({'destination': destination,
-        #                        'nexthop': nexthop})
-        #     except ValueError:
-        #         return
-        #     self.client().update_router(router_id,
-        #                                 {'router': {'routes': routes}})
+        if not self.resource_id:
+            return
+        (router_id, destination, nexthop) = self.resource_id.split(':')
+        with self.client_plugin().ignore_not_found:
+            routes = self.client().show_router(
+                router_id).get('router').get('routes', [])
+            try:
+                routes.remove({'destination': destination,
+                               'nexthop': nexthop})
+            except ValueError:
+                return
+            self.client().update_router(router_id,
+                                        {'router': {'routes': routes}})
 
 
 def resource_mapping():

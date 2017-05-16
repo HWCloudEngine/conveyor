@@ -52,11 +52,29 @@ from oslo_log import log as logging
 from conveyor import service
 from conveyor import utils
 from conveyor import version
+from conveyor.conveyorheat.engine import template
+from conveyor.conveyorheat.common.i18n import _LC
+from oslo_reports import guru_meditation_report as gmr
+from conveyor.conveyorheat.common import config as heat_config
 
 
 host_opt = cfg.StrOpt('host',
                       help='Backend override of host value.')
 CONF = cfg.CONF
+LOG = logging.getLogger(__name__)
+
+
+def init_heat():
+    heat_config.startup_sanity_check()
+
+    mgr = None
+    try:
+        mgr = template._get_template_extension_manager()
+    except template.TemplatePluginNotRegistered as ex:
+        LOG.critical(_LC("%s"), ex)
+    if not mgr or not mgr.names():
+        sys.exit("ERROR: No template format plugins registered")
+    gmr.TextGuruMeditation.setup_autorun(version)
 
 
 def main():
@@ -65,6 +83,7 @@ def main():
          version=version.version_string())
     logging.setup(CONF, "conveyor")
     utils.monkey_patch()
+    init_heat()
     launcher = service.get_launcher()
     server = service.Service.create(binary='conveyor-clone')
     launcher.launch_service(server)

@@ -295,12 +295,12 @@ class ResourceDefinition(ResourceDefinitionCore, collections.Mapping):
     ResourceDefinitionCore as soon as M release.
     """
 
-    _deprecation_msg = _LW(
-        'Reading the ResourceDefinition as if it were a snippet of a '
-        'CloudFormation template is deprecated, and the ability to treat it '
-        'as such will be removed in the future. Resource plugins should use '
-        'the ResourceDefinition API to work with the definition of the '
-        'resource instance.')
+    # _deprecation_msg = _LW(
+    #     'Reading the ResourceDefinition as if it were a snippet of a '
+    #     'CloudFormation template is deprecated, and the ability to treat it '
+    #     'as such will be removed in the future. Resource plugins should use '
+    #     'the ResourceDefinition API to work with the definition of the '
+    #     'resource instance.')
 
     def __eq__(self, other):
         """Compare this resource definition for equality with another.
@@ -330,7 +330,7 @@ class ResourceDefinition(ResourceDefinitionCore, collections.Mapping):
         This is for backwards compatibility with existing code that expects a
         parsed-JSON template snippet.
         """
-        LOG.warning(self._deprecation_msg)
+        # LOG.warning(self._deprecation_msg)
 
         yield TYPE
         if self._properties is not None:
@@ -352,7 +352,7 @@ class ResourceDefinition(ResourceDefinitionCore, collections.Mapping):
         This is for backwards compatibility with existing code that expects a
         parsed-JSON template snippet.
         """
-        LOG.warning(self._deprecation_msg)
+        # LOG.warning(self._deprecation_msg)
 
         if key == TYPE:
             return self.resource_type
@@ -385,7 +385,7 @@ class ResourceDefinition(ResourceDefinitionCore, collections.Mapping):
         This is for backwards compatibility with existing code that expects a
         parsed-JSON template snippet.
         """
-        LOG.warning(self._deprecation_msg)
+        # LOG.warning(self._deprecation_msg)
 
         return len(list(iter(self)))
 

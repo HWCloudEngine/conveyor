@@ -365,14 +365,12 @@ class Subnet(neutron.NeutronResource):
         if not self.resource_id:
             return
 
-        return True
-
-        # try:
-        #     self.client().delete_subnet(self.resource_id)
-        # except Exception as ex:
-        #     self.client_plugin().ignore_not_found(ex)
-        # else:
-        #     return True
+        try:
+            self.client().delete_subnet(self.resource_id)
+        except Exception as ex:
+            self.client_plugin().ignore_not_found(ex)
+        else:
+            return True
 
     def _show_resource(self):
         return self.client().show_subnet(self.resource_id)['subnet']

@@ -154,15 +154,15 @@ class NovaFloatingIpAssociation(resource.Resource):
     def handle_delete(self):
         if self.resource_id is None:
             return
-        return
-        # try:
-        #     server = self.client().servers.get(self.properties[self.SERVER])
-        #     if server:
-        #         fl_ip = self.client().floating_ips.get(
-        #             self.properties[self.FLOATING_IP])
-        #         self.client().servers.remove_floating_ip(server, fl_ip.ip)
-        # except Exception as e:
-        #     self.client_plugin().ignore_conflict_and_not_found(e)
+
+        try:
+            server = self.client().servers.get(self.properties[self.SERVER])
+            if server:
+                fl_ip = self.client().floating_ips.get(
+                    self.properties[self.FLOATING_IP])
+                self.client().servers.remove_floating_ip(server, fl_ip.ip)
+        except Exception as e:
+            self.client_plugin().ignore_conflict_and_not_found(e)
 
     def handle_update(self, json_snippet, tmpl_diff, prop_diff):
         if prop_diff:

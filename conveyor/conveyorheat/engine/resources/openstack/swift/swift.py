@@ -194,8 +194,7 @@ class SwiftContainer(resource.Resource):
 
         if objects:
             if self.properties[self.PURGE_ON_DELETE]:
-                pass
-                # self._deleter(objects.pop())  # save first container refresh
+                self._deleter(objects.pop())  # save first container refresh
             else:
                 msg = _("Deleting non-empty container (%(id)s) "
                         "when %(prop)s is False") % {

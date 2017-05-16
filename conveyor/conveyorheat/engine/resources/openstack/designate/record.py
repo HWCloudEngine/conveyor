@@ -153,13 +153,12 @@ class DesignateRecord(resource.Resource):
             self.client_plugin().record_update(**args)
 
     def handle_delete(self):
-        return
-        # if self.resource_id is not None:
-        #     with self.client_plugin().ignore_not_found:
-        #         self.client_plugin().record_delete(
-        #             id=self.resource_id,
-        #             domain=self.properties[self.DOMAIN]
-        #         )
+        if self.resource_id is not None:
+            with self.client_plugin().ignore_not_found:
+                self.client_plugin().record_delete(
+                    id=self.resource_id,
+                    domain=self.properties[self.DOMAIN]
+                )
 
     # FIXME(kanagaraj-manickam) Remove this method once designate defect
     # 1485552 is fixed.

@@ -1520,12 +1520,12 @@ class Server(stack_user.StackUser, sh.SchedulerHintsMixin,
 
         self._floating_ips_disassociate()
 
-        # try:
-        #     self.client().servers.delete(self.resource_id)
-        # except Exception as e:
-        #     self.client_plugin().ignore_not_found(e)
-        #     return
-        return progress.ServerDeleteProgress(self.resource_id, image_complete=True)
+        try:
+            self.client().servers.delete(self.resource_id)
+        except Exception as e:
+            self.client_plugin().ignore_not_found(e)
+            return
+        return progress.ServerDeleteProgress(self.resource_id)
 
     def handle_snapshot_delete(self, state):
 
@@ -1544,20 +1544,18 @@ class Server(stack_user.StackUser, sh.SchedulerHintsMixin,
         if not prg:
             return True
 
-        # if not prg.image_complete:
-        #     image = self.client().images.get(prg.image_id)
-        #     if image.status in ('DELETED', 'ERROR'):
-        #         raise exception.Error(image.status)
-        #     elif image.status == 'ACTIVE':
-        #         prg.image_complete = True
-        #         if not self._delete():
-        #             return True
-        #     return False
+        if not prg.image_complete:
+            image = self.client().images.get(prg.image_id)
+            if image.status in ('DELETED', 'ERROR'):
+                raise exception.Error(image.status)
+            elif image.status == 'ACTIVE':
+                prg.image_complete = True
+                if not self._delete():
+                    return True
+            return False
 
-        return True
-
-        # return self.client_plugin().check_delete_server_complete(
-        #     prg.server_id)
+        return self.client_plugin().check_delete_server_complete(
+            prg.server_id)
 
     def handle_suspend(self):
         """Suspend a server.
@@ -1652,8 +1650,8 @@ class Server(stack_user.StackUser, sh.SchedulerHintsMixin,
         if not image_id:
             return
 
-        # with self.client_plugin().ignore_not_found:
-        #     self.client().images.delete(image_id)
+        with self.client_plugin().ignore_not_found:
+            self.client().images.delete(image_id)
 
     def handle_restore(self, defn, restore_data):
         image_id = restore_data['resource_data']['snapshot_image_id']

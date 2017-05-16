@@ -18,22 +18,20 @@ class Instance(aws_instance.Instance):
         """
         # make sure to delete the port which implicit-created by heat
 
-        return
-
-        # if self.resource_id is None:
-        #     return
-        # try:
-        #     server = self.nova().servers.get(self.resource_id)
-        # except Exception as e:
-        #     self.client_plugin().ignore_not_found(e)
-        #     return
-        # deleters = (
-        #     scheduler.TaskRunner(self._detach_volumes_task()),
-        #     scheduler.TaskRunner(self.client_plugin().delete_server,
-        #                          server),
-        #     scheduler.TaskRunner(self._port_data_delete))
-        # deleters[0].start()
-        # return deleters
+        if self.resource_id is None:
+            return
+        try:
+            server = self.nova().servers.get(self.resource_id)
+        except Exception as e:
+            self.client_plugin().ignore_not_found(e)
+            return
+        deleters = (
+            scheduler.TaskRunner(self._detach_volumes_task()),
+            scheduler.TaskRunner(self.client_plugin().delete_server,
+                                 server),
+            scheduler.TaskRunner(self._port_data_delete))
+        deleters[0].start()
+        return deleters
 
 
 def resource_mapping():

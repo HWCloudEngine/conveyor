@@ -41,14 +41,14 @@ class StackResource(base.resource):
         stackResources = []
         if not stack_ids:
             LOG.info('Extract resources of all stacks.')
-            stack_dicts = self.heat_api.stack_list(self.context, is_original=True)
+            stack_dicts = self.heat_api.stack_list(self.context)
         else:
             LOG.info('Extract resources of stacks: %s', stack_ids)
             # remove duplicate volume
             stack_ids = {}.fromkeys(stack_ids).keys()
             for stack_id in stack_ids:
                 try:
-                    stack = self.heat_api.get_stack(self.context, stack_id, is_original=True)
+                    stack = self.heat_api.get_stack(self.context, stack_id)
                     stack_dicts.append(stack)
                 except Exception as e:
                     msg = "stack resource <%s> could not be found. %s" \
@@ -108,7 +108,7 @@ class StackResource(base.resource):
         return stackResources
 
     def _list_sub_resources(self, context, stack_id):
-        return self.heat_api.resources_list(context, stack_id, is_original=True)
+        return self.heat_api.resources_list(context, stack_id)
 
     def is_file_type(self, t):
         return t and t.startswith('file://')
@@ -118,7 +118,7 @@ class StackResource(base.resource):
         return [r for r in res_list if r.resource_type == t]
 
     def _extract_resource(self, context, stack_id):
-        template = self.heat_api.get_template(context, stack_id, is_original=True)
+        template = self.heat_api.get_template(context, stack_id)
         sub_res_list = self._list_sub_resources(context, stack_id)
         for name, resource in template.get('resources', {}).iteritems():
             t1 = resource.get('type')

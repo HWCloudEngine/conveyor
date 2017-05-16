@@ -84,7 +84,7 @@ def setup(url=None, optional=False):
 
     if not TRANSPORT:
         oslo_messaging.set_transport_defaults('openstack')
-        exmods = ['heat.common.exception']
+        exmods = ['conveyor.conveyorheat.common.exception']
         try:
             TRANSPORT = oslo_messaging.get_transport(
                 cfg.CONF, url, allowed_remote_exmods=exmods, aliases=_ALIASES)

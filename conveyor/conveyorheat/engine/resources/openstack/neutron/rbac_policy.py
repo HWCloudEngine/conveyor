@@ -95,10 +95,9 @@ class RBACPolicy(neutron.NeutronResource):
                 self.resource_id, {'rbac_policy': prop_diff})
 
     def handle_delete(self):
-        return
-        # if self.resource_id is not None:
-        #     with self.client_plugin().ignore_not_found:
-        #         self.client().delete_rbac_policy(self.resource_id)
+        if self.resource_id is not None:
+            with self.client_plugin().ignore_not_found:
+                self.client().delete_rbac_policy(self.resource_id)
 
     def _show_resource(self):
         return self.client().show_rbac_policy(self.resource_id)['rbac_policy']

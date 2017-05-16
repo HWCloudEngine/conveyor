@@ -465,14 +465,12 @@ class Port(neutron.NeutronResource):
         if not self.resource_id:
             return
 
-        return True
-
-        # try:
-        #     self.client().delete_port(self.resource_id)
-        # except Exception as ex:
-        #     self.client_plugin().ignore_not_found(ex)
-        # else:
-        #     return True
+        try:
+            self.client().delete_port(self.resource_id)
+        except Exception as ex:
+            self.client_plugin().ignore_not_found(ex)
+        else:
+            return True
 
     def _resolve_attribute(self, name):
         if name == self.SUBNETS_ATTR:

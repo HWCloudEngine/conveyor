@@ -22,7 +22,7 @@ from conveyor.conveyorheat.common.i18n import _LI
 from conveyor.conveyorheat.common.i18n import _LW
 from conveyor.conveyorheat.objects import stack as stack_object
 from conveyor.conveyorheat.objects import stack_lock as stack_lock_object
-from conveyor.conveyorheat.rpc import listener_client
+# from conveyor.conveyorheat.rpc import listener_client
 
 LOG = logging.getLogger(__name__)
 
@@ -36,8 +36,9 @@ class StackLock(object):
 
     @staticmethod
     def engine_alive(context, engine_id):
-        return listener_client.EngineListenerClient(
-            engine_id).is_alive(context)
+        pass
+        # return listener_client.EngineListenerClient(
+        #     engine_id).is_alive(context)
 
     @staticmethod
     def generate_engine_id():

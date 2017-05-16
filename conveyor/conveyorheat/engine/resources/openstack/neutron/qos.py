@@ -85,12 +85,11 @@ class QoSPolicy(neutron.NeutronResource):
         self.resource_id_set(policy['id'])
 
     def handle_delete(self):
-        return
-        # if self.resource_id is None:
-        #     return
-        #
-        # with self.client_plugin().ignore_not_found:
-        #     self.client().delete_qos_policy(self.resource_id)
+        if self.resource_id is None:
+            return
+
+        with self.client_plugin().ignore_not_found:
+            self.client().delete_qos_policy(self.resource_id)
 
     def handle_update(self, json_snippet, tmpl_diff, prop_diff):
         if prop_diff:
@@ -195,13 +194,12 @@ class QoSBandwidthLimitRule(QoSRule):
         self.resource_id_set(rule['id'])
 
     def handle_delete(self):
-        return
-        # if self.resource_id is None:
-        #     return
-        #
-        # with self.client_plugin().ignore_not_found:
-        #     self.client().delete_bandwidth_limit_rule(
-        #         self.resource_id, self.policy_id)
+        if self.resource_id is None:
+            return
+
+        with self.client_plugin().ignore_not_found:
+            self.client().delete_bandwidth_limit_rule(
+                self.resource_id, self.policy_id)
 
     def handle_update(self, json_snippet, tmpl_diff, prop_diff):
         if prop_diff:
