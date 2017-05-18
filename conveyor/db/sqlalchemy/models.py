@@ -132,9 +132,9 @@ class CopyBase(models.TimestampMixin,
             session = orm_session.Session.object_session(self)
             if not session:
                 session = get_session()
-#        session.begin(subtransactions=True)
+        session.begin(subtransactions=True)
         session.refresh(self, attrs)
-#        session.commit()
+        session.commit()
 
     def delete(self, session=None):
         """Delete this object."""

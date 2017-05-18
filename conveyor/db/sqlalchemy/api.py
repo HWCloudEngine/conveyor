@@ -175,31 +175,10 @@ def model_query_heat_original(context, *args):
 
 
 def model_query_heat(context, model, *args, **kwargs):
-    # session = _session(context)
-    # with session.begin():
-    #     query = session.query(*args)
-    # return query
-    use_slave = kwargs.get('use_slave') or False
-    if CONF.database.slave_connection == '':
-        use_slave = False
-
     session = get_session()
-    # session = kwargs.get('session') or get_session(use_slave=use_slave)
-    # read_deleted = kwargs.get('read_deleted') or context.read_deleted
-
-    def issubclassof_gw_base(obj):
-        return isinstance(obj, type) and issubclass(obj, models.CopyBase)
-
-    base_model = model
-    if not issubclassof_gw_base(base_model):
-        base_model = kwargs.get('base_model', None)
-        if not issubclassof_gw_base(base_model):
-            raise Exception(_("model or base_model parameter should be "
-                              "subclass of CopyBase"))
-
-    session.begin(subtransactions=True)
+    # session.begin(subtransactions=True)
     query = session.query(model, *args)
-    session.commit()
+    # session.commit()
     return query
 
 
@@ -339,18 +318,20 @@ def plan_stack_create(context, values):
 
 
 @require_context
-def plan_stack_get(context, plan_id, session=None):
-    results = (model_query(context, models.PlanStack, session=session)
+def plan_stack_get(context, plan_id, session=None, read_deleted='no'):
+    results = (model_query(context, models.PlanStack, session=session,
+                           read_deleted=read_deleted)
                .filter_by(plan_id=plan_id)
                .all())
     return results
 
 
 @require_context
-def plan_stack_delete(context, plan_id):
+def plan_stack_delete_all(context, plan_id):
     session = get_session()
     with session.begin():
-        ps = plan_stack_get(context, plan_id, session=session)
+        ps = plan_stack_get(context, plan_id, session=session,
+                            read_deleted='yes')
         if not ps:
             raise exception.NotFound(_('Attempt to delete plan_id: '
                                        '%(id)s %(msg)s') % {
@@ -358,6 +339,39 @@ def plan_stack_delete(context, plan_id):
                                          'msg': 'that does not exist'})
         for p in ps:
             session.delete(p)
+
+
+@require_context
+def plan_stack_delete(context, plan_id, stack_id):
+    session = get_session()
+    with session.begin():
+        ps = model_query(context, models.PlanStack, session=session,
+                         read_deleted='yes').filter_by(plan_id=plan_id).\
+            filter_by(stack_id=stack_id).first()
+        if not ps:
+            raise exception.NotFound(_('Attempt to delete plan_id: '
+                                       '%(id)s %(msg)s') % {
+                                         'id': plan_id,
+                                         'msg': 'that does not exist'})
+        session.delete(ps)
+
+
+@require_context
+def plan_stack_update(context, plan_id, stack_id, values):
+    session = get_session()
+    with session.begin():
+        plan_ref = model_query(context, models.PlanStack, session=session)\
+            .filter_by(plan_id=plan_id).filter_by(stack_id=stack_id).\
+            first()
+        if not plan_ref:
+            raise conveyor_exception.PlanNotFoundInDb(id=id)
+        plan_ref.update(values)
+        try:
+            plan_ref.save(session=session)
+        except db_exc.DBDuplicateEntry:
+            raise conveyor_exception.PlanExists()
+
+    return dict(plan_ref)
 
 
 # add from heat
@@ -396,8 +410,6 @@ def _session(context=None):
     # return get_session()
     # return get_session()
     return (context and context.session) or get_session()
-    # return (context and context.session) or get_session_heat()
-    # return get_session(use_slave=False)
 
 
 def raw_template_get(context, template_id):

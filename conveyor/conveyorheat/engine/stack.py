@@ -105,8 +105,8 @@ class Stack(collections.Mapping):
         'SNAPSHOT', 'CHECK', 'RESTORE'
     )
 
-    STATUSES = (IN_PROGRESS, FAILED, COMPLETE
-                ) = ('IN_PROGRESS', 'FAILED', 'COMPLETE')
+    STATUSES = (IN_PROGRESS, FAILED, COMPLETE, RES_COMPLETE
+                ) = ('IN_PROGRESS', 'FAILED', 'COMPLETE', 'RES_COMPLETE')
 
     _zones = None
 
@@ -1761,7 +1761,7 @@ class Stack(collections.Mapping):
         snapshots = snapshot_object.Snapshot.get_all(self.context,
                                                      self.id)
         for snapshot in snapshots:
-            self.delete_snapshot(snapshot)
+            # self.delete_snapshot(snapshot)
             snapshot_object.Snapshot.delete(self.context, snapshot.id)
 
         if not backup:
@@ -1811,6 +1811,95 @@ class Stack(collections.Mapping):
                 LOG.info(_LI("Tried to delete stack that does not exist "
                              "%s "), self.id)
             self.id = None
+
+    @profiler.trace('Stack.clear_resource', hide_args=False)
+    @reset_state_on_error
+    def clear_resource(self, action=DELETE, backup=False, abandon=False):
+        """Delete all of the resources.
+
+        The action parameter is used to differentiate between a user
+        initiated delete and an automatic stack rollback after a failed
+        create, which amount to the same thing, but the states are recorded
+        differently.
+
+        Note abandon is a delete where all resources have been set to a
+        RETAIN deletion policy, but we also don't want to delete anything
+        required for those resources, e.g the stack_user_project.
+        """
+        if action not in (self.DELETE, self.ROLLBACK):
+            LOG.error(_LE("Unexpected action %s passed to delete!"), action)
+            self.state_set(self.DELETE, self.FAILED,
+                           "Invalid action %s" % action)
+            return
+
+        stack_status = self.RES_COMPLETE
+        reason = 'Stack %s completed successfully' % action
+        self.state_set(action, self.IN_PROGRESS, 'Stack %s started' %
+                       action)
+
+        # backup_stack = self._backup_stack(False)
+        # if backup_stack:
+        #     self._delete_backup_stack(backup_stack)
+        #     if backup_stack.status != backup_stack.COMPLETE:
+        #         errs = backup_stack.status_reason
+        #         failure = 'Error deleting backup resources: %s' % errs
+        #         self.state_set(action, self.FAILED,
+        #                        'Failed to %s : %s' % (action, failure))
+        #         return
+
+        snapshots = snapshot_object.Snapshot.get_all(self.context,
+                                                     self.id)
+        for snapshot in snapshots:
+            self.delete_snapshot(snapshot)
+            # snapshot_object.Snapshot.delete(self.context, snapshot.id)
+
+        # if not backup:
+        #     try:
+        #         lifecycle_plugin_utils.do_pre_ops(self.context, self,
+        #                                           None, action)
+        #     except Exception as e:
+        #         self.state_set(action, self.FAILED,
+        #                        e.args[0] if e.args else
+        #                        'Failed stack pre-ops: %s' % six.text_type(e))
+        #         return
+
+        action_task = scheduler.DependencyTaskGroup(self.dependencies,
+                                                    resource.Resource.clear_resource,
+                                                    reverse=True)
+        try:
+            scheduler.TaskRunner(action_task)(timeout=self.timeout_secs())
+        except exception.ResourceFailure as ex:
+            stack_status = self.FAILED
+            reason = 'Resource %s failed: %s' % (action, six.text_type(ex))
+        except scheduler.Timeout:
+            stack_status = self.FAILED
+            reason = '%s timed out' % action.title()
+
+        # # If the stack delete succeeded, this is not a backup stack and it's
+        # # not a nested stack, we should delete the credentials
+        # if stack_status != self.FAILED and not backup and not self.owner_id:
+        #     stack_status, reason = self._delete_credentials(stack_status,
+        #                                                     reason,
+        #                                                     abandon)
+        #
+        try:
+            self.state_set(action, stack_status, reason)
+        except exception.NotFound:
+            LOG.info(_LI("Tried to delete stack that does not exist "
+                         "%s "), self.id)
+
+        # if not backup:
+        #     lifecycle_plugin_utils.do_post_ops(self.context, self,
+        #                                        None, action,
+        #                                        (self.status == self.FAILED))
+        # if stack_status != self.FAILED:
+        #     # delete the stack
+        #     try:
+        #         stack_object.Stack.delete(self.context, self.id)
+        #     except exception.NotFound:
+        #         LOG.info(_LI("Tried to delete stack that does not exist "
+        #                      "%s "), self.id)
+        #     self.id = None
 
     @profiler.trace('Stack.suspend', hide_args=False)
     @reset_state_on_error

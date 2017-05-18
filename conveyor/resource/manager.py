@@ -485,6 +485,7 @@ class ResourceManager(manager.Manager):
                                        {'plan_status': p_status.ERROR_DELETING})
             raise exception.PlanDeleteError(message=msg)
 
+        # self.heat_api.clear_resource(context, plan['stack_id'], plan_id)
         self.heat_api.clear_table(context, plan['stack_id'], plan_id)
 
         # Delete plan in memory
@@ -518,6 +519,16 @@ class ResourceManager(manager.Manager):
         values = {'plan_status': p_status.DELETED, 'deleted': True,
                   'deleted_at': timeutils.utcnow()}
         resource.update_plan_to_db(context, plan_file_dir, plan_id, values)
+
+    def plan_delete_resource(self, context, plan_id):
+        try:
+            plan = self.get_plan_by_id(context, plan_id)
+            self.heat_api.clear_resource(context, plan['stack_id'], plan_id)
+        except Exception as e:
+            msg = "Delete plan resource <%s> failed. %s" % \
+                  (plan_id, unicode(e))
+            LOG.error(msg)
+            raise exception.PlanDeleteError(message=msg)
 
     def update_plan(self, context, plan_id, values):
 

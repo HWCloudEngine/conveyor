@@ -11,7 +11,9 @@
 # under the License.
 
 import contextlib
+import functools
 from oslo_config import cfg
+from oslo_utils import timeutils
 import six
 import itertools
 
@@ -25,6 +27,7 @@ from conveyor.conveyorheat.hw_plugins import utils
 from conveyor.conveyorheat.rpc import api as rpc_api
 
 from conveyor.common._i18n import _
+from conveyor.common import loopingcall
 from webob import exc
 
 from conveyor import exception
@@ -502,19 +505,60 @@ class API(object):
         # stack_list = stack_list[0]
         return Stack(format_stack(stack_list))
 
-    def clear_table(self, context, stack_id, plan_id, is_heat_stack=False):
+    def _wait_for_resource(self, context, stack_id):
+        """Called at an interval until the resources are deleted ."""
+        st = self.get_stack(context, stack_id)
+        state = st.stack_status
+        if state in ["DELETE_RES_COMPLETE", "DELETE_FAILED"]:
+            LOG.info("clear table or resource deployed: %s.", state)
+            raise loopingcall.LoopingCallDone()
+
+    def _wait_for_table(self, context, stack_id):
+        """Called at an interval until the resources are deleted ."""
+        st = self.get_stack(context, stack_id)
+        state = st.stack_status
+        if state in ["DELETE_COMPLETE", "DELETE_FAILED"]:
+            LOG.info("clear table or resource deployed: %s.", state)
+            raise loopingcall.LoopingCallDone()
+
+    def clear_resource(self, context, stack_id, plan_id, is_heat_stack=False):
         # need stackname not id
         # context._session = db_api.get_session()
         try:
             stacks = db_api.plan_stack_get(context, plan_id)
-            for st in stacks:
+            values = {'deleted': True, 'updated_at': timeutils.utcnow()}
+            for st in stacks[::-1]:
+                stack_identity = self._make_identity(context.project_id,
+                                                     '', st['stack_id'])
+                # context._session = db_api.get_session()
+                self.api.clear_resource(context, stack_identity)
+                loop_fun = functools.partial(self._wait_for_resource, context,
+                                             st['stack_id'])
+                timer = loopingcall.FixedIntervalLoopingCall(loop_fun)
+                timer.start(interval=0.5).wait()
+                db_api.plan_stack_update(context, plan_id, st['stack_id'], values)
+            # context._session = db_api.get_session()
+            # db_api.plan_stack_delete(context, plan_id)
+        except Exception as e:
+            LOG.error("clear resource fail")
+            raise
+
+    def clear_table(self, context, stack_id, plan_id, is_heat_stack=False):
+        # need stackname not id
+        # context._session = db_api.get_session()
+        try:
+            stacks = db_api.plan_stack_get(context, plan_id, read_deleted='yes')
+            for st in stacks[::-1]:
                 stack_identity = self._make_identity(context.project_id,
                                                      '', st['stack_id'])
                 # context._session = db_api.get_session()
                 self.api.clear_table(context, stack_identity)
-            # context._session = db_api.get_session()
-            db_api.plan_stack_delete(context, plan_id)
-            return
+                loop_fun = functools.partial(self._wait_for_table, context,
+                                             st['stack_id'])
+                timer = loopingcall.FixedIntervalLoopingCall(loop_fun)
+                timer.start(interval=0.5).wait()
+                # context._session = db_api.get_session()
+                db_api.plan_stack_delete(context, plan_id, st['stack_id'])
         except Exception as e:
             LOG.error("clear table fail")
             raise
@@ -523,15 +567,19 @@ class API(object):
         # need stackname not id
         # context._session = db_api.get_session()
         try:
-            stacks = db_api.plan_stack_get(context, plan_id)
-            for st in stacks:
+            stacks = db_api.plan_stack_get(context, plan_id, read_deleted='yes')
+            for st in stacks[::-1]:
                 stack_identity = self._make_identity(context.project_id,
                                                      '', st['stack_id'])
                 # context._session = db_api.get_session()
                 self.api.delete_stack(context, stack_identity)
+                loop_fun = functools.partial(self._wait_for_finish, context,
+                                             st['stack_id'])
+                timer = loopingcall.FixedIntervalLoopingCall(loop_fun)
+                timer.start(interval=0.5).wait()
+                db_api.plan_stack_delete(context, plan_id, st['stack_id'])
             # context._session = db_api.get_session()
-            db_api.plan_stack_delete(context, plan_id)
-            return
+            # db_api.plan_stack_delete_all(context, plan_id)
         except Exception as e:
             LOG.error("delete stack fail")
             raise

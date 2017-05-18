@@ -72,6 +72,26 @@ def plan_get_all(context):
     return IMPL.plan_get_all(context)
 
 
+def plan_stack_create(context, values):
+    return IMPL.plan_stack_create(context, values)
+
+
+def plan_stack_get(context, plan_id, read_deleted='no'):
+    return IMPL.plan_stack_get(context, plan_id, read_deleted=read_deleted)
+
+
+def plan_stack_delete(context, plan_id, stack_id):
+    return IMPL.plan_stack_delete(context, plan_id, stack_id)
+
+
+def plan_stack_delete_all(context, plan_id):
+    return IMPL.plan_stack_delete_all(context, plan_id)
+
+
+def plan_stack_update(context, plan_id, stack_id, values):
+    return IMPL.plan_stack_update(context, plan_id, stack_id, values)
+
+
 # add from heat
 def get_engine():
     return IMPL.get_engine()
@@ -537,16 +557,3 @@ def gw_member_get(context, member_id):
 
 def reset_stack_status(context, stack_id):
     return IMPL.reset_stack_status(context, stack_id)
-
-
-def plan_stack_create(context, values):
-    return IMPL.plan_stack_create(context, values)
-
-
-def plan_stack_get(context, plan_id):
-    return IMPL.plan_stack_get(context, plan_id)
-
-
-def plan_stack_delete(context, plan_id):
-    return IMPL.plan_stack_delete(context, plan_id)
-

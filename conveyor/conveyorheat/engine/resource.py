@@ -1536,6 +1536,15 @@ class Resource(object):
 
         self.id = None
 
+    @scheduler.wrappertask
+    def clear_resource(self):
+        """A task to delete the resource."""
+        yield self.delete()
+
+        if self.id is None:
+            return
+        self.id = None
+
     def resource_id_set(self, inst):
         self.resource_id = inst
         if self.id is not None:

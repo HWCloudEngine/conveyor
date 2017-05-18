@@ -1428,6 +1428,65 @@ class EngineService(service.Service):
         return None
 
     @context.request_context
+    def clear_resource(self, cnxt, stack_identity):
+        """Delete a given stack.
+
+        :param cnxt: RPC context.
+        :param stack_identity: Name of the stack you want to delete.
+        """
+
+        st = self._get_stack(cnxt, stack_identity)
+        LOG.info(_LI('Clearing stack resource %s'), st.name)
+        stack = parser.Stack.load(cnxt, stack=st)
+        self.resource_enforcer.enforce_stack(stack)
+
+        if stack.convergence and cfg.CONF.convergence_engine:
+            template = templatem.Template.create_empty_template()
+            stack.thread_group_mgr = self.thread_group_mgr
+            stack.converge_stack(template=template, action=stack.DELETE)
+            return
+
+        lock = stack_lock.StackLock(cnxt, stack.id, self.engine_id)
+        with lock.try_thread_lock() as acquire_result:
+
+            # Successfully acquired lock
+            if acquire_result is None:
+                self.thread_group_mgr.stop_timers(stack.id)
+                self.thread_group_mgr.start_with_acquired_lock(stack, lock,
+                                                               stack.clear_resource)
+                return
+
+        # Current engine has the lock
+        if acquire_result == self.engine_id:
+            # give threads which are almost complete an opportunity to
+            # finish naturally before force stopping them
+            eventlet.sleep(0.2)
+            self.thread_group_mgr.stop(stack.id)
+
+        # Another active engine has the lock
+        elif stack_lock.StackLock.engine_alive(cnxt, acquire_result):
+            stop_result = self._remote_call(
+                cnxt, acquire_result, STOP_STACK_TIMEOUT,
+                self.listener.STOP_STACK,
+                stack_identity=stack_identity)
+            if stop_result is None:
+                LOG.debug("Successfully stopped remote task on engine %s"
+                          % acquire_result)
+            else:
+                raise exception.StopActionFailed(stack_name=stack.name,
+                                                 engine_id=acquire_result)
+
+        # There may be additional resources that we don't know about
+        # if an update was in-progress when the stack was stopped, so
+        # reload the stack from the database.
+        st = self._get_stack(cnxt, stack_identity)
+        stack = parser.Stack.load(cnxt, stack=st)
+
+        self.thread_group_mgr.start_with_lock(cnxt, stack, self.engine_id,
+                                              stack.clear_resource)
+        return None
+
+    @context.request_context
     def export_stack(self, cnxt, stack_identity):
         """Exports the stack data json.
 
