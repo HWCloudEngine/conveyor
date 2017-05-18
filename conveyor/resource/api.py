@@ -42,9 +42,10 @@ class ResourceAPI(object):
                                                   search_opts=search_opts,
                                                   marker=marker, limit=limit)
 
-    def create_plan(self, context, type, resources):
+    def create_plan(self, context, type, resources, plan_name=None):
         LOG.info("Create a %s plan by resources: %s.", type, resources)
-        return self.resource_rpcapi.create_plan(context, type, resources)
+        return self.resource_rpcapi.create_plan(context, type, resources,
+                                                plan_name=plan_name)
 
     def create_plan_by_template(self, context, template):
         LOG.debug("Create plan by template. %s", template)
@@ -209,9 +210,13 @@ class ResourceAPI(object):
         return self.resource_rpcapi.update_plan_resources(context,
                                                           plan_id, resources)
 
-    def get_plans(self, context, search_opts=None):
+    def get_plans(self, context, marker=None, limit=None, sort_keys=None,
+                  sort_dirs=None, filters=None):
         LOG.info("Get all plans.")
-        plan_list = db_api.plan_get_all(context)
+        plan_list = db_api.plan_get_all(context, marker=marker, limit=limit,
+                                        sort_keys=sort_keys,
+                                        sort_dirs=sort_dirs,
+                                        filters=filters)
         return plan_list
 
     def get_plan_by_id(self, context, plan_id, detail=True):

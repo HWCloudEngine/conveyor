@@ -8,6 +8,8 @@ from oslo_utils import timeutils
 from webob import exc
 from conveyor.i18n import _
 from oslo_utils import uuidutils
+
+from conveyor.api import common
 from conveyor.common import template_format
 from conveyor.api.wsgi import wsgi
 from oslo_log import log as logging
@@ -45,7 +47,6 @@ class Controller(wsgi.Controller):
 #             msg = _("The plan %s could not be found" % id)
 #             LOG.error(msg)
 #             raise exc.HTTPInternalServerError(explanation=msg)
-        
 
     def create(self, req, body):
         LOG.debug("Create a clone or migrate plan.")
@@ -81,10 +82,16 @@ class Controller(wsgi.Controller):
         if not resources:
             msg = _('No vaild resource, please check the types and ids')
             raise exc.HTTPBadRequest(explanation=msg)
+
+        plan_name = params.get('plan_name')
         
         try:
-            plan_id, dependencies = self._resource_api.create_plan(context, params.get('type'), resources)
-            return {'plan': {'plan_id': plan_id, 'original_dependencies': dependencies}}
+            plan_id, dependencies = \
+                self._resource_api.create_plan(context, params.get('type'),
+                                               resources,
+                                               plan_name=plan_name)
+            return {'plan': {'plan_id': plan_id,
+                             'original_dependencies': dependencies}}
         except Exception as e:
             LOG.error(unicode(e))
             raise exc.HTTPInternalServerError(explanation=unicode(e))
@@ -205,15 +212,24 @@ class Controller(wsgi.Controller):
         except Exception as e:
             LOG.error(unicode(e))
             raise exc.HTTPInternalServerError(explanation=unicode(e))
-        
-        
+
     def detail(self, req):
         LOG.debug("Get all plans.")
         search_opts = {}
         search_opts.update(req.GET)
         context = req.environ['conveyor.context']
-        #limit, marker = common.get_limit_and_marker(req)
-        plans = self._resource_api.get_plans(context, search_opts=search_opts)
+
+        limit, marker = common.get_limit_and_marker(req)
+        sort_keys, sort_dirs = common.get_sort_params(search_opts)
+
+        filters = search_opts
+        LOG.info("limit=%s, marker=%s, sort_keys=%s, sort_dirs=%s filter=%s",
+                 limit, marker, sort_keys, sort_dirs, filters)
+        plans = self._resource_api.get_plans(context, marker=marker,
+                                             limit=limit,
+                                             sort_dirs=sort_dirs,
+                                             sort_keys=sort_keys,
+                                             filters=filters)
         
         return {"plans": plans}
 

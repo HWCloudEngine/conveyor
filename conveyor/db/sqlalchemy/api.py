@@ -46,12 +46,15 @@ import sqlalchemy
 from sqlalchemy import func
 from sqlalchemy import orm
 from sqlalchemy.orm import aliased as orm_aliased
+from sqlalchemy.orm import RelationshipProperty
 from sqlalchemy.orm import session as orm_session
 
 import osprofiler.sqlalchemy
+from conveyor.common import sqlalchemyutils
 from conveyor.conveyorheat.common import crypt
 from conveyor.conveyorheat.common import exception
 from conveyor.db.sqlalchemy import filters as db_filters
+from conveyor import exception
 import migration
 # from conveyor.db.sqlalchemy import models
 from conveyor.db.sqlalchemy import utils as db_utils
@@ -254,6 +257,27 @@ def model_query(context, model, *args, **kwargs):
 ###################
 
 
+@require_context
+def _plan_get_query(context, session=None, project_only=False,
+                      joined_load=True):
+    """Get the query to retrieve the Plan.
+
+    :param context: the context used to run the method _plan_get_query
+    :param session: the session to use
+    :param project_only: the boolean used to decide whether to query the
+                         volume in the current project or all projects
+    :param joined_load: the boolean used to decide whether the query loads
+                        the other models, which join the volume model in
+                        the database. Currently, the False value for this
+                        parameter is specially for the case of updating
+                        database during volume migration
+    :returns: updated query or None
+    """
+    if not joined_load:
+        return model_query(context, models.Plan, session=session,
+                           project_only=project_only)
+
+
 def _plan_get(context, id, session=None, read_deleted='no'):
     result = model_query(context, models.Plan, session=session, read_deleted='no').\
                filter_by(plan_id=id).\
@@ -307,10 +331,120 @@ def plan_update(context, id, values):
 
 
 @require_context
-def plan_get_all(context):
-    plans = model_query(context, models.Plan).\
-                     all()
+def plan_get_all(context, marker=None, limit=None, sort_keys=None,
+                 sort_dirs=None, filters=None):
+    """Retrieves all plans.
+
+    If no sort parameters are specified then the returned volumes are sorted
+    first by the 'created_at' key and then by the 'id' key in descending
+    order.
+
+    :param context: context to query under
+    :param marker: the last item of the previous page, used to determine the
+                   next page of results to return
+    :param limit: maximum number of items to return
+    :param sort_keys: list of attributes by which results should be sorted,
+                      paired with corresponding item in sort_dirs
+    :param sort_dirs: list of directions in which results should be sorted,
+                      paired with corresponding item in sort_keys
+    :param filters: dictionary of filters; values that are in lists, tuples,
+                    or sets cause an 'IN' operation, while exact matching
+                    is used for other values, see _process_plan_filters
+                    function for more information
+    :returns: list of matching plans
+    """
+    sort_keys, sort_dirs = process_sort_params(sort_keys,
+                                               sort_dirs,
+                                               default_dir='desc')
+
+    filters = filters or {}
+
+    if marker:
+        marker = _plan_get(context, marker)
+
+    query = model_query(context, models.Plan)
+
+    plan_name = filters.get('plan_name', None)
+    if not plan_name:
+        query.filter(models.Plan.plan_name == plan_name)
+
+    query = sqlalchemyutils.paginate_query(query, models.Plan, limit,
+                                           sort_keys,
+                                           marker=marker,
+                                           sort_dirs=sort_dirs)
+    plans = query.all()
     return [dict(r) for r in plans ]
+
+
+def process_sort_params(sort_keys, sort_dirs, default_keys=None,
+                        default_dir='asc'):
+    """Process the sort parameters to include default keys.
+
+    Creates a list of sort keys and a list of sort directions. Adds the default
+    keys to the end of the list if they are not already included.
+
+    When adding the default keys to the sort keys list, the associated
+    direction is:
+    1) The first element in the 'sort_dirs' list (if specified), else
+    2) 'default_dir' value (Note that 'asc' is the default value since this is
+    the default in sqlalchemy.utils.paginate_query)
+
+    :param sort_keys: List of sort keys to include in the processed list
+    :param sort_dirs: List of sort directions to include in the processed list
+    :param default_keys: List of sort keys that need to be included in the
+                         processed list, they are added at the end of the list
+                         if not already specified.
+    :param default_dir: Sort direction associated with each of the default
+                        keys that are not supplied, used when they are added
+                        to the processed list
+    :returns: list of sort keys, list of sort directions
+    :raise exception.InvalidInput: If more sort directions than sort keys
+                                   are specified or if an invalid sort
+                                   direction is specified
+    """
+    if default_keys is None:
+        default_keys = ['created_at', 'id']
+
+    # Determine direction to use for when adding default keys
+    if sort_dirs and len(sort_dirs):
+        default_dir_value = sort_dirs[0]
+    else:
+        default_dir_value = default_dir
+
+    # Create list of keys (do not modify the input list)
+    if sort_keys:
+        result_keys = list(sort_keys)
+    else:
+        result_keys = []
+
+    # If a list of directions is not provided, use the default sort direction
+    # for all provided keys.
+    if sort_dirs:
+        result_dirs = []
+        # Verify sort direction
+        for sort_dir in sort_dirs:
+            if sort_dir not in ('asc', 'desc'):
+                msg = _("Unknown sort direction, must be 'desc' or 'asc'.")
+                raise exception.InvalidInput(reason=msg)
+            result_dirs.append(sort_dir)
+    else:
+        result_dirs = [default_dir_value for _sort_key in result_keys]
+
+    # Ensure that the key and direction length match
+    while len(result_dirs) < len(result_keys):
+        result_dirs.append(default_dir_value)
+    # Unless more direction are specified, which is an error
+    if len(result_dirs) > len(result_keys):
+        msg = _("Sort direction array size exceeds sort key array size.")
+        raise exception.InvalidInput(reason=msg)
+
+    # Ensure defaults are included
+    for key in default_keys:
+        if key not in result_keys:
+            result_keys.append(key)
+            result_dirs.append(default_dir_value)
+
+    return result_keys, result_dirs
 
 
 def plan_delete(context, id):
