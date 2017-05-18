@@ -59,10 +59,11 @@ class ResourceAPI(object):
                           search_opts=search_opts,
                           marker=marker, limit=limit)
 
-    def create_plan(self, context, plan_type, resources):
+    def create_plan(self, context, plan_type, resources, plan_name=None):
         cctxt = self.client.prepare(version='1.18')
         return cctxt.call(context, 'create_plan',
-                          plan_type=plan_type, resources=resources)
+                          plan_type=plan_type, resources=resources,
+                          plan_name=plan_name)
 
     # has been abolished
     def create_plan_by_template(self, context, template):

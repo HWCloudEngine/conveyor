@@ -19,12 +19,14 @@ import re
 import urllib
 
 from oslo_config import cfg
+from oslo_utils import strutils
 import six.moves.urllib.parse as urlparse
 import webob
 
 from oslo_log import log as logging
 from conveyor.api.wsgi import wsgi
 from conveyor.api import xmlutil
+from conveyor import exception
 from conveyor.i18n import _
 from conveyor import utils
 
@@ -436,3 +438,21 @@ class MetadataTemplate(xmlutil.TemplateBuilder):
         elem.set('key', 0)
         elem.text = 1
         return xmlutil.MasterTemplate(root, 1, nsmap=metadata_nsmap)
+
+
+def is_all_tenants(search_opts):
+    """Checks to see if the all_tenants flag is in search_opts
+
+    :param dict search_opts: The search options for a request
+    :returns: boolean indicating if all_tenants are being requested or not
+    """
+    all_tenants = search_opts.get('all_tenants')
+    if all_tenants:
+        try:
+            all_tenants = strutils.bool_from_string(all_tenants, True)
+        except ValueError as err:
+            raise exception.InvalidInput(six.text_type(err))
+    else:
+        # The empty string is considered enabling all_tenants
+        all_tenants = 'all_tenants' in search_opts
+    return all_tenants

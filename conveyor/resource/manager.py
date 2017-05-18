@@ -211,7 +211,7 @@ class ResourceManager(manager.Manager):
 
         return res
 
-    def create_plan(self, context, plan_type, resources):
+    def create_plan(self, context, plan_type, resources, plan_name=None):
 
         if plan_type not in ["clone", "migrate"]:
             msg = "Plan type must be 'clone' or 'migrate'."
@@ -326,12 +326,15 @@ class ResourceManager(manager.Manager):
             new_dependencies = stack.get_collected_dependencies()
 
         plan_id = uuidutils.generate_uuid()
+        if not plan_name:
+            plan_name = plan_id
         ori_res = self._actual_id_to_resource_id(new_resources)
         ori_dep = self._actual_id_to_resource_id(new_dependencies)
 
         new_plan = resource.Plan(plan_id, plan_type, 
                                  context.project_id, 
-                                 context.user_id, 
+                                 context.user_id,
+                                 plan_name=plan_name,
                                  original_resources=ori_res,
                                  original_dependencies=ori_dep)
 
