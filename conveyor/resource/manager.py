@@ -205,6 +205,8 @@ class ResourceManager(manager.Manager):
             }
             opts['filters'] = search_opts
             res = self.glance_api.get_all(context, **opts)
+        elif res_type == "OS::Heat::Stack":
+            res = self.heat_api.stack_list(context)
         else:
             LOG.error("The resource type %s is unsupported.", res_type)
             raise exception.ResourceTypeNotSupported(resource_type=res_type)
