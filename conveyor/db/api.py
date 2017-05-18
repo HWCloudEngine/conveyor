@@ -67,9 +67,13 @@ def plan_delete(context, id):
 def plan_update(context, id, values):
     return IMPL.plan_update(context, id, values)
 
-def plan_get_all(context):
+
+def plan_get_all(context, marker=None, limit=None, sort_keys=None,
+                 sort_dirs=None, filters=None):
     """get all plans."""
-    return IMPL.plan_get_all(context)
+    return IMPL.plan_get_all(context, marker=marker, limit=limit,
+                             sort_keys=sort_keys, sort_dirs=sort_dirs,
+                             filters=filters)
 
 
 # add from heat

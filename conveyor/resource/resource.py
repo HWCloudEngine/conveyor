@@ -172,12 +172,13 @@ class Plan(object):
     def __init__(self, plan_id, plan_type, project_id, user_id, stack_id=None,
                  created_at=None, updated_at=None, deleted_at=None,
                  expire_at=None, deleted=None, plan_status=None,
-                 task_status=None, original_resources=None,
+                 task_status=None, plan_name=None, original_resources=None,
                  updated_resources=None, original_dependencies=None,
                  updated_dependencies=None):
 
         self.plan_id = plan_id
         self.plan_type = plan_type
+        self.plan_name = plan_name
         self.project_id = project_id
         self.user_id = user_id
         self.stack_id = stack_id
@@ -267,6 +268,7 @@ class Plan(object):
             return res
 
         plan = {'plan_id': self.plan_id,
+                'plan_name': self.plan_name,
                 'plan_type': self.plan_type,
                 'project_id': self.project_id,
                 'user_id': self.user_id,
@@ -312,6 +314,7 @@ class Plan(object):
 
         plan = {
             'plan_id': '',
+            'plan_name': '',
             'plan_type': '',
             'project_id': '',
             'user_id': '',

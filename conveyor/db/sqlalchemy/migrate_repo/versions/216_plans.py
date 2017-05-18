@@ -33,25 +33,27 @@ def upgrade(migrate_engine):
     meta.bind = migrate_engine
 
     plan = Table('plans', meta,
-        Column('created_at', DateTime(timezone=False)),
-        Column('updated_at', DateTime(timezone=False)),
-        Column('deleted_at', DateTime(timezone=False)),
-        Column('expire_at', DateTime(timezone=False)),
-        Column('id', Integer, primary_key=True, nullable=False),
-        Column('plan_id', String(length=36), nullable=False),
-        Column('project_id', String(length=36)),
-        Column('user_id', String(length=36)),
-        
-        Column('task_status', String(length=255)),
-        Column('plan_status', String(length=255)),
-        Column('plan_type', String(length=255)),
-        Column('original_resources', String(length=1023)),
-        Column('updated_resources', String(length=1023)),
-        Column('stack_id', String(length=36)),
-        Column('deleted', Integer),
-        mysql_engine='InnoDB',
-        mysql_charset='utf8'
-    )
+                 Column('created_at', DateTime(timezone=False)),
+                 Column('updated_at', DateTime(timezone=False)),
+                 Column('deleted_at', DateTime(timezone=False)),
+                 Column('expire_at', DateTime(timezone=False)),
+                 Column('id', Integer, primary_key=True, nullable=False),
+                 Column('plan_id', String(length=36), nullable=False),
+                 Column('plan_name', String(length=255), nullable=True),
+
+                 Column('project_id', String(length=36)),
+                 Column('user_id', String(length=36)),
+
+                 Column('task_status', String(length=255)),
+                 Column('plan_status', String(length=255)),
+                 Column('plan_type', String(length=255)),
+                 Column('original_resources', String(length=1023)),
+                 Column('updated_resources', String(length=1023)),
+                 Column('stack_id', String(length=36)),
+                 Column('deleted', Integer),
+                 mysql_engine='InnoDB',
+                 mysql_charset='utf8'
+                 )
 
 
     plan.create()
