@@ -42,7 +42,6 @@ from sqlalchemy.orm import RelationshipProperty
 from sqlalchemy.orm import session as orm_session
 
 from conveyor.common import sqlalchemyutils
-import conveyor.context
 from conveyor.conveyorheat.common import crypt
 from conveyor.conveyorheat.common import exception
 from conveyor.conveyorheat.engine import environment as heat_environment
@@ -118,6 +117,7 @@ def require_context(f):
 
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
+        import conveyor.context
         conveyor.context.require_context(args[0])
         return f(*args, **kwargs)
     return wrapper

@@ -67,7 +67,7 @@ class CloneManager(object):
 
         try:
             trans_data_wait_fun = \
-                self.resource_common._await_data_trans_status,
+                self.resource_common._await_data_trans_status
             self.clone_driver.start_volume_clone(
                 context, resource_name, template,
                 volume_wait_fun=self.resource_common._await_volume_status,

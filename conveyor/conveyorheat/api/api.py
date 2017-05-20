@@ -563,7 +563,7 @@ class API(object):
                                                      '', st['stack_id'])
                 # context._session = db_api.get_session()
                 self.api.delete_stack(context, stack_identity)
-                loop_fun = functools.partial(self._wait_for_finish, context,
+                loop_fun = functools.partial(self._wait_for_table, context,
                                              st['stack_id'])
                 timer = loopingcall.FixedIntervalLoopingCall(loop_fun)
                 timer.start(interval=0.5).wait()
