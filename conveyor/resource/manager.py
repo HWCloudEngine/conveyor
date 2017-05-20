@@ -34,6 +34,7 @@ from conveyor import compute
 from conveyor.conveyorheat.api import api as heat
 from conveyor.db import api as db_api
 from conveyor import exception
+from conveyor import heat as original_heat
 from conveyor import image
 from conveyor import manager
 from conveyor import network
@@ -87,6 +88,7 @@ class ResourceManager(manager.Manager):
         self.neutron_api = network.API()
         self.glance_api = image.API()
         self.heat_api = heat.API()
+        self.original_heat_api = original_heat.API()
         self.db_api = db_api
         resource_driver_class = importutils.import_class(CONF.resource_driver)
         self.resource_driver = resource_driver_class()
@@ -143,7 +145,8 @@ class ResourceManager(manager.Manager):
             # "OS::Neutron::Listener": "self.neutron_api.show_listener",
             "OS::Neutron::PoolMember": "self.neutron_api.show_member",
             "OS::Neutron::HealthMonitor":
-                "self.neutron_api.show_health_monitor"
+                "self.neutron_api.show_health_monitor",
+            "OS::Heat::Stack": "self.original_heat_api.get_stack"
         }
 
         if resource_type in method_map.keys():
@@ -212,7 +215,7 @@ class ResourceManager(manager.Manager):
             opts['filters'] = search_opts
             res = self.glance_api.get_all(context, **opts)
         elif res_type == "OS::Heat::Stack":
-            res = self.heat_api.stack_list(context)
+            res = self.original_heat_api.stack_list(context, **search_opts)
         else:
             LOG.error("The resource type %s is unsupported.", res_type)
             raise exception.ResourceTypeNotSupported(resource_type=res_type)

@@ -168,8 +168,15 @@ def heatclient(context, password=None):
 
 
 class API(object):
-    def get_stack(self, context, stack_id):
-        return heatclient(context).stacks.get(stack_id)
+
+    def get_stack(self, context, stack_id, is_dict=True):
+        stack = heatclient(context).stacks.get(stack_id)
+        if is_dict:
+            try:
+                stack = stack.to_dict()
+            except Exception:
+                stack = self._dict_stack(stack)
+        return stack
 
     def delete_stack(self, context, stack_id):
         return heatclient(context).stacks.delete(stack_id)
@@ -205,5 +212,37 @@ class API(object):
     def get_template(self, context, stack_id):
         return heatclient(context).stacks.template(stack_id)
 
-    def stack_list(self, context, **kwargs):
-        return heatclient(context).stacks.list(**kwargs)
+    def stack_list(self, context, is_dict=True, **kwargs):
+        stacks = heatclient(context).stacks.list(**kwargs)
+        if stacks and is_dict:
+            stack_dict_list = []
+            for stack in stacks:
+                stack_dict = self._dict_stack(stack)
+                stack_dict_list.append(stack_dict)
+            return stack_dict_list
+        return stacks
+
+    def _dict_stack(self, stack):
+        stack_name = getattr(stack, 'stack_name', '')
+        stack_id = getattr(stack, 'id', '')
+        description = getattr(stack, 'description', '')
+        creation_time = getattr(stack, 'creation_time', '')
+        updated_time = getattr(stack, 'updated_time', '')
+        stack_status = getattr(stack, 'stack_status', '')
+        disable_rollback = getattr(stack, 'disable_rollback', '')
+        parameters = getattr(stack, 'parameters', '')
+        timeout_mins = getattr(stack, 'timeout_mins', '')
+        parent = getattr(stack, 'parent', '')
+        stack_dict = {
+            'id': stack_id,
+            'stack_name': stack_name,
+            'description': description,
+            'creation_time': creation_time,
+            'updated_time': updated_time,
+            'stack_status': stack_status,
+            'disable_rollback': disable_rollback,
+            'parameters': parameters,
+            'timeout_mins': timeout_mins,
+            'parent': parent
+        }
+        return stack_dict
