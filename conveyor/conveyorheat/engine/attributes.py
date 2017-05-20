@@ -172,8 +172,8 @@ class Attributes(collections.Mapping):
                             {'name': attrib.name,
                              'att_type': attrib.schema.STRING})
         elif attrib.schema.type == attrib.schema.LIST:
-            if (not isinstance(value, collections.Sequence)
-                    or isinstance(value, six.string_types)):
+            if (not isinstance(value, collections.Sequence) or
+                    isinstance(value, six.string_types)):
                 LOG.warning(_LW("Attribute %(name)s is not of type "
                                 "%(att_type)s"),
                             {'name': attrib.name,

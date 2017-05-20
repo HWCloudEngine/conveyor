@@ -17,17 +17,15 @@
 import time
 from webob import exc
 
-from conveyor import context
 from oslo_log import log as logging
-from conveyor.api.wsgi import wsgi
-from conveyor.api import extensions
-
 from oslo_utils import timeutils
-from conveyor.clone import api
-from conveyor.resource import api as resource_api
-from conveyor.common import plan_status as p_status
 
+from conveyor.api import extensions
+from conveyor.api.wsgi import wsgi
+from conveyor.clone import api
+from conveyor.common import plan_status as p_status
 from conveyor.i18n import _
+from conveyor.resource import api as resource_api
 
 LOG = logging.getLogger(__name__)
 
@@ -116,9 +114,9 @@ class CloneActionController(wsgi.Controller):
         sys_clone = clone_body.get('sys_clone', False)
         context = req.environ['conveyor.context']
         self.clone_api.clone(context, id, destination, sys_clone)
-    
+
     @wsgi.response(202)
-    @wsgi.action('export_template_and_clone')   
+    @wsgi.action('export_template_and_clone')
     def _export_template_and_clone(self, req, id, body):
         LOG.debug("start export_template_and_clone,the plan id is %s" % id)
         context = req.environ['conveyor.context']
@@ -137,7 +135,7 @@ class CloneActionController(wsgi.Controller):
                 'plan_id': id,
                 'state': plan_status,
             }
-            raise exc.HTTPBadRequest(explanation=msg) 
+            raise exc.HTTPBadRequest(explanation=msg)
         self.clone_api.export_template_and_clone(context, id, destination,
                                                  resources, sys_clone)
 

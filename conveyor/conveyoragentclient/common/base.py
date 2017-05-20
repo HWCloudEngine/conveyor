@@ -46,13 +46,11 @@ class Manager(object):
     """
 
     def __init__(self, client, url):
-        
+
         self.client = client
         self.url = url
-        
 
     def _list(self, url, response_key, obj_class=None, body=None):
-        
         url = self.url + url
         resp = None
         if body:
@@ -69,7 +67,6 @@ class Manager(object):
         url = self.url + url
         resp, body = self.client.post(url, body=body)
         return body
-   
 
     def _delete(self, url):
         url = self.url + url
@@ -80,7 +77,7 @@ class Manager(object):
         url = self.url + url
         resp, body = self.client.put(url, body=body)
         return body
-    
+
     def _clone_volume(self, url, body, **kwargs):
         url = self.url + url
         resp, body = self.client.post(url, body=body)
@@ -100,12 +97,12 @@ class Manager(object):
         url = self.url + url
         resp, body = self.client.post(url, body=body)
         return body
-    
+
     def _get_disk_name(self, url, body, **kwargs):
         url = self.url + url
         resp, body = self.client.post(url, body=body)
         return body
-    
+
     def _post(self, url, body, **kwargs):
         url = self.url + url
         resp, body = self.client.post(url, body=body)

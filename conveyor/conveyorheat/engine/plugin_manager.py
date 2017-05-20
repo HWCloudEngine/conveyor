@@ -13,11 +13,12 @@
 
 import collections
 import itertools
+import six
 import sys
 
 from oslo_config import cfg
 from oslo_log import log
-import six
+
 
 from conveyor.conveyorheat.common.i18n import _LE
 from conveyor.conveyorheat.common import plugin_loader
@@ -45,9 +46,11 @@ class PluginManager(object):
             for package_name in extra_packages:
                 yield sys.modules[package_name]
 
-            cfg.CONF.import_opt('plugin_dirs', 'conveyor.conveyorheat.common.config')
-            yield plugin_loader.create_subpackage(cfg.CONF.plugin_dirs,
-                                                  'conveyor.conveyorheat.engine')
+            cfg.CONF.import_opt('plugin_dirs',
+                                'conveyor.conveyorheat.common.config')
+            yield plugin_loader.create_subpackage(
+                                    cfg.CONF.plugin_dirs,
+                                    'conveyor.conveyorheat.engine')
 
         def modules():
             pkg_modules = six.moves.map(plugin_loader.load_modules,

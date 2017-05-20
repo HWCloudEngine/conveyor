@@ -14,14 +14,13 @@
 #    under the License.
 
 from oslo_config import cfg
-
 import oslo_utils.importutils
 
 _compute_opts = [
     cfg.StrOpt('compute_api_class',
-                           default='conveyor.compute.nova.API',
-                           help='The full class name of the '
-                                'compute API class to use'),
+               default='conveyor.compute.nova.API',
+               help='The full class name of the '
+                    'compute API class to use'),
 ]
 
 cfg.CONF.register_opts(_compute_opts)

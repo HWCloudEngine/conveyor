@@ -16,14 +16,15 @@
 
 import os
 import re
+import six
 import urllib
 
 from oslo_config import cfg
+from oslo_log import log as logging
 from oslo_utils import strutils
 import six.moves.urllib.parse as urlparse
 import webob
 
-from oslo_log import log as logging
 from conveyor.api.wsgi import wsgi
 from conveyor.api import xmlutil
 from conveyor import exception

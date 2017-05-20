@@ -25,13 +25,16 @@ from conveyor.conveyorheat.common import crypt
 from conveyor.conveyorheat.common import exception
 from conveyor.conveyorheat.common.i18n import _
 from conveyor.conveyorheat.common.i18n import _LI
-from conveyor.db import api as db_api
 from conveyor.conveyorheat.engine import api
 from conveyor.conveyorheat.engine import scheduler
+
 from conveyor.conveyorheat.objects import resource as resource_objects
-from conveyor.conveyorheat.objects import software_config as software_config_object
-from conveyor.conveyorheat.objects import software_deployment as software_deployment_object
+from conveyor.conveyorheat.objects import software_config as \
+    software_config_object
+from conveyor.conveyorheat.objects import software_deployment as \
+    software_deployment_object
 from conveyor.conveyorheat.rpc import api as rpc_api
+from conveyor.db import api as db_api
 
 LOG = logging.getLogger(__name__)
 

@@ -22,11 +22,11 @@ from oslo_versionedobjects import fields
 
 from conveyor.conveyorheat.common import exception
 from conveyor.conveyorheat.common.i18n import _
-from conveyor.db import api as db_api
 from conveyor.conveyorheat.objects import base as heat_base
 from conveyor.conveyorheat.objects import fields as heat_fields
 from conveyor.conveyorheat.objects import raw_template
 from conveyor.conveyorheat.objects import stack_tag
+from conveyor.db import api as db_api
 
 
 class Stack(

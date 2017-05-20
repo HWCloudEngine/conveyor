@@ -202,7 +202,8 @@ class CloudWatchAlarm(resource.Resource):
 
 
 def resource_mapping():
-    cfg.CONF.import_opt('enable_cloud_watch_lite', 'conveyor.conveyorheat.common.config')
+    cfg.CONF.import_opt('enable_cloud_watch_lite',
+                        'conveyor.conveyorheat.common.config')
     if cfg.CONF.enable_cloud_watch_lite:
         return {
             'OS::Heat::CWLiteAlarm': CloudWatchAlarm,

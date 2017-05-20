@@ -35,12 +35,15 @@ except ImportError:
 
 import eventlet
 from eventlet import event
+
 from oslo_config import cfg
+from oslo_log import log as logging
+from oslo_utils import importutils
 
 from conveyor.common import eventlet_backdoor
-from conveyor.common.gettextutils import _LE, _LI, _LW
-from oslo_utils import importutils
-from oslo_log import log as logging
+from conveyor.common.gettextutils import _LE
+from conveyor.common.gettextutils import _LI
+from conveyor.common.gettextutils import _LW
 from conveyor.common import systemd
 from conveyor.common import threadgroup
 

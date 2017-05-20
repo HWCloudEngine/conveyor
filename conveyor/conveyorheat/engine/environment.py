@@ -17,10 +17,10 @@ import glob
 import itertools
 import os.path
 import re
+import six
 
 from oslo_config import cfg
 from oslo_log import log
-import six
 
 from conveyor.conveyorheat.common import environment_format as env_fmt
 from conveyor.conveyorheat.common import exception
@@ -792,7 +792,8 @@ def get_child_environment(parent_env, child_params, item_to_remove=None,
 
 def read_global_environment(env, env_dir=None):
     if env_dir is None:
-        cfg.CONF.import_opt('environment_dir', 'conveyor.conveyorheat.common.config')
+        cfg.CONF.import_opt('environment_dir',
+                            'conveyor.conveyorheat.common.config')
         env_dir = cfg.CONF.environment_dir
 
     try:

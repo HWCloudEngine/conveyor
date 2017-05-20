@@ -15,18 +15,16 @@
 Request Body limiting middleware.
 
 """
-
-
-from oslo_config import cfg
 import webob.dec
 import webob.exc
 
-from conveyor.i18n import _
+from oslo_config import cfg
 from oslo_log import log as logging
+
+from conveyor.i18n import _
 from conveyor import wsgi
 
 
-#default request size is 112k
 max_request_body_size_opt = cfg.IntOpt('osapi_max_request_body_size',
                                        default=114688,
                                        help='Max size for body of a request')

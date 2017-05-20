@@ -26,7 +26,8 @@ from conveyor.conveyorheat.common.i18n import _LI
 
 from conveyor.conveyorheat.engine import resource
 
-from conveyor.conveyorheat.engine.resources.openstack.neutron import port as neutron_port
+from conveyor.conveyorheat.engine.resources.openstack.neutron import \
+    port as neutron_port
 
 LOG = logging.getLogger(__name__)
 

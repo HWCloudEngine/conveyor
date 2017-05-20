@@ -21,14 +21,14 @@ Common Auth Middleware.
 import os
 
 from oslo_config import cfg
+from oslo_log import log as logging
 from oslo_serialization import jsonutils
 import webob.dec
 import webob.exc
 
 from conveyor.api.middleware import request_id
-
-from oslo_log import log as logging
 from conveyor.api.wsgi import wsgi
+
 from conveyor import context
 from conveyor.i18n import _
 from conveyor import wsgi as base_wsgi
@@ -59,7 +59,6 @@ def pipeline_factory(loader, global_conf, **local_conf):
     for filter in filters:
         app = filter(app)
     return app
-
 
 
 class InjectContext(base_wsgi.Middleware):
@@ -116,8 +115,9 @@ class V2vKeystoneContext(base_wsgi.Middleware):
 
         if CONF.use_forwarded_for:
             remote_address = req.headers.get('X-Forwarded-For', remote_address)
+        token_info = req.environ['keystone.token_info']
         try:
-            user_name = req.environ['keystone.token_info']['access']['user']['username']
+            user_name = token_info['access']['user']['username']
         except KeyError:
             user_name = None
         ctx = context.RequestContext(user_id,
@@ -128,14 +128,14 @@ class V2vKeystoneContext(base_wsgi.Middleware):
                                      remote_address=remote_address,
                                      service_catalog=service_catalog,
                                      request_id=req_id,
-                                     auth_token_info=req.environ['keystone.token_info'],
+                                     auth_token_info=token_info,
                                      auth_url=CONF.keystone_authtoken.auth_url,
                                      tenant_id=project_id,
                                      user_name=user_name)
 
         req.environ['conveyor.context'] = ctx
         return self.application
-    
+
     def _get_roles(self, req):
         """Get the list of roles."""
 

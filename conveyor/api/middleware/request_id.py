@@ -21,8 +21,8 @@ request environment. The request ID is also added to API response.
 
 import webob.dec
 
-from conveyor.common import context
 from conveyor.api.middleware import base
+from conveyor.common import context
 
 
 ENV_REQUEST_ID = 'openstack.request_id'

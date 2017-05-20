@@ -13,7 +13,8 @@
 
 from oslo_config import cfg
 
-cfg.CONF.import_opt('stack_scheduler_hints', 'conveyor.conveyorheat.common.config')
+cfg.CONF.import_opt('stack_scheduler_hints',
+                    'conveyor.conveyorheat.common.config')
 
 
 class SchedulerHintsMixin(object):

@@ -15,17 +15,21 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from oslo_config import cfg
 from oslo_log import log as logging
-from conveyor import exception
+
 from conveyor import compute
-from conveyor import volume
+from conveyor import exception
 from conveyor import network
+from conveyor import volume
+
 from conveyor.brick import base
 from conveyor.conveyoragentclient.v1 import client as conveyorclient
+from conveyor.i18n import _
+from conveyor.i18n import _LW
 from conveyor.resource import api as resource_api
-from conveyor.i18n import _, _LW
+
 from eventlet import greenthread
-from oslo_config import cfg
 import time
 
 
@@ -100,18 +104,21 @@ class ResourceCommon(object):
         # NOTE(harlowja): Should only happen if we ran out of attempts
         if 'available' == status:
             LOG.error(_("Volume id: %s detach failed"), vol_id)
-            raise exception.VolumeNotdetach(volume_id=vol_id,
-                                         seconds=int(time.time() - start),
-                                         attempts=attempts)
+            raise exception.VolumeNotdetach(
+                                volume_id=vol_id,
+                                seconds=int(time.time() - start),
+                                attempts=attempts)
         elif 'in-use' == status:
             LOG.error(_("Volume id: %s attach failed"), vol_id)
-            raise exception.VolumeNotAttach(volume_id=vol_id,
-                                         seconds=int(time.time() - start),
-                                         attempts=attempts)
+            raise exception.VolumeNotAttach(
+                                volume_id=vol_id,
+                                seconds=int(time.time() - start),
+                                attempts=attempts)
         else:
             raise exception.Error(message="Volume option error.")
 
-    def _await_data_trans_status(self, context, host, port, task_ids, state_map, plan_id=None):
+    def _await_data_trans_status(self, context, host, port, task_ids,
+                                 state_map, plan_id=None):
 
         start = time.time()
         retries = CONF.data_transformer_state_retries
@@ -303,8 +310,8 @@ class ResourceCommon(object):
 
         # NOTE(harlowja): Should only happen if we ran out of attempts
         raise exception.PortNotattach(port_id=port_id,
-                                         seconds=int(time.time() - start),
-                                         attempts=attempts)
+                                      seconds=int(time.time() - start),
+                                      attempts=attempts)
 
     def _check_connect_sucess(self, ip_address, times_for_check=3, interval=1):
         '''check ip can ping or not'''

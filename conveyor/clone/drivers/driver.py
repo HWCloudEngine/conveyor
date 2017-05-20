@@ -22,17 +22,18 @@ import time
 from oslo_config import cfg
 from oslo_log import log as logging
 
-from conveyor import compute
+from conveyor.clone.resources import common
 from conveyor.conveyoragentclient.v1 import client as birdiegatewayclient
-from conveyor import exception
 from conveyor.conveyorheat.api import api as heat
-from conveyor.i18n import _LW
 from conveyor.i18n import _LE
+from conveyor.i18n import _LW
+from conveyor.resource import api as resource_api
+
+from conveyor import compute
+from conveyor import exception
 from conveyor import network
 from conveyor import utils
 from conveyor import volume
-from conveyor.resource import api as resource_api
-from conveyor.clone.resources import common
 
 
 CONF = cfg.CONF
@@ -131,10 +132,10 @@ class BaseDriver(object):
         )
         disks = set(client.vservices.get_disk_name().get('dev_name'))
 
-        attach_resp = self.compute_api.attach_volume(context,
-                                                     gw_id,
-                                                     volume_id,
-                                                     None)
+        self.compute_api.attach_volume(context,
+                                       gw_id,
+                                       volume_id,
+                                       None)
         undo_mgr.undo_with(functools.partial(self._detach_volume,
                                              gw_id,
                                              volume_id))
@@ -295,10 +296,10 @@ class BaseDriver(object):
         )
         disks = set(client.vservices.get_disk_name().get('dev_name'))
 
-        attach_resp = self.compute_api.attach_volume(context,
-                                                     gw_id,
-                                                     volume_id,
-                                                     None)
+        self.compute_api.attach_volume(context,
+                                       gw_id,
+                                       volume_id,
+                                       None)
         LOG.debug('attach volume %s to gw host %s', volume_id, gw_id)
         undo_mgr.undo_with(functools.partial(self._detach_volume,
                                              context,
@@ -389,8 +390,8 @@ class BaseDriver(object):
                                                               vgw_id,
                                                               'SHUTOFF')
                     self.compute_api.detach_volume(context,
-                                                vgw_id,
-                                                volume_id)
+                                                   vgw_id,
+                                                   volume_id)
                     self._wait_for_volume_status(context, volume_id, vgw_id,
                                                  'available')
 

@@ -14,16 +14,16 @@
 #    under the License.
 
 """The conveyor api."""
-import ConfigParser 
-import webob
+import ConfigParser
 from webob import exc
 
 from oslo_config import cfg
-
 from oslo_log import log as logging
 from oslo_utils import timeutils
-from conveyor import utils
+
 from conveyor.api.wsgi import wsgi
+from conveyor import utils
+
 
 CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
@@ -60,8 +60,8 @@ class ConfigurationController(wsgi.Controller):
     @wsgi.response(202)
     def create(self, req, body):
         """Creates a new configure."""
-        if  not self.is_valid_body(body, 'configurations'):
-            LOG.debug("Configuration modify request body has not key:configurations")
+        if not self.is_valid_body(body, 'configurations'):
+            LOG.debug("Configuration modify request body has not key:values")
             raise exc.HTTPUnprocessableEntity()
 
         config = body['configurations']
@@ -78,27 +78,32 @@ class ConfigurationController(wsgi.Controller):
             # 1.1 read config file info
             fh = None
             self.config_ctl.read(filepath)
-            #1.2 get all modify config value in request
+            # 1.2 get all modify config value in request
             for configs in config_body:
                 group = configs.pop('group', 'DEFAULT')
                 for key, value in configs.items():
                     if 'DEFAULT' == group:
                         config_value = getattr(CONF, key, None)
                     else:
-                        config_value = getattr(eval("CONF." + group), key, None)
+                        config_value = getattr(eval("CONF." + group),
+                                               key, None)
 
-                    if isinstance(config_value, dict) and (isinstance(value, dict)):
+                    if isinstance(config_value, dict) and (isinstance(value,
+                                                                      dict)):
                         for k, v in value.items():
-                            config_value[k] =  v
+                            config_value[k] = v
                         newConfig = config_value
-                        
+
                         # change dict to string and remove '{}',
-                        #eg:{'a':'aa','b':'bb'} to "'a':'aa','b':'bb'"
+                        # eg:{'a':'aa','b':'bb'} to "'a':'aa','b':'bb'"
                         saveFileConfig = self._dict_to_string(newConfig)
-                    elif isinstance(config_value, str) and (isinstance(value, dict)):
-                            newConfig = self._regist_new_config(config_value, value)
-                            saveFileConfig = newConfig                        
-                    elif isinstance(config_value, list) and (isinstance(value, list)):
+                    elif isinstance(config_value, str) and (isinstance(value,
+                                                                       dict)):
+                            newConfig = self._regist_new_config(config_value,
+                                                                value)
+                            saveFileConfig = newConfig
+                    elif isinstance(config_value, list) and (isinstance(value,
+                                                                        list)):
                         for v in value:
                             config_value.append(v)
                         newConfig = config_value
@@ -109,27 +114,29 @@ class ConfigurationController(wsgi.Controller):
                             newConfig = config_value
                             saveFileConfig = self._list_to_string(newConfig)
                         elif (isinstance(config_value, dict)):
-                            LOG.error("Add configure %(key)s : %(value)s, error: Type does not match, \
-                                      value is not dict,but config file the value of this key is dict",
+                            LOG.error("Add configure %(key)s : %(value)s,"
+                                      "error: Type does not match,"
+                                      "value is not dict,but config file"
+                                      "the value of this key is dict",
                                       {'key': key, 'value': value})
                             continue
                         else:
                             newConfig = value
                             saveFileConfig = value
-                    
-                    #1.3 modify system config info
+
+                    # 1.3 modify system config info
                     if 'DEFAULT' == group:
                         setattr(CONF, key, newConfig)
                     else:
                         setattr(eval("CONF." + group), key, newConfig)
-                       
-                    #2 add config value to config file
+
+                    # 2 add config value to config file
                     self.config_ctl.set(group, key, saveFileConfig)
-            
+
             # write new info to config file
-            fh = open(filepath ,'w')
+            fh = open(filepath, 'w')
             self.config_ctl.write(fh)
-            
+
         except Exception as e:
                 LOG.error("Add config info error: %s", e)
                 if fh:
@@ -144,10 +151,10 @@ class ConfigurationController(wsgi.Controller):
 
     @utils.synchronized('conveyor-config', external=True)
     def _regist_new_config(self, config_vaule, add_value):
-        
-        # 1.transform config value to dict 
+
+        # 1.transform config value to dict
         config_value_str = '{' + config_vaule + '}'
-        
+
         try:
             config_value_dict = eval(config_value_str)
         except Exception as e:
@@ -156,11 +163,11 @@ class ConfigurationController(wsgi.Controller):
 
         for k, v in add_value.items():
             config_az_value = config_value_dict.get(k, None)
-            
+
             # if add key not exist, new one
             if not config_az_value:
                 config_az_value = {}
-            if isinstance(v, dict):   
+            if isinstance(v, dict):
                 for kk, vv in v.items():
                     config_az_value[kk] = vv
                     # add update time
@@ -175,14 +182,12 @@ class ConfigurationController(wsgi.Controller):
             config_value_str = config_value_str[1:-1]
         else:
             config_value_str = ""
-        
-        LOG.debug('Add config info end, update time list: %s', \
+
+        LOG.debug('Add config info end, update time list: %s',
                   utils.vgw_update_time)
-        
+
         return config_value_str
-        
-       
-    
+
     def _dict_to_string(self, map):
         '''change dict to 'k:v,k:v' '''
         LOG.debug("Dict to string start, dict is: %s", map)
@@ -190,14 +195,14 @@ class ConfigurationController(wsgi.Controller):
         i = 1
         for k, v in map.items():
             if i < len(map):
-                map_str += k +':' + v + ','
+                map_str += k + ':' + v + ','
             else:
-                map_str += k +':' + v
+                map_str += k + ':' + v
             i += 1
-        
+
         LOG.debug("Dict to string end, String is: %s", map_str)
         return map_str
-    
+
     def _list_to_string(self, list_p):
         '''change dict to 'a,b,c' '''
         LOG.debug("List to string start, list is: %s", list)
@@ -211,10 +216,9 @@ class ConfigurationController(wsgi.Controller):
             else:
                 list_str += l
             i += 1
-        
+
         LOG.debug("List to string end, string is: %s", list_str)
         return list_str
-            
 
 
 def create_resource(ext_mgr):

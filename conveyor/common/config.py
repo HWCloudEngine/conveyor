@@ -25,17 +25,12 @@ stepping stone.
 
 """
 
-import socket
-
 from oslo_config import cfg
-from oslo_utils import netutils
 
-from oslo_log import log as logging
 from conveyor.i18n import _
 
 
 CONF = cfg.CONF
-#logging.register_options(CONF)
 
 core_opts = [
     cfg.StrOpt('api_paste_config',

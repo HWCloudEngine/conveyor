@@ -15,37 +15,38 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 import copy
-from eventlet import greenthread
 import functools
 import json
 import time
 import yaml
 
-from cinderclient import exceptions as cinderclient_exceptions
 from oslo_config import cfg
+from oslo_log import log as logging
 import oslo_messaging as messaging
 from oslo_utils import importutils
-from oslo_log import log as logging
-from oslo_utils import excutils
 from oslo_utils import uuidutils
+
+from cinderclient import exceptions as cinderclient_exceptions
 from neutronclient.common import exceptions as neutronclient_exceptions
 from novaclient import exceptions as novaclient_exceptions
 
-from conveyor.brick import base
 from conveyor import compute
-from conveyor.i18n import _LE
-from conveyor import manager
-from conveyor import volume
-from conveyor import network
-from conveyor.resource import api as resource_api
-from conveyor.resource import resource
 from conveyor import exception
-from conveyor.common import template_format
-from conveyor.conveyorheat.api import api as heat
+from conveyor import manager
+from conveyor import network
+from conveyor import utils
+from conveyor import volume
+
+from conveyor.brick import base
 from conveyor.common import loopingcall
 from conveyor.common import plan_status
-from conveyor import utils
+from conveyor.common import template_format
+from conveyor.conveyorheat.api import api as heat
 from conveyor.db import api as db_api
+from conveyor.i18n import _LE
+from conveyor.resource import api as resource_api
+from conveyor.resource import resource
+
 
 resource_from_dict = resource.Resource.from_dict
 
@@ -113,7 +114,7 @@ STATE_MAP = {
 
 
 def manager_dict_from_config(named_manager_config, *args, **kwargs):
-    ''' create manager class by config file, and set key with class'''
+    '''create manager class by config file, and set key with class'''
     manager_registry = dict()
 
     for manager_str in named_manager_config:
@@ -159,14 +160,10 @@ class CloneManager(manager.Manager):
         self.conveyor_cmd = base.MigrationCmd()
 
     def start_template_clone(self, context, template):
-        '''here control all resources to distribute,
-
-        and rollback after error occurring '''
-
         LOG.debug("Clone resources start in clone manager")
         stack = None
-        # (1. TODO: resolute template,and generate the dependences topo)
-        # (2.TODO: generate TaskFlow according to dependences topo(first,
+        # (1. resolute template,and generate the dependences topo)
+        # (2. generate TaskFlow according to dependences topo(first,
         # execute leaf node resource))
         clone_type = CONF.clone_migrate_type
         if 'cold' == clone_type:
@@ -188,7 +185,8 @@ class CloneManager(manager.Manager):
             LOG.error("Heat create resource error: %s", e)
             if not template.get('disable_rollback') and stack:
                 stack_id = stack.get('stack').get('id')
-                self.heat_api.delete_stack(context, stack_id, template.get('plan_id'))
+                self.heat_api.delete_stack(context, stack_id,
+                                           template.get('plan_id'))
             return None
         # if plan status is error after create resources
         plan_id = template.get('plan_id')
@@ -213,8 +211,8 @@ class CloneManager(manager.Manager):
             return stack_info['id']
         LOG.debug("After pop self define info, resources: %s", src_resources)
         try:
-            for key, resource in src_resources.items():
-                res_type = resource['type']
+            for key, r_resource in src_resources.items():
+                res_type = r_resource['type']
                 if res_type in no_action_res_type:
                     values = {}
                     values['plan_status'] = plan_status.STATE_MAP.get(
@@ -226,7 +224,7 @@ class CloneManager(manager.Manager):
                 heat_resource = self.heat_api.get_resource(context,
                                                            stack_info['id'],
                                                            key)
-                resource['id'] = heat_resource.physical_resource_id
+                r_resource['id'] = heat_resource.physical_resource_id
                 src_template['stack_id'] = stack_info['id']
                 # after step need update plan status
                 src_template['plan_id'] = plan_id
@@ -327,9 +325,9 @@ class CloneManager(manager.Manager):
             template['expire_time'] = expire_time
             template['plan_type'] = plan_type
             # add expire_time
-            for resource in resources:
-                template['resources'].update(resource.template_resource)
-                template['parameters'].update(resource.template_parameter)
+            for r_resource in resources:
+                template['resources'].update(r_resource.template_resource)
+                template['parameters'].update(r_resource.template_parameter)
             yaml.safe_dump(template, f, default_flow_style=False)
 
     def _build_rules(self, rules):
@@ -406,11 +404,11 @@ class CloneManager(manager.Manager):
             self.resource_api.update_plan(
                 context, id, {'plan_status': plan_status.FINISHED})
             return
-        for resource in resources:
+        for r_resource in resources:
             template['resources'].update(
-                copy.deepcopy(resource.template_resource))
+                copy.deepcopy(r_resource.template_resource))
             template['parameters'].update(
-                copy.deepcopy(resource.template_parameter))
+                copy.deepcopy(r_resource.template_parameter))
 
         # handle for lb
         self._handle_lb(template_resource)
@@ -535,7 +533,7 @@ class CloneManager(manager.Manager):
         stack_name = stack_info.get('stack_name')
         f_template, son_file_template = self._get_template_contents(
             template_dict)
-        stack_kwargs = dict(stack_name=stack_name+'_clone',
+        stack_kwargs = dict(stack_name=stack_name + '_clone',
                             disable_rollback=disable_rollback,
                             template=f_template,
                             files=son_file_template
@@ -759,8 +757,6 @@ class CloneManager(manager.Manager):
         return self._export_template(context, id)
 
     def start_template_migrate(self, context, template):
-        '''here control all resources to distribute,
-        and rollback after error occurring '''
         LOG.debug("Migrate resources start in clone manager")
         src_template = copy.deepcopy(template.get('template'))
         try:
@@ -779,14 +775,14 @@ class CloneManager(manager.Manager):
         src_resources = src_template.get("resources")
         LOG.debug("After pop self define info, resources: %s", src_resources)
         try:
-            for key, resource in src_resources.items():
-                res_type = resource['type']
+            for key, r_resource in src_resources.items():
+                res_type = r_resource['type']
                 # 5.2 resource create successful, get resource ID,
                 # and add to resource
                 heat_resource = self.heat_api.get_resource(context,
                                                            stack_info['id'],
                                                            key)
-                resource['id'] = heat_resource.physical_resource_id
+                r_resource['id'] = heat_resource.physical_resource_id
                 src_template['stack_id'] = stack_info['id']
                 src_template['plan_id'] = template.get('plan_id')
                 # 5.3 call resource manager clone fun
@@ -803,7 +799,8 @@ class CloneManager(manager.Manager):
             # if clone failed and rollback parameter is true,
             # rollback all resource
             if not template.get('disable_rollback'):
-                self.heat_api.delete_stack(context, stack_info['id'], template.get('plan_id'))
+                self.heat_api.delete_stack(context, stack_info['id'],
+                                           template.get('plan_id'))
             return None
         LOG.debug("Migrate resources end in clone manager")
 
@@ -899,11 +896,11 @@ class CloneManager(manager.Manager):
         template['parameters'] = {}
         # add expire_time
         template['expire_time'] = expire_time
-        for resource in resources:
+        for r_resource in resources:
             template['resources'].update(copy.deepcopy(
-                resource.template_resource))
+                r_resource.template_resource))
             template['parameters'].update(copy.deepcopy(
-                resource.template_parameter))
+                r_resource.template_parameter))
         # { 'server_0': ('server_0.id, [('port_0','port_0.id']) }
         original_server_port_map = {}
         for name in template_resource:
@@ -1352,8 +1349,8 @@ class CloneManager(manager.Manager):
              'resources': new_resources}
 
     def _cold_clone(self, context, template, state_map):
-        ''' volume dependence volume type, consistencygroup'''
-        ''' and volume type dependence qos '''
+        '''volume dependence volume type, consistencygroup'''
+        '''and volume type dependence qos'''
 
         LOG.debug('Code clone start for %s', template)
         default_parameter = {'default': '',
@@ -1471,19 +1468,19 @@ class CloneManager(manager.Manager):
         vol_res_name = []
         sys_resources = {}
         # 2. generate volumes template and modify input template
-        for vm, volume in sys_volumes.items():
-            volume_resource = volume_resources.get(volume)
+        for vm, v_volume in sys_volumes.items():
+            volume_resource = volume_resources.get(v_volume)
             properties = volume_resource.get('properties')
             # remove volume image info
             properties.pop('image')
             # add volume to new template
-            sys_resources[volume] = volume_resource
-            vol_res_name.append(volume)
+            sys_resources[v_volume] = volume_resource
+            vol_res_name.append(v_volume)
             # remove volume in source template
-            stack_resources.pop(volume)
-            parameter[volume] = copy.deepcopy(default_parameter)
+            stack_resources.pop(v_volume)
+            parameter[v_volume] = copy.deepcopy(default_parameter)
             # change 'get_resource' to get_param'
-            self._change_resource_to_param(template, volume)
+            self._change_resource_to_param(template, v_volume)
             # if volume dependence volume type, add it to volume
             # template. Then delete it in source template, and modify
             # other dependence this volume type resources to 'get param'
@@ -1565,8 +1562,8 @@ class CloneManager(manager.Manager):
         src_resources = src_template.get('resources')
         plan_id = template.get('plan_id')
         try:
-            for key, resource in src_resources.items():
-                res_type = resource['type']
+            for key, r_resource in src_resources.items():
+                res_type = r_resource['type']
                 if res_type in no_action_res_type:
                     values = {}
                     values['plan_status'] = plan_status.STATE_MAP.get(
@@ -1577,7 +1574,7 @@ class CloneManager(manager.Manager):
                 # and add to resource
                 heat_resource = self.heat_api.get_resource(context, stack_id,
                                                            key)
-                resource['id'] = heat_resource.physical_resource_id
+                r_resource['id'] = heat_resource.physical_resource_id
                 src_template['stack_id'] = stack_id
                 # after step need update plan status
                 src_template['plan_id'] = plan_id
@@ -1613,7 +1610,7 @@ class CloneManager(manager.Manager):
             return None
 
     def _system_volumes_to_clone(self, resources):
-        ''' list all vm and it need to clone sys volume:{'vmname':'volname'}'''
+        '''list all vm and it need to clone sys volume:{'vmname':'volname'}'''
 
         vm_sys_dict = {}
         for k, res in resources.items():

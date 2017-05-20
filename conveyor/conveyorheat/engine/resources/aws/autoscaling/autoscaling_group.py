@@ -24,10 +24,12 @@ from conveyor.conveyorheat.common.i18n import _LI
 from conveyor.conveyorheat.engine import attributes
 from conveyor.conveyorheat.engine import constraints
 from conveyor.conveyorheat.engine import function
-from conveyor.conveyorheat.engine.notification import autoscaling as notification
+from conveyor.conveyorheat.engine.notification import \
+    autoscaling as notification
 from conveyor.conveyorheat.engine import properties
 from conveyor.conveyorheat.engine import resource
-from conveyor.conveyorheat.engine.resources.openstack.heat import instance_group as instgrp
+from conveyor.conveyorheat.engine.resources.openstack.heat import \
+    instance_group as instgrp
 from conveyor.conveyorheat.engine import rsrc_defn
 from conveyor.conveyorheat.engine import support
 from conveyor.conveyorheat.scaling import cooldown

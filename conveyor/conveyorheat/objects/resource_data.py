@@ -19,8 +19,8 @@ from oslo_versionedobjects import base
 from oslo_versionedobjects import fields
 
 from conveyor.conveyorheat.common import exception
-from conveyor.db import api as db_api
 from conveyor.conveyorheat.objects import base as heat_base
+from conveyor.db import api as db_api
 
 
 class ResourceData(

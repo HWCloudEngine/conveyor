@@ -18,33 +18,19 @@ from conveyor.api.common import ViewBuilder
 
 LOG = logging.getLogger(__name__)
 
+
 class ViewBuilder(ViewBuilder):
-    
+
     def list(self, results):
-        objs = {
-            "resources": [{
-                "id": "1234",
-                "name":"conveyor-test1234",
-            },
-            {
-                "id": "1235",
-                "name":"conveyor-test1235",
-            }]
-        }
-         
-        return objs
-    
-    def show(self,result):
-        
-        LOG.debug(', '.join(['%s:%s' % item for item in result.__dict__.items()]) )
-        
+        pass
+
+    def show(self, result):
         obj = {
-            'resource':{
+            'resource': {
                 'id': result.id,
                 'name': result.name,
                 'status': result.status
                 }
             }
-        
+
         return obj
-    

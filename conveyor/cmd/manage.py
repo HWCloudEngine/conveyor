@@ -56,33 +56,25 @@ from __future__ import print_function
 
 import argparse
 import os
+import six
 import sys
 
-import decorator
-import netaddr
 from oslo_config import cfg
-from oslo_db import exception as db_exc
-import oslo_messaging as messaging
-import six
-
-from conveyor.common import config as __
+from oslo_log import log as logging
 
 from conveyor import config
 from conveyor import context
 from conveyor import db
-from conveyor.db.sqlalchemy import migration
-from conveyor.db import api as db_api
-from conveyor import exception
+from conveyor import rpc
 from conveyor import version
 
-from conveyor.i18n import _
 from conveyor.common import cliutils
-from oslo_utils import importutils
-from oslo_log import log as logging
-from conveyor import rpc
-from conveyor import utils
+from conveyor.db import api as db_api
+from conveyor.db.sqlalchemy import migration
+from conveyor.i18n import _
 
 CONF = cfg.CONF
+
 
 # Decorators for actions
 def args(*args, **kwargs):
@@ -90,6 +82,7 @@ def args(*args, **kwargs):
         func.__dict__.setdefault('args', []).insert(0, (args, kwargs))
         return func
     return _decorator
+
 
 class ShellCommands(object):
     def bpython(self):
@@ -114,7 +107,7 @@ class ShellCommands(object):
         self.run('python')
 
     @args('--shell', metavar='<bpython|ipython|python >',
-            help='Python shell')
+          help='Python shell')
     def run(self, shell=None):
         """Runs a Python interactive interpreter."""
         if not shell:
@@ -182,7 +175,7 @@ class DbCommands(object):
         print(migration.db_version())
 
     @args('--max_rows', metavar='<number>',
-            help='Maximum number of deleted rows to archive')
+          help='Maximum number of deleted rows to archive')
     def archive_deleted_rows(self, max_rows):
         """Move up to max_rows deleted rows from production tables to shadow
         tables.
@@ -222,7 +215,7 @@ class GetLogCommands(object):
             print(_('No errors in logfiles!'))
 
     @args('--num_entries', metavar='<number of entries>',
-            help='number of entries(default: 10)')
+          help='number of entries(default: 10)')
     def syslog(self, num_entries=10):
         """Get <num_entries> of the conveyor syslog events."""
         entries = int(num_entries)
@@ -247,8 +240,6 @@ class GetLogCommands(object):
 
         if count == 0:
             print(_('No fs_gateway entries in syslog!'))
-
-
 
 
 CATEGORIES = {

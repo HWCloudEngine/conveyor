@@ -25,13 +25,14 @@ import six
 from conveyor.conveyorheat.common import crypt
 from conveyor.conveyorheat.common import exception
 from conveyor.conveyorheat.common.i18n import _
-from conveyor.db import api as db_api
 from conveyor.conveyorheat.objects import base as heat_base
 from conveyor.conveyorheat.objects import fields as heat_fields
 from conveyor.conveyorheat.objects import resource_data
 from conveyor.conveyorheat.objects import stack
+from conveyor.db import api as db_api
 
-cfg.CONF.import_opt('encrypt_parameters_and_properties', 'conveyor.conveyorheat.common.config')
+cfg.CONF.import_opt('encrypt_parameters_and_properties',
+                    'conveyor.conveyorheat.common.config')
 
 
 def retry_on_conflict(func):

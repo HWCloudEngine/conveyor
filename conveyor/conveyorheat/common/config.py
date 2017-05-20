@@ -23,7 +23,6 @@ from conveyor.conveyorheat.common import exception
 from conveyor.conveyorheat.common.i18n import _
 from conveyor.conveyorheat.common.i18n import _LW
 from conveyor.conveyorheat.common import wsgi
-from conveyor.conveyorheat.hw_plugins import utils
 
 
 LOG = logging.getLogger(__name__)
@@ -536,7 +535,8 @@ def get_client_option(client, option):
     except cfg.NoSuchGroupError:
         pass  # do not error if the client is unknown
     # look for the option in the generic [clients] section
-    cfg.CONF.import_opt(option, 'conveyor.conveyorheat.common.config', group='clients')
+    cfg.CONF.import_opt(option, 'conveyor.conveyorheat.common.config',
+                        group='clients')
     return getattr(cfg.CONF.clients, option)
 
 

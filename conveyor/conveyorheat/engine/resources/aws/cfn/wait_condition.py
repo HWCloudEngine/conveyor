@@ -16,8 +16,10 @@ from conveyor.conveyorheat.common import identifier
 from conveyor.conveyorheat.engine import attributes
 from conveyor.conveyorheat.engine import constraints
 from conveyor.conveyorheat.engine import properties
-from conveyor.conveyorheat.engine.resources.aws.cfn import wait_condition_handle as aws_wch
-from conveyor.conveyorheat.engine.resources.openstack.heat import wait_condition as heat_wc
+from conveyor.conveyorheat.engine.resources.aws.cfn import \
+     wait_condition_handle as aws_wch
+from conveyor.conveyorheat.engine.resources.openstack.heat import \
+    wait_condition as heat_wc
 from conveyor.conveyorheat.engine import support
 
 

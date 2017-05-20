@@ -21,12 +21,13 @@ import json
 from oslo_config import cfg
 from oslo_log import log as logging
 
-from conveyor.clone.resources import common
 from conveyor.clone.drivers import driver
+from conveyor.clone.resources import common
 from conveyor.conveyoragentclient.v1 import client as birdiegatewayclient
-from conveyor import exception
 from conveyor.i18n import _LE
 from conveyor.i18n import _LW
+
+from conveyor import exception
 from conveyor import utils
 
 
@@ -47,8 +48,7 @@ class OpenstackDriver(driver.BaseDriver):
             # self._set_resources_state(context, resource_map)
             return undo_mgr
         except Exception as e:
-            LOG.error(_LE('The generate template of plan %s failed, and rollback operations,\
-                      the error is %s'), plan_id, str(e))
+            LOG.error(_LE('Generate template of plan failed, err:%s'), str(e))
             undo_mgr._rollback()
             raise exception.ExportTemplateFailed(id=plan_id, msg=str(e))
 
@@ -120,9 +120,10 @@ class OpenstackDriver(driver.BaseDriver):
                             volume_resource.extra_properties['sys_clone'] = \
                                 sys_clone
                             if sys_clone:
-                                self._handle_dv_for_svm(context, volume_resource,
-                                                    server_id, dev_name,
-                                                    gw_id, gw_ip, undo_mgr)
+                                self._handle_dv_for_svm(context,
+                                                        volume_resource,
+                                                        server_id, dev_name,
+                                                        gw_id, gw_ip, undo_mgr)
                         else:
                             self._handle_dv_for_svm(context, volume_resource,
                                                     server_id, dev_name,
@@ -243,10 +244,10 @@ class OpenstackDriver(driver.BaseDriver):
         )
         disks = set(client.vservices.get_disk_name().get('dev_name'))
 
-        attach_resp = self.compute_api.attach_volume(context,
-                                                     gw_id,
-                                                     volume_id,
-                                                     None)
+        self.compute_api.attach_volume(context,
+                                       gw_id,
+                                       volume_id,
+                                       None)
         LOG.debug('Attach the volume %s to gw host %s ', volume_id, gw_id)
         undo_mgr.undo_with(functools.partial(self._detach_volume,
                                              context,
@@ -289,7 +290,7 @@ class OpenstackDriver(driver.BaseDriver):
             for key, value in temp_res.items():
                 res_type = value.get('type')
                 if res_type == 'OS::Cinder::Volume':
-                    v_prop = value.get('properties')
+                    # v_prop = value.get('properties')
                     v_exra_prop = value.get('extra_properties', {})
                     if not v_exra_prop or not v_exra_prop.get('gw_url'):
                         heat_res = self.heat_api.get_resource(context,

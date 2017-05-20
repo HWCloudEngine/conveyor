@@ -21,7 +21,8 @@ from conveyor.conveyorheat.common import context
 from conveyor.conveyorheat.common.i18n import _LW
 from conveyor.conveyorheat.common import messaging as rpc_messaging
 
-cfg.CONF.import_opt('enabled', 'conveyor.conveyorheat.common.config', group='profiler')
+cfg.CONF.import_opt('enabled', 'conveyor.conveyorheat.common.config',
+                    group='profiler')
 
 LOG = logging.getLogger(__name__)
 

@@ -14,7 +14,8 @@
 from conveyor.conveyorheat.common.i18n import _
 from conveyor.conveyorheat.common import template_format
 from conveyor.conveyorheat.engine import properties
-from conveyor.conveyorheat.engine.resources.openstack.heat import software_config
+from conveyor.conveyorheat.engine.resources.openstack.heat import \
+    software_config
 from conveyor.conveyorheat.engine import support
 from conveyor.conveyorheat.rpc import api as rpc_api
 

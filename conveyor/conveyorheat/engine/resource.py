@@ -43,12 +43,15 @@ from conveyor.conveyorheat.engine import rsrc_defn
 from conveyor.conveyorheat.engine import scheduler
 from conveyor.conveyorheat.engine import support
 from conveyor.conveyorheat.objects import resource as resource_objects
-from conveyor.conveyorheat.objects import resource_data as resource_data_objects
+from conveyor.conveyorheat.objects import resource_data as \
+    resource_data_objects
 from conveyor.conveyorheat.objects import stack as stack_objects
 # from conveyor.conveyorheat.rpc import client as rpc_client
 
-cfg.CONF.import_opt('action_retry_limit', 'conveyor.conveyorheat.common.config')
-cfg.CONF.import_opt('observe_on_update', 'conveyor.conveyorheat.common.config')
+cfg.CONF.import_opt('action_retry_limit',
+                    'conveyor.conveyorheat.common.config')
+cfg.CONF.import_opt('observe_on_update',
+                    'conveyor.conveyorheat.common.config')
 
 LOG = logging.getLogger(__name__)
 
@@ -984,8 +987,8 @@ class Resource(object):
             else:
                 return True
 
-        if check_init_complete and (self.action == self.INIT
-                                    and self.status == self.COMPLETE):
+        if check_init_complete and (self.action == self.INIT and
+                                    self.status == self.COMPLETE):
             raise exception.UpdateReplace(self)
 
         if self.needs_replace(after_props):

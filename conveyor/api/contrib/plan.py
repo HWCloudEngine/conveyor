@@ -14,18 +14,16 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import time
+
 from webob import exc
 
-from conveyor import context
 from oslo_log import log as logging
-from conveyor.api.wsgi import wsgi
-from conveyor.api import extensions
 
-from oslo_utils import timeutils
+from conveyor.api import extensions
+from conveyor.api.wsgi import wsgi
 from conveyor.clone import api
-from conveyor.resource import api as resource_api
 from conveyor.common import plan_status as p_status
+from conveyor.resource import api as resource_api
 
 from conveyor.i18n import _
 
@@ -43,19 +41,21 @@ class PlansActionController(wsgi.Controller):
     @wsgi.response(202)
     @wsgi.action('download_template')
     def _download_template(self, req, id, body):
-        LOG.debug("download template of plan %s start in API from template", id)
+        LOG.debug("download template of plan %s start in API from template",
+                  id)
         context = req.environ['conveyor.context']
         plan = self.resource_api.get_plan_by_id(context, id)
         plan_status = plan['plan_status']
         if plan_status not in (p_status.AVAILABLE, p_status.CLONING,
                                p_status.MIGRATING, p_status.FINISHED):
-            msg = _("the plan %(plan_id)s in state %(state)s can't download template") % {
+            msg = _("the plan %(plan_id)s in state %(state)s"
+                    "can't download template") % {
                     'plan_id': id,
                     'state': plan_status,
                 }
             raise exc.HTTPBadRequest(explanation=msg)
         content = self.clone_api.download_template(context, id)
-        LOG.debug('the content is %s' %content)
+        LOG.debug('the content is %s' % content)
         return content
 
     @wsgi.response(202)

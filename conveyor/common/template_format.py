@@ -17,7 +17,6 @@ import yaml
 from oslo_config import cfg
 
 from conveyor import exception
-from oslo_utils import fileutils
 from conveyor.i18n import _
 
 template_opts = [

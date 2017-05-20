@@ -15,8 +15,8 @@
 
 from oslo_config import cfg
 
-from conveyor.conveyoragentclient.v1 import birdiegatewayservice
 from conveyor.conveyoragentclient import client
+from conveyor.conveyoragentclient.v1 import birdiegatewayservice
 
 client_opts = [
     cfg.StrOpt('gateway_protocol',
@@ -32,12 +32,14 @@ client_opts = [
 CONF = cfg.CONF
 CONF.register_opts(client_opts)
 
+
 def get_birdiegateway_client(host, port, version='v1'):
-        
+
     client = Client(host=host, port=port,
                     birdie_gateway_version=version)
-        
+
     return client
+
 
 class Client(object):
     """
@@ -58,7 +60,7 @@ class Client(object):
                  host='0.0.0.0', port='9998', birdie_gateway_version="v1",
                  auth_url='', insecure=False, timeout=None, tenant_id=None,
                  proxy_tenant_id=None, proxy_token=None, region_name=None,
-                 extensions=None, service_name=None, retries=None, 
+                 extensions=None, service_name=None, retries=None,
                  http_log_debug=False, cacert=None, auth_system=None,
                  auth_plugin=None, session=None, **kwargs):
         # FIXME(comstud): Rename the api_key argument above when we
@@ -67,14 +69,14 @@ class Client(object):
         proto = CONF.gateway_protocol
         if not proto.endswith("://"):
             proto += "://"
-        
+
         self.url = proto + host + ":" + port + "/" + birdie_gateway_version
-        
+
         if not timeout:
             timeout = CONF.conveyoragent_timeout
         if not retries:
             retries = CONF.conveyoragent_retries
-        
+
         self.client = client._construct_http_client(
             username=username,
             password=password,
@@ -96,7 +98,8 @@ class Client(object):
             **kwargs)
 
         # extensions
-        self.vservices = birdiegatewayservice.VServiceManager(self.client, self.url)
+        self.vservices = birdiegatewayservice.VServiceManager(self.client,
+                                                              self.url)
 
     def authenticate(self):
         """
@@ -109,5 +112,3 @@ class Client(object):
         credentials are wrong.
         """
         pass
-    
-

@@ -16,13 +16,13 @@
 
 import os
 
-from oslo_config import cfg
-from oslo_utils import importutils
 import webob.dec
 import webob.exc
 
+from oslo_config import cfg
 from oslo_log import log as logging
-import conveyor.api.wsgi
+from oslo_utils import importutils
+
 from conveyor.api.wsgi import wsgi
 from conveyor.api import xmlutil
 from conveyor import exception

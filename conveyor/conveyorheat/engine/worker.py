@@ -59,7 +59,7 @@ class WorkerService(service.Service):
         self.engine_id = engine_id
         self.thread_group_mgr = thread_group_mgr
 
-        self._rpc_client = None# rpc_client.WorkerClient()
+        self._rpc_client = None
         self._rpc_server = None
         self.target = None
 

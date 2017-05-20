@@ -25,27 +25,23 @@ continue attempting to launch the rest of the services.
 
 """
 
-import eventlet
 import sys
 import warnings
-
-warnings.simplefilter('once', DeprecationWarning)
 
 from oslo_config import cfg
 from oslo_log import log as logging
 
-from conveyor import i18n
-i18n.enable_lazy()
-
-# Need to register global_opts
-from conveyor.common import config as global_config
 from conveyor.i18n import _LE
-from conveyor import service
-from conveyor import utils
-from conveyor import version
 
 from conveyor import config
+from conveyor import service
 
+
+from conveyor import i18n
+
+warnings.simplefilter('once', DeprecationWarning)
+
+i18n.enable_lazy()
 
 CONF = cfg.CONF
 

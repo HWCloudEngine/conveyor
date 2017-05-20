@@ -17,9 +17,26 @@
 
 """Starter script for Cinder Volume."""
 
-import os
-
 import eventlet
+import os
+import sys
+import warnings
+
+
+from oslo_config import cfg
+from oslo_log import log as logging
+from oslo_reports import guru_meditation_report as gmr
+
+# Need to register global_opts
+from conveyor.common import config  # noqa
+from conveyor.conveyorheat.common import config as heat_config
+from conveyor.conveyorheat.common.i18n import _LC
+from conveyor.conveyorheat.engine import template
+
+from conveyor import i18n
+from conveyor import service
+from conveyor import utils
+from conveyor import version
 
 if os.name == 'nt':
     # eventlet monkey patching the os module causes subprocess.Popen to fail
@@ -28,12 +45,7 @@ if os.name == 'nt':
 else:
     eventlet.monkey_patch()
 
-import sys
-import warnings
-
 warnings.simplefilter('once', DeprecationWarning)
-
-from oslo_config import cfg
 
 # If ../cinder/__init__.py exists, add ../ to Python search path, so that
 # it will override what happens to be installed in /usr/(local/)lib/python...
@@ -43,19 +55,7 @@ possible_topdir = os.path.normpath(os.path.join(os.path.abspath(sys.argv[0]),
 if os.path.exists(os.path.join(possible_topdir, 'cinder', '__init__.py')):
     sys.path.insert(0, possible_topdir)
 
-from conveyor import i18n
 i18n.enable_lazy()
-
-# Need to register global_opts
-from conveyor.common import config  # noqa
-from oslo_log import log as logging
-from conveyor import service
-from conveyor import utils
-from conveyor import version
-from conveyor.conveyorheat.engine import template
-from conveyor.conveyorheat.common.i18n import _LC
-from oslo_reports import guru_meditation_report as gmr
-from conveyor.conveyorheat.common import config as heat_config
 
 
 host_opt = cfg.StrOpt('host',

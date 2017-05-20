@@ -19,9 +19,9 @@ import requests
 from requests import exceptions
 from six.moves import urllib
 
-from conveyor.conveyorheat.common import exception
 from conveyor.common._i18n import _
 from conveyor.common._i18n import _LI
+from conveyor.conveyorheat.common import exception
 
 cfg.CONF.import_opt('max_template_size', 'conveyor.conveyorheat.common.config')
 

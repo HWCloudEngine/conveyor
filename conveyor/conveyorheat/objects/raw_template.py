@@ -23,9 +23,9 @@ from oslo_versionedobjects import fields
 
 from conveyor.conveyorheat.common import crypt
 from conveyor.conveyorheat.common import environment_format as env_fmt
-from conveyor.db import api as db_api
 from conveyor.conveyorheat.objects import base as heat_base
 from conveyor.conveyorheat.objects import fields as heat_fields
+from conveyor.db import api as db_api
 
 
 class RawTemplate(

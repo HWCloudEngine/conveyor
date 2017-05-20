@@ -43,7 +43,7 @@ class API(object):
         LOG.debug("export migrate template of plan %s" % id)
         self.clone_rpcapi.export_migrate_template(context, id)
 
-    def migrate(self, context, id, destination): 
+    def migrate(self, context, id, destination):
         LOG.debug("execute migrate plan %s in  api" % id)
         self.clone_rpcapi.migrate(context, id, destination)
 

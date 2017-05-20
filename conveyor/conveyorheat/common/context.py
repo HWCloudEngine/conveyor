@@ -26,11 +26,13 @@ import six
 
 from conveyor.conveyorheat.common import endpoint_utils
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _LE, _LW
+from conveyor.conveyorheat.common.i18n import _LE
+from conveyor.conveyorheat.common.i18n import _LW
 from conveyor.conveyorheat.common import policy
 from conveyor.conveyorheat.common import wsgi
-from conveyor.db import api as db_api
 from conveyor.conveyorheat.engine import clients
+from conveyor.db import api as db_api
+
 
 LOG = logging.getLogger(__name__)
 

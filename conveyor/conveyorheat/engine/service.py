@@ -60,7 +60,6 @@ from conveyor.conveyorheat.engine import support
 from conveyor.conveyorheat.engine import template as templatem
 from conveyor.conveyorheat.engine import update
 from conveyor.conveyorheat.engine import watchrule
-from conveyor.conveyorheat.engine import worker
 from conveyor.conveyorheat.objects import event as event_object
 from conveyor.conveyorheat.objects import resource as resource_objects
 from conveyor.conveyorheat.objects import service as service_objects
@@ -69,16 +68,21 @@ from conveyor.conveyorheat.objects import stack as stack_object
 from conveyor.conveyorheat.objects import watch_data
 from conveyor.conveyorheat.objects import watch_rule
 from conveyor.conveyorheat.rpc import api as rpc_api
-from conveyor.conveyorheat.rpc import worker_api as rpc_worker_api
 from heatclient.common import environment_format
 from heatclient.common import template_utils
 
-cfg.CONF.import_opt('engine_life_check_timeout', 'conveyor.conveyorheat.common.config')
-cfg.CONF.import_opt('max_resources_per_stack', 'conveyor.conveyorheat.common.config')
-cfg.CONF.import_opt('max_stacks_per_tenant', 'conveyor.conveyorheat.common.config')
-cfg.CONF.import_opt('enable_stack_abandon', 'conveyor.conveyorheat.common.config')
-cfg.CONF.import_opt('enable_stack_adopt', 'conveyor.conveyorheat.common.config')
-cfg.CONF.import_opt('convergence_engine', 'conveyor.conveyorheat.common.config')
+cfg.CONF.import_opt('engine_life_check_timeout',
+                    'conveyor.conveyorheat.common.config')
+cfg.CONF.import_opt('max_resources_per_stack',
+                    'conveyor.conveyorheat.common.config')
+cfg.CONF.import_opt('max_stacks_per_tenant',
+                    'conveyor.conveyorheat.common.config')
+cfg.CONF.import_opt('enable_stack_abandon',
+                    'conveyor.conveyorheat.common.config')
+cfg.CONF.import_opt('enable_stack_adopt',
+                    'conveyor.conveyorheat.common.config')
+cfg.CONF.import_opt('convergence_engine',
+                    'conveyor.conveyorheat.common.config')
 
 # Time to wait for a stack to stop when cancelling running threads, before
 # giving up on being able to start a delete.
@@ -797,8 +801,8 @@ class EngineService(service.Service):
             elif stack.status != stack.FAILED:
                 stack.create()
 
-            if (stack.action in (stack.CREATE, stack.ADOPT)
-                    and stack.status == stack.COMPLETE):
+            if (stack.action in (stack.CREATE, stack.ADOPT) and
+                    stack.status == stack.COMPLETE):
                 if self.stack_watch:
                     # Schedule a periodic watcher task for this stack
                     self.stack_watch.start_watch_task(stack.id, cnxt)
@@ -1393,8 +1397,9 @@ class EngineService(service.Service):
             # Successfully acquired lock
             if acquire_result is None:
                 self.thread_group_mgr.stop_timers(stack.id)
-                self.thread_group_mgr.start_with_acquired_lock(stack, lock,
-                                                               stack.clear_table)
+                self.thread_group_mgr.start_with_acquired_lock(
+                                            stack, lock,
+                                            stack.clear_table)
                 return
 
         # Current engine has the lock
@@ -1452,8 +1457,9 @@ class EngineService(service.Service):
             # Successfully acquired lock
             if acquire_result is None:
                 self.thread_group_mgr.stop_timers(stack.id)
-                self.thread_group_mgr.start_with_acquired_lock(stack, lock,
-                                                               stack.clear_resource)
+                self.thread_group_mgr.start_with_acquired_lock(
+                                                stack, lock,
+                                                stack.clear_resource)
                 return
 
         # Current engine has the lock

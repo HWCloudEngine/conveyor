@@ -25,8 +25,10 @@ from conveyor.conveyorheat.engine import attributes
 from conveyor.conveyorheat.engine import constraints
 from conveyor.conveyorheat.engine import properties
 from conveyor.conveyorheat.engine import resource
-from conveyor.conveyorheat.engine.resources.openstack.heat import resource_group
-from conveyor.conveyorheat.engine.resources.openstack.heat import software_config as sc
+from conveyor.conveyorheat.engine.resources.openstack.heat import \
+    resource_group
+from conveyor.conveyorheat.engine.resources.openstack.heat import \
+    software_config as sc
 from conveyor.conveyorheat.engine.resources import signal_responder
 from conveyor.conveyorheat.engine import rsrc_defn
 from conveyor.conveyorheat.engine import support

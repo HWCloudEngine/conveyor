@@ -37,21 +37,20 @@ import socket
 import sys
 import traceback
 
-from oslo_config import cfg
 import six
 from six import moves
 
-_PY26 = sys.version_info[0:2] == (2, 6)
-
-from conveyor.common.gettextutils import _
-from oslo_utils import importutils
+from oslo_config import cfg
 from oslo_serialization import jsonutils
-from conveyor.common import local
-#from v2v.common.hw_log_handler import FSSysLogHandler
-# NOTE(flaper87): Pls, remove when graduating this module
-# from the incubator.
+from oslo_utils import importutils
+
 from oslo_utils.strutils import mask_password  # noqa
 
+from conveyor.common.gettextutils import _
+from conveyor.common import local
+
+
+_PY26 = sys.version_info[0:2] == (2, 6)
 
 _DEFAULT_LOG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
@@ -492,7 +491,7 @@ def _setup_logging_from_conf(project, version):
                 syslog = RFCSysLogHandler(facility=facility)
             else:
                 syslog = RFCSysLogHandler(facility=facility)
-                #syslog = FSSysLogHandler(facility=facility)
+
             log_root.addHandler(syslog)
         except socket.error:
             log_root.error('Unable to add syslog handler. Verify that syslog'

@@ -18,7 +18,6 @@ Helper code for the iSCSI volume driver.
 
 """
 
-import six
 from conveyor import utils
 from oslo_log import log as logging
 
@@ -26,21 +25,17 @@ from oslo_log import log as logging
 LOG = logging.getLogger(__name__)
 
 
-    
 class MigrationCmd(object):
-    
-    def __init__(self, execute=utils.execute): 
+
+    def __init__(self, execute=utils.execute):
         self._execute = execute
-    
+
     def check_ip_connect(self, ip):
         try:
             (out, err) = self._execute('ping', '-c', '4', ip, run_as_root=True)
         except Exception as e:
             LOG.error("Ping Ip %(ip)s failed: %(error)s",
                       {'ip': ip, 'error': e})
-            
+
             return False
         return True
-  
-    
-

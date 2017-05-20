@@ -36,7 +36,8 @@ class APIRouter(conveyor.api.wsgi.APIRouter):
     ExtensionManager = extensions.ExtensionManager
 
     def _setup_routes(self, mapper, ext_mgr):
-        self.resources['configurations'] = configuration.create_resource(ext_mgr)
+        self.resources['configurations'] = \
+            configuration.create_resource(ext_mgr)
         mapper.resource("configurations", "configurations",
                         controller=self.resources['configurations'],
                         collection={'detail': 'GET'},

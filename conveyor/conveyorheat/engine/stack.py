@@ -1247,7 +1247,7 @@ class Stack(collections.Mapping):
                 else:
                     LOG.info(_LI("Triggering resource %s for cleanup"),
                              rsrc_id)
-                input_data = sync_point.serialize_input_data({})
+                sync_point.serialize_input_data({})
                 # self.worker_client.check_resource(self.context, rsrc_id,
                 #                                   self.current_traversal,
                 #                                   input_data, is_update,
@@ -1774,9 +1774,10 @@ class Stack(collections.Mapping):
                                'Failed stack pre-ops: %s' % six.text_type(e))
                 return
 
-        action_task = scheduler.DependencyTaskGroup(self.dependencies,
-                                                    resource.Resource.clear_table,
-                                                    reverse=True)
+        action_task = scheduler.DependencyTaskGroup(
+                                    self.dependencies,
+                                    resource.Resource.clear_table,
+                                    reverse=True)
         try:
             scheduler.TaskRunner(action_task)(timeout=self.timeout_secs())
         except exception.ResourceFailure as ex:
@@ -1863,9 +1864,10 @@ class Stack(collections.Mapping):
         #                        'Failed stack pre-ops: %s' % six.text_type(e))
         #         return
 
-        action_task = scheduler.DependencyTaskGroup(self.dependencies,
-                                                    resource.Resource.clear_resource,
-                                                    reverse=True)
+        action_task = scheduler.DependencyTaskGroup(
+                                    self.dependencies,
+                                    resource.Resource.clear_resource,
+                                    reverse=True)
         try:
             scheduler.TaskRunner(action_task)(timeout=self.timeout_secs())
         except exception.ResourceFailure as ex:

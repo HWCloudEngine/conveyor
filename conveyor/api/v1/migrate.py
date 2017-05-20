@@ -15,20 +15,11 @@
 
 """The conveyor api."""
 
-import ast
-
-import webob
-from webob import exc
 
 from oslo_log import log as logging
-from conveyor.api import common
-from conveyor.api.wsgi import wsgi
-from conveyor import exception
-from conveyor.i18n import _, _LI
-from conveyor import utils
 
 from conveyor.api.views import services as services_view
-from conveyor.conveyoragentclient.v1 import client
+from conveyor.api.wsgi import wsgi
 
 LOG = logging.getLogger(__name__)
 
@@ -44,7 +35,7 @@ class MigrateController(wsgi.Controller):
     def show(self, req, id):
         """Return data about the given resource."""
         pass
-    
+
     def delete(self, req, id):
         """Delete resource."""
         LOG.debug("delete is start.")
@@ -63,14 +54,10 @@ class MigrateController(wsgi.Controller):
         """Creates a new resource."""
         pass
 
-
     def update(self, req, id, body):
         """Update a resource."""
-        context = req.environ['conveyor.context']
-
         pass
 
 
 def create_resource(ext_mgr):
     return wsgi.Resource(MigrateController(ext_mgr))
-

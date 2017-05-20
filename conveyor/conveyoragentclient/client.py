@@ -22,10 +22,11 @@ from __future__ import print_function
 
 import requests
 
-from conveyor.conveyoragentclient.common import exceptions
-from oslo_utils import strutils
-from oslo_utils import importutils as utils
 from oslo_log import log as logging
+from oslo_utils import importutils as utils
+from oslo_utils import strutils
+
+from conveyor.conveyoragentclient.common import exceptions
 
 
 try:
@@ -162,14 +163,9 @@ class HTTPClient(object):
         attempts = 0
         backoff = 1
         if 'proxies' not in kwargs:
-            kwargs['proxies'] = {'http': None, 'https':None}
+            kwargs['proxies'] = {'http': None, 'https': None}
         while True:
             attempts += 1
-            #if not self.management_url or not self.auth_token:
-            #   self.authenticate()
-            #kwargs.setdefault('headers', {})['X-Auth-Token'] = self.auth_token
-            #if self.projectid:
-                #kwargs['headers']['X-Auth-Project-Id'] = self.projectid
             try:
                 if self.management_url:
                     url = self.management_url + url
@@ -221,12 +217,11 @@ class HTTPClient(object):
         return self._cs_request(url, 'DELETE', **kwargs)
 
 
-
 def _construct_http_client(username=None, password=None, project_id=None,
                            auth_url=None, insecure=False, timeout=None,
                            proxy_tenant_id=None, proxy_token=None,
-                           region_name=None, 
-                           service_name=None, 
+                           region_name=None,
+                           service_name=None,
                            retries=None,
                            http_log_debug=False,
                            auth_system=None, auth_plugin=None,
@@ -239,21 +234,20 @@ def _construct_http_client(username=None, password=None, project_id=None,
         # to test that they were provided in this mode.
     return HTTPClient(username,
                       password,
-                    projectid=project_id,
-                    auth_url=auth_url,
-                    insecure=insecure,
-                    timeout=timeout,
-                    tenant_id=tenant_id,
-                    proxy_token=proxy_token,
-                    proxy_tenant_id=proxy_tenant_id,
-                    region_name=region_name,
-                    service_name=service_name,
-                    retries=retries,
-                    http_log_debug=http_log_debug,
-                    cacert=cacert,
-                    auth_system=auth_system,
-                    auth_plugin=auth_plugin,
-                    )
+                      projectid=project_id,
+                      auth_url=auth_url,
+                      insecure=insecure,
+                      timeout=timeout,
+                      tenant_id=tenant_id,
+                      proxy_token=proxy_token,
+                      proxy_tenant_id=proxy_tenant_id,
+                      region_name=region_name,
+                      service_name=service_name,
+                      retries=retries,
+                      http_log_debug=http_log_debug,
+                      cacert=cacert,
+                      auth_system=auth_system,
+                      auth_plugin=auth_plugin)
 
 
 def get_client_class(version):

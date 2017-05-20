@@ -15,19 +15,19 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import random
 import time
 
 from oslo_config import cfg
 from oslo_log import log as logging
 
-from conveyor.common import plan_status
 from conveyor.clone.resources import common
+from conveyor.common import plan_status
 from conveyor.conveyoragentclient.v1 import client as birdiegatewayclient
-from conveyor import exception
-from conveyor import volume
+
 from conveyor import compute
+from conveyor import exception
 from conveyor import utils
+from conveyor import volume
 
 
 CONF = cfg.CONF
@@ -51,7 +51,8 @@ class VolumeCloneDriver(object):
 
         # 1. check instance which dependences this volume in template or not
         # if instance exists in template do not execute copy data step
-        is_attached = self._check_volume_attach_instance(resource_name, template)
+        is_attached = self._check_volume_attach_instance(resource_name,
+                                                         template)
         if is_attached:
             LOG.debug('Volume clone driver: volume %(id)s, name %(name)s',
                       {'id': volume_id, 'name': resource_name})
@@ -90,7 +91,7 @@ class VolumeCloneDriver(object):
         # 3. attach volume to gateway vm
         vgw_id, vgw_ip = utils.get_next_vgw(volume_az)
         LOG.debug('Clone volume driver vgw info: id: %(id)s,ip: %(ip)s',
-                  {'id':vgw_id, 'ip': vgw_ip})
+                  {'id': vgw_id, 'ip': vgw_ip})
 
         des_dev_name = None
         try:
@@ -227,8 +228,10 @@ class VolumeCloneDriver(object):
                 des_dev_name = src_vol_sys_dev
 
         if not src_dev_format:
-            client = birdiegatewayclient.get_birdiegateway_client(src_gw_ip, src_gw_port)
-            src_dev_format = client.vservices.get_disk_format(src_vol_sys_dev).get('disk_format')
+            client = birdiegatewayclient.get_birdiegateway_client(src_gw_ip,
+                                                                  src_gw_port)
+            d_fromat = client.vservices.get_disk_format(src_vol_sys_dev)
+            src_dev_format = d_fromat.get('disk_format')
 
         # if disk does not format, then no data to copy
         if not src_dev_format and data_trans_protocol == 'ftp':
@@ -247,14 +250,15 @@ class VolumeCloneDriver(object):
         # 4. copy data
         client = birdiegatewayclient.get_birdiegateway_client(des_gw_ip,
                                                               des_gw_port)
-        clone_rsp = client.vservices.clone_volume(src_vol_sys_dev,
-                                                  des_dev_name,
-                                                  src_dev_format,
-                                                  mount_point,
-                                                  src_gw_url,
-                                                  des_gw_url,
-                                                  trans_protocol=data_trans_protocol,
-                                                  trans_port=trans_port)
+        clone_rsp = client.vservices.clone_volume(
+                                        src_vol_sys_dev,
+                                        des_dev_name,
+                                        src_dev_format,
+                                        mount_point,
+                                        src_gw_url,
+                                        des_gw_url,
+                                        trans_protocol=data_trans_protocol,
+                                        trans_port=trans_port)
         task_id = clone_rsp.get('body').get('task_id')
         task_ids.append(task_id)
 
@@ -280,12 +284,12 @@ class VolumeCloneDriver(object):
                 if not volumes:
                     continue
 
-                for volume in volumes:
-                    vol_name = volume.get('volume_id')
+                for v_volume in volumes:
+                    vol_name = v_volume.get('volume_id')
                     if isinstance(vol_name, dict):
                         vol_res_name = vol_name.get('get_resource')
                         if vol_res_name == resource_name:
-                            LOG.debug('Volume clone end: volume attached vm exist.')
+                            LOG.debug('Volume clone end: attached vm exist.')
                             return True
         LOG.debug('Volume clone end: volume attached vm not exist.')
         return False

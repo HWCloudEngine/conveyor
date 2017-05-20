@@ -17,8 +17,9 @@
 
 
 from conveyor.clone.drivers import driver
-from conveyor import exception
 from conveyor.i18n import _LE
+
+from conveyor import exception
 from conveyor import utils
 
 from oslo_config import cfg
@@ -40,8 +41,7 @@ class AwsDriver(driver.BaseDriver):
                                        undo_mgr)
             return undo_mgr
         except Exception as e:
-            LOG.error(_LE('The generate template of plan %s failed, and rollback operations,\
-                      the error is %s'), plan_id, str(e))
+            LOG.error(_LE('Generate template failed, err:%s'), str(e))
             undo_mgr._rollback()
             raise exception.ExportTemplateFailed(id=plan_id, msg=str(e))
 

@@ -14,7 +14,8 @@
 #
 #    Copyright 2015 IBM Corp.
 
-from conveyor.conveyorheat.engine.clients.os.neutron import neutron_constraints as nc
+from conveyor.conveyorheat.engine.clients.os.neutron import \
+    neutron_constraints as nc
 
 CLIENT_NAME = 'neutron'
 

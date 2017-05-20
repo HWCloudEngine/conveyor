@@ -28,16 +28,19 @@ from conveyor.conveyorheat.engine.clients import progress
 from conveyor.conveyorheat.engine import constraints
 from conveyor.conveyorheat.engine import function
 from conveyor.conveyorheat.engine import properties
-from conveyor.conveyorheat.engine.resources.openstack.neutron import port as neutron_port
+from conveyor.conveyorheat.engine.resources.openstack.neutron import \
+    port as neutron_port
 from conveyor.conveyorheat.engine.resources.openstack.neutron import subnet
-from conveyor.conveyorheat.engine.resources.openstack.nova import server_network_mixin
+from conveyor.conveyorheat.engine.resources.openstack.nova import \
+    server_network_mixin
 from conveyor.conveyorheat.engine.resources import scheduler_hints as sh
 from conveyor.conveyorheat.engine.resources import stack_user
 from conveyor.conveyorheat.engine import support
 from conveyor.conveyorheat.engine import translation
 from conveyor.conveyorheat.rpc import api as rpc_api
 
-cfg.CONF.import_opt('default_software_config_transport', 'conveyor.conveyorheat.common.config')
+cfg.CONF.import_opt('default_software_config_transport',
+                    'conveyor.conveyorheat.common.config')
 
 LOG = logging.getLogger(__name__)
 

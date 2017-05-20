@@ -1,6 +1,4 @@
-# Copyright 2011 OpenStack Foundation
-# Copyright 2011 United States Government as represented by the
-# Administrator of the National Aeronautics and Space Administration.
+# Copyright 2011 Justin Santa Barbara
 # All Rights Reserved.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -25,11 +23,13 @@ from conveyor.api import extensions
 import conveyor.api.wsgi
 
 from conveyor.api.v1 import clone
-from conveyor.api.v1 import resources
-from conveyor.api.v1 import plans
 from conveyor.api.v1 import migrate
+from conveyor.api.v1 import plans
+from conveyor.api.v1 import resources
+
 
 LOG = logging.getLogger(__name__)
+
 
 class APIRouter(conveyor.api.wsgi.APIRouter):
     """Routes requests on the API to the appropriate controller and method."""
@@ -60,4 +60,3 @@ class APIRouter(conveyor.api.wsgi.APIRouter):
                         collection={'detail': 'GET',
                                     'create_plan_by_template': 'POST'},
                         member={'action': 'POST'})
-

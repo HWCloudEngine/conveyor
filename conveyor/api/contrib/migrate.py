@@ -17,16 +17,15 @@
 import time
 from webob import exc
 
-from conveyor import context
 from oslo_log import log as logging
-from conveyor.api.wsgi import wsgi
-from conveyor.api import extensions
-
 from oslo_utils import timeutils
-from conveyor.clone import api
 
+from conveyor.api import extensions
+from conveyor.api.wsgi import wsgi
+from conveyor.clone import api
 from conveyor.i18n import _
 from conveyor.resource import api as resource_api
+
 LOG = logging.getLogger(__name__)
 
 

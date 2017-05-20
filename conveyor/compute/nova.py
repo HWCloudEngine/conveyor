@@ -336,7 +336,7 @@ class API(object):
         return nova.volumes.create_server_volume(server_id, volume_id,
                                                  device)
 
-    def detach_volume(self,  context, server_id, attachment_id):
+    def detach_volume(self, context, server_id, attachment_id):
 
         """
         Detach a volume identified by the attachment ID from the given server

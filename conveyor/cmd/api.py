@@ -18,15 +18,24 @@
 """Starter script for Cinder OS API."""
 
 import eventlet
-eventlet.monkey_patch()
 
 import os
 import sys
 import warnings
 
-warnings.simplefilter('once', DeprecationWarning)
-
 from oslo_config import cfg
+from oslo_log import log as logging
+
+from conveyor.common import config  # noqa
+from conveyor import i18n
+from conveyor import rpc
+from conveyor import service
+from conveyor import utils
+from conveyor import version
+
+eventlet.monkey_patch()
+
+warnings.simplefilter('once', DeprecationWarning)
 
 possible_topdir = os.path.normpath(os.path.join(os.path.abspath(sys.argv[0]),
                                    os.pardir,
@@ -34,17 +43,7 @@ possible_topdir = os.path.normpath(os.path.join(os.path.abspath(sys.argv[0]),
 if os.path.exists(os.path.join(possible_topdir, "conveyor", "__init__.py")):
     sys.path.insert(0, possible_topdir)
 
-from conveyor import i18n
 i18n.enable_lazy()
-
-# Need to register global_opts
-from conveyor.common import config  # noqa
-from oslo_log import log as logging
-from conveyor import rpc
-from conveyor import service
-from conveyor import utils
-from conveyor import version
-
 
 CONF = cfg.CONF
 

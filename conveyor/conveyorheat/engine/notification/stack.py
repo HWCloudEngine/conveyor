@@ -12,7 +12,6 @@
 #    under the License.
 
 from conveyor.conveyorheat.engine import api as engine_api
-from conveyor.conveyorheat.engine import notification
 
 
 def send(stack):
@@ -22,18 +21,18 @@ def send(stack):
     # see: https://wiki.openstack.org/wiki/SystemUsageData
     # so to be consistent we translate our status into a known start/end/error
     # suffix.
-    level = notification.get_default_level()
-    if stack.status == stack.IN_PROGRESS:
-        suffix = 'start'
-    elif stack.status == stack.COMPLETE:
-        suffix = 'end'
-    else:
-        suffix = 'error'
-        level = notification.ERROR
-
-    event_type = '%s.%s.%s' % ('stack',
-                               stack.action.lower(),
-                               suffix)
+#     level = notification.get_default_level()
+#     if stack.status == stack.IN_PROGRESS:
+#         suffix = 'start'
+#     elif stack.status == stack.COMPLETE:
+#         suffix = 'end'
+#     else:
+#         suffix = 'error'
+#         level = notification.ERROR
+#
+#     event_type = '%s.%s.%s' % ('stack',
+#                                stack.action.lower(),
+#                                suffix)
 
     # notification.notify(stack.context, event_type, level,
     #                     engine_api.format_notification_body(stack))

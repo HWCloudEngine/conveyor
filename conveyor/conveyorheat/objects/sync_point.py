@@ -18,9 +18,9 @@
 from oslo_versionedobjects import base
 from oslo_versionedobjects import fields
 
-from conveyor.db import api as db_api
 from conveyor.conveyorheat.objects import base as heat_base
 from conveyor.conveyorheat.objects import fields as heat_fields
+from conveyor.db import api as db_api
 
 
 class SyncPoint(

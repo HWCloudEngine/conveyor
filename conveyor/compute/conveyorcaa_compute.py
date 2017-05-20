@@ -79,7 +79,7 @@ class API(ConveyorcaaClientWrapper):
                       {'vol_id': volume_id, 'vm': server_id, 'e': e})
             raise exception.V2vException
 
-    def detach_volume(self,  context, server_id, attachment_id):
+    def detach_volume(self, context, server_id, attachment_id):
         try:
             self.call('detach_volume')
         except Exception as e:

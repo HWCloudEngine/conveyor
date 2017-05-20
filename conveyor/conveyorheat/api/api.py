@@ -12,27 +12,28 @@
 
 import contextlib
 import functools
-from oslo_config import cfg
-from oslo_utils import timeutils
-import six
 import itertools
+import six
+from webob import exc
 
+from oslo_config import cfg
+from oslo_log import log as logging
+from oslo_utils import timeutils
+
+from conveyor.conveyorheat.common import environment_format
+from conveyor.conveyorheat.common import identifier
+from conveyor.conveyorheat.common import param_utils
 from conveyor.conveyorheat.common import template_format
 from conveyor.conveyorheat.common import urlfetch
-from conveyor.conveyorheat.common import environment_format
-from conveyor.conveyorheat.common import param_utils
-from conveyor.conveyorheat.common import identifier
+
 from conveyor.conveyorheat.engine import service as engine
 from conveyor.conveyorheat.hw_plugins import utils
 from conveyor.conveyorheat.rpc import api as rpc_api
 
+from conveyor import exception
+
 from conveyor.common._i18n import _
 from conveyor.common import loopingcall
-from webob import exc
-
-from conveyor import exception
-from oslo_log import log as logging
-
 from conveyor.db import api as db_api
 
 LOG = logging.getLogger(__name__)
@@ -168,7 +169,6 @@ def format_stack(stack, keys=None, tenant_safe=True):
 
         if key == rpc_api.STACK_ID:
             yield ('id', value['stack_id'])
-            #yield ('links', [make_link(req, value)])
             if not tenant_safe:
                 yield ('project', value['tenant'])
         elif key == rpc_api.STACK_ACTION:
@@ -200,16 +200,7 @@ def format_resource(res, keys=None):
             return
 
         if key == rpc_api.RES_ID:
-            identity = identifier.ResourceIdentifier(**value)
-            # links = [util.make_link(req, identity),
-            #          util.make_link(req, identity.stack(), 'stack')]
-
-            # nested_id = res.get(rpc_api.RES_NESTED_STACK_ID)
-            # if nested_id:
-            #     nested_identity = identifier.HeatIdentifier(**nested_id)
-            #     links.append(util.make_link(req, nested_identity, 'nested'))
-            #
-            # yield ('links', links)
+            identifier.ResourceIdentifier(**value)
         elif (key == rpc_api.RES_STACK_NAME or
               key == rpc_api.RES_STACK_ID or
               key == rpc_api.RES_ACTION or
@@ -489,15 +480,11 @@ class API(object):
                           'stack_name': stack_name,
                           'stack_id': stack_id}
         return stack_identity
-    
+
     def get_stack(self, context, stack_id):
-        # context._session = db_api.get_session()
-        # stack_identity = self._make_identity(context.project_id,
-        #                                      '', stack_id)
-        # stack_list = engineclient(context).show_stack(context, stack_identity)
-        # context._session = db_api.get_session()
         stack_list = db_api.stack_get(context, stack_id,
-                                      {'show_deleted': False, 'eager_load': True})
+                                      {'show_deleted': False,
+                                       'eager_load': True})
         if not stack_list:
             return None
         stack_list[rpc_api.STACK_STATUS] = stack_list['status']
@@ -536,18 +523,20 @@ class API(object):
                                              st['stack_id'])
                 timer = loopingcall.FixedIntervalLoopingCall(loop_fun)
                 timer.start(interval=0.5).wait()
-                db_api.plan_stack_update(context, plan_id, st['stack_id'], values)
+                db_api.plan_stack_update(context, plan_id, st['stack_id'],
+                                         values)
             # context._session = db_api.get_session()
             # db_api.plan_stack_delete(context, plan_id)
         except Exception as e:
-            LOG.error("clear resource fail")
+            LOG.error("clear resource fail %s", e)
             raise
 
     def clear_table(self, context, stack_id, plan_id, is_heat_stack=False):
         # need stackname not id
         # context._session = db_api.get_session()
         try:
-            stacks = db_api.plan_stack_get(context, plan_id, read_deleted='yes')
+            stacks = db_api.plan_stack_get(context, plan_id,
+                                           read_deleted='yes')
             for st in stacks[::-1]:
                 stack_identity = self._make_identity(context.project_id,
                                                      '', st['stack_id'])
@@ -560,14 +549,15 @@ class API(object):
                 # context._session = db_api.get_session()
                 db_api.plan_stack_delete(context, plan_id, st['stack_id'])
         except Exception as e:
-            LOG.error("clear table fail")
+            LOG.error("clear table fail %s", e)
             raise
-    
+
     def delete_stack(self, context, stack_id, plan_id, is_heat_stack=False):
         # need stackname not id
         # context._session = db_api.get_session()
         try:
-            stacks = db_api.plan_stack_get(context, plan_id, read_deleted='yes')
+            stacks = db_api.plan_stack_get(context, plan_id,
+                                           read_deleted='yes')
             for st in stacks[::-1]:
                 stack_identity = self._make_identity(context.project_id,
                                                      '', st['stack_id'])
@@ -581,17 +571,18 @@ class API(object):
             # context._session = db_api.get_session()
             # db_api.plan_stack_delete_all(context, plan_id)
         except Exception as e:
-            LOG.error("delete stack fail")
+            LOG.error("delete stack fail %s", e)
             raise
 
     def create_stack(self, context, password=None, **kwargs):
         # context._session = db_api.get_session()
         data = InstantiationData(kwargs)
         args = self.prepare_args(data)
-        result = self.api.create_stack(context, data.stack_name(),
-                                       data.template(), data.environment(),
-                                       data.files(), args,
-                                       environment_files=data.environment_files())
+        result = self.api.create_stack(
+                            context, data.stack_name(),
+                            data.template(), data.environment(),
+                            data.files(), args,
+                            environment_files=data.environment_files())
         formatted_stack = format_stack(
             {rpc_api.STACK_ID: result}
         )
@@ -602,13 +593,13 @@ class API(object):
         # context._session = db_api.get_session()
         data = InstantiationData(kwargs)
         args = self.prepare_args(data)
-        stacks = self.api.preview_stack(context, data.stack_name(),
-                                        data.template(), data.environment(),
-                                        data.files(), args,
-                                        environment_files=
-                                        data.environment_files())
+        stacks = self.api.preview_stack(
+                            context, data.stack_name(),
+                            data.template(), data.environment(),
+                            data.files(), args,
+                            environment_files=data.environment_files())
         return Stack(format_stack(stacks))
-    
+
     def resources_list(self, context, stack_name):
         # context._session = db_api.get_session()
         stack_identity = self._make_identity(context.project_id,
@@ -628,7 +619,7 @@ class API(object):
     def get_resource_type(self, context, resource_type):
         # context._session = db_api.get_session()
         return self.api.resource_schema(context, resource_type)
-    
+
     def events_list(self, context, stack_id):
         # context._session = db_api.get_session()
         # hc = heatclient(context)
@@ -641,7 +632,7 @@ class API(object):
         data = [format_event(e) for e in events]
         # data = data['values']
         return [Event(res) for res in data]
-    
+
     def get_event(self, context, stack_id, resource_name, event_id):
         # context._session = db_api.get_session()
         stack_identity = self._make_identity(context.project_id,
@@ -657,7 +648,7 @@ class API(object):
         stack_identity = self._make_identity(context.project_id,
                                              '', stack_id)
         return self.api.get_template(context, stack_identity)
-    
+
     def stack_list(self, context, **kwargs):
         # context._session = db_api.get_session()
         stacks = self.api.list_stacks(context, **kwargs)

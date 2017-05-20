@@ -18,7 +18,7 @@ from oslo_log import log
 import six
 
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _LW
+
 from conveyor.conveyorheat.common.i18n import repr_wrapper
 from conveyor.conveyorheat.engine import function
 from conveyor.conveyorheat.engine import properties

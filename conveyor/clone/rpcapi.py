@@ -17,9 +17,8 @@ Client side of the conveyor RPC API.
 """
 
 from oslo_config import cfg
-import oslo_messaging as messaging
-from oslo_serialization import jsonutils
 from oslo_log import log as logging
+import oslo_messaging as messaging
 
 from conveyor import rpc
 
@@ -75,7 +74,7 @@ class CloneAPI(object):
         LOG.debug("start call rpc api download_template")
         cctxt = self.client.prepare(version='1.18')
         return cctxt.call(ctxt, 'download_template', id=id)
-    
+
     def export_template_and_clone(self, ctxt, id, destination,
                                   update_resources,
                                   sys_clone=False):

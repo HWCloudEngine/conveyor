@@ -17,11 +17,11 @@
 status of a plan.
 """
 
-PLAN_STATUS = (INITIATING, CREATING, AVAILABLE, CLONING, MIGRATING, 
+PLAN_STATUS = (INITIATING, CREATING, AVAILABLE, CLONING, MIGRATING,
                FINISHED, DELETING, DELETED, ERROR_DELETING, EXPIRED, ERROR) = (
-               'initiating', 'creating', 'available', 'cloning', 'migrating', 
-               'finished', 'deleting', 'deleted', 'error_deleting', 'expired', 'error')
-
+               'initiating', 'creating', 'available', 'cloning', 'migrating',
+               'finished', 'deleting', 'deleted',
+               'error_deleting', 'expired', 'error')
 
 
 STATE_MAP = {
@@ -46,10 +46,10 @@ MIGRATE_STATE_MAP = {
 
 
 RESOURCE_TYPES = ['OS::Nova::Server',
-                 'OS::Cinder::Volume',
-                 'OS::Neutron::Net',
-                 'OS::Neutron::LoadBalancer',
-                 'OS::Heat::Stack',
-                 'OS::Neutron::FloatingIP',
-                 'OS::Neutron::SecurityGroup',
-                 'OS::Neutron::Pool']
+                  'OS::Cinder::Volume',
+                  'OS::Neutron::Net',
+                  'OS::Neutron::LoadBalancer',
+                  'OS::Heat::Stack',
+                  'OS::Neutron::FloatingIP',
+                  'OS::Neutron::SecurityGroup',
+                  'OS::Neutron::Pool']

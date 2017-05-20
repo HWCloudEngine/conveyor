@@ -22,7 +22,8 @@ from conveyor.conveyorheat.common.i18n import _
 from conveyor.conveyorheat.engine import attributes
 from conveyor.conveyorheat.engine import constraints
 from conveyor.conveyorheat.engine import properties
-from conveyor.conveyorheat.engine.resources.aws.cfn import wait_condition_handle as aws_wch
+from conveyor.conveyorheat.engine.resources.aws.cfn import \
+    wait_condition_handle as aws_wch
 from conveyor.conveyorheat.engine.resources import signal_responder
 from conveyor.conveyorheat.engine.resources import wait_condition as wc_base
 from conveyor.conveyorheat.engine import support

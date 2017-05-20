@@ -27,7 +27,8 @@ from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)
 
-cfg.CONF.import_opt('client_retry_limit', 'conveyor.conveyorheat.common.config')
+cfg.CONF.import_opt('client_retry_limit',
+                    'conveyor.conveyorheat.common.config')
 
 
 class ExceptionFilter(object):
