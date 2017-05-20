@@ -17,24 +17,23 @@ Client side of the conveyor RPC API.
 """
 
 from oslo_config import cfg
-import oslo_messaging as messaging
-from oslo_serialization import jsonutils
 from oslo_log import log as logging
+import oslo_messaging as messaging
 
 from conveyor import rpc
-
 
 CONF = cfg.CONF
 
 LOG = logging.getLogger(__name__)
 
+
 class MigrationAPI(object):
-    '''Client side of the volume rpc API.
+    """Client side of the volume rpc API.
 
     API version history:
 
         1.0 - Initial version.
-    '''
+    """
 
     BASE_RPC_API_VERSION = '1.0'
 
@@ -45,11 +44,8 @@ class MigrationAPI(object):
         self.client = rpc.get_client(target, '1.23', serializer=None)
 
     def get_all(self, ctxt, host):
-        
+
         LOG.debug("migration rpc api start")
         new_host = host
         cctxt = self.client.prepare(server=new_host, version='1.18')
         cctxt.cast(ctxt, 'get_all')
-
-
-

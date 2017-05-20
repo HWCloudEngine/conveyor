@@ -17,43 +17,39 @@
 
 """Utilities and helper functions."""
 
-
+import ConfigParser
 import contextlib
-import ConfigParser 
 import datetime
 import hashlib
 import inspect
+import netaddr
 import os
 import pyclbr
 import random
 import re
 import shutil
+import six
 import stat
 import sys
 import tempfile
-import netaddr
 from xml.dom import minidom
 from xml.parsers import expat
 from xml import sax
 from xml.sax import expatreader
 from xml.sax import saxutils
-import webob.exc
-
-from oslo_config import cfg
-from oslo_utils import importutils
-from oslo_utils import strutils
-from oslo_utils import timeutils
-import retrying
-import six
 
 from oslo_concurrency import lockutils
 from oslo_concurrency import processutils
+from oslo_config import cfg
 from oslo_log import log as logging
+from oslo_utils import excutils
+from oslo_utils import importutils
+from oslo_utils import timeutils
+import retrying
 
 from conveyor import exception
-from conveyor.i18n import _, _LE
-from oslo_utils import excutils
-
+from conveyor.i18n import _
+from conveyor.i18n import _LE
 
 CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
@@ -76,30 +72,30 @@ def get_next_vgw(region):
     if region not in vgw_index:
         if not vgw_dict:
             # vgw_ip_dict value is vgw_id0:vgw_ip0,vwg_id1:vgw_ip1
-            # _vgw_dict is {'az01':{'111111':'162.3.110.2','222222':162.3.110.3}}
+            # _vgw_dict is {'az01':{'111111':'162.3.110.2',
+            # '222222':162.3.110.3}}
             try:
                 vgw_str = '{' + CONF.vgw_info + '}'
                 vgw_dict = eval(vgw_str)
             except Exception as e:
-                LOG.error('read the vgw info error: %s' ,e)
+                LOG.error('read the vgw info error: %s', e)
                 raise
             vgw_id_dict = dict([(_r, list(v))
                                 for _r, v in vgw_dict.items()
                                 ])
         vgw_index[region] = random.randint(
-            0, len(vgw_id_dict[region])-1
+            0, len(vgw_id_dict[region]) - 1
         )
     else:
         vgw_index[region] = (vgw_index[region] + 1) % \
-            len(vgw_id_dict[region])
+                            len(vgw_id_dict[region])
     idx = vgw_index[region]
     vgw_id = vgw_id_dict[region][idx]
     return vgw_id, vgw_dict[region][vgw_id]
-    
+
 
 @synchronized('conveyor-config', external=True)
 def remove_vgw_info(vgw_id, config_key, config_vaule):
-
     if not isinstance(config_vaule, dict):
         LOG.error('Remove vgw  %s error: vgw info not dict', vgw_id)
         return
@@ -115,7 +111,7 @@ def remove_vgw_info(vgw_id, config_key, config_vaule):
                 del vgw_update_time[v_id]
                 flag = True
                 break
-        
+
         if flag:
             if not config_vaule[k]:
                 del config_vaule[k]
@@ -128,14 +124,14 @@ def remove_vgw_info(vgw_id, config_key, config_vaule):
     else:
         config_value_str = ""
 
-    # 3. update config file 
-    config_ctl =  ConfigParser.ConfigParser()
+    # 3. update config file
+    config_ctl = ConfigParser.ConfigParser()
     filepath = CONF.config_path
-    
+
     try:
         config_ctl.read(filepath)
         config_ctl.set('DEFAULT', config_key, config_value_str)
-        fh = open(filepath ,'w')
+        fh = open(filepath, 'w')
         config_ctl.write(fh)
     except Exception as e:
         LOG.error("Remove vgw config info error: %s", e)
@@ -144,7 +140,7 @@ def remove_vgw_info(vgw_id, config_key, config_vaule):
     finally:
         if fh:
             fh.close()
-    
+
     LOG.debug('Remove vgw info end: update time list %(l)s, config %(c)s',
               {'l': vgw_update_time, 'c': config_value_str})
 
@@ -244,7 +240,8 @@ def check_ssh_injection(cmd_list):
         arg = arg.strip()
 
         # Check for matching quotes on the ends
-        is_quoted = re.match('^(?P<quote>[\'"])(?P<quoted>.*)(?P=quote)$', arg)
+        is_quoted = re.match('^(?P<quote>[\'"])(?P<quoted>.*)(?P=quote)$',
+                             arg)
         if is_quoted:
             # Check for unescaped quotes within the quoted argument
             quoted = is_quoted.group('quoted')
@@ -647,12 +644,12 @@ def brick_get_connector_properties(multipath=False, enforce_multipath=False):
                               If False, it falls back to multipath=False
                               when multipathd is not running.
     """
-
-    root_helper = get_root_helper()
-    #return connector.get_connector_properties(root_helper,
-     #                                         CONF.my_ip,
-     #                                         multipath,
-     #                                         enforce_multipath)
+    pass
+    # root_helper = get_root_helper()
+    # return connector.get_connector_properties(root_helper,
+    #                                         CONF.my_ip,
+    #                                         multipath,
+    #                                         enforce_multipath)
 
 
 def brick_get_connector(protocol, driver=None,
@@ -664,9 +661,8 @@ def brick_get_connector(protocol, driver=None,
     This automatically populates the required protocol as well
     as the root_helper needed to execute commands.
     """
-
-    root_helper = get_root_helper()
-  
+    pass
+    # root_helper = get_root_helper()
 
 
 def require_driver_initialized(driver):
@@ -767,6 +763,7 @@ def check_string_length(value, name, min_length=0, max_length=None):
                 "characters.") % {'name': name, 'max_length': max_length}
         raise exception.InvalidInput(message=msg)
 
+
 _visible_admin_metadata_keys = ['readonly', 'attached_mode']
 
 
@@ -774,8 +771,8 @@ def add_visible_admin_metadata(volume):
     """Add user-visible admin metadata to regular metadata.
 
     Extracts the admin metadata keys that are to be made visible to
-    non-administrators, and adds them to the regular metadata structure for the
-    passed-in volume.
+    non-administrators, and adds them to the regular metadata
+    structure for the passed-in volume.
     """
     visible_admin_meta = {}
 
@@ -785,7 +782,7 @@ def add_visible_admin_metadata(volume):
                 visible_admin_meta[item['key']] = item['value']
     # avoid circular ref when volume is a Volume instance
     elif (volume.get('admin_metadata') and
-            isinstance(volume.get('admin_metadata'), dict)):
+              isinstance(volume.get('admin_metadata'), dict)):
         for key in _visible_admin_metadata_keys:
             if key in volume['admin_metadata'].keys():
                 visible_admin_meta[key] = volume['admin_metadata'][key]
@@ -805,7 +802,7 @@ def add_visible_admin_metadata(volume):
         volume['volume_metadata'] = orig_meta
     # avoid circular ref when vol is a Volume instance
     elif (volume.get('metadata') and
-            isinstance(volume.get('metadata'), dict)):
+              isinstance(volume.get('metadata'), dict)):
         volume['metadata'].update(visible_admin_meta)
     else:
         volume['metadata'] = visible_admin_meta
@@ -839,7 +836,6 @@ def is_blk_device(dev):
 
 
 def retry(exceptions, interval=1, retries=3, backoff_rate=2):
-
     def _retry_on_exception(e):
         return isinstance(e, exceptions)
 
@@ -861,7 +857,6 @@ def retry(exceptions, interval=1, retries=3, backoff_rate=2):
                          'equal to 1 (received: %s). ' % retries)
 
     def _decorator(f):
-
         @six.wraps(f)
         def _wrapper(*args, **kwargs):
             r = retrying.Retrying(retry_on_exception=_retry_on_exception,
@@ -899,18 +894,19 @@ def convert_version_to_str(version_int):
 def convert_version_to_tuple(version_str):
     return tuple(int(part) for part in version_str.split('.'))
 
+
 def is_valid_ipv6(address):
     try:
         return netaddr.valid_ipv6(address)
     except Exception:
         return False
-    
 
 
 class UndoManager(object):
     """Provides a mechanism to facilitate rolling back a series of actions
     when an exception is raised.
     """
+
     def __init__(self):
         self.undo_stack = []
 

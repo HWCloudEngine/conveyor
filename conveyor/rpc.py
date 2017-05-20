@@ -96,7 +96,6 @@ class JsonPayloadSerializer(messaging.NoOpSerializer):
 
 
 class RequestContextSerializer(messaging.Serializer):
-
     def __init__(self, base):
         self._base = base
 

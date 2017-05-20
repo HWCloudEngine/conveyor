@@ -1,13 +1,28 @@
+#!/usr/bin/env python
+# Copyright 2012 OpenStack Foundation
+#
+#    Licensed under the Apache License, Version 2.0 (the "License"); you may
+#    not use this file except in compliance with the License. You may obtain
+#    a copy of the License at
+#
+#         http://www.apache.org/licenses/LICENSE-2.0
+#
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+#    License for the specific language governing permissions and limitations
+#    under the License.
+
 """Utilities and helper functions."""
 
-
+from oslo_config import cfg
+from oslo_serialization import jsonutils
 
 from conveyor import exception
 from conveyor.i18n import _
-from oslo_serialization import jsonutils
 
-from oslo_config import cfg
 CONF = cfg.CONF
+
 
 class LazyPluggable(object):
     """A pluggable backend loaded lazily based on some value."""
@@ -43,12 +58,14 @@ class LazyPluggable(object):
         backend = self.__get_backend()
         return getattr(backend, key)
 
+
 class SmarterEncoder(jsonutils.json.JSONEncoder):
     """Help for JSON encoding dict-like objects."""
     def default(self, obj):
         if not isinstance(obj, dict) and hasattr(obj, 'iteritems'):
             return dict(obj.iteritems())
         return super(SmarterEncoder, self).default(obj)
+
 
 def utf8(value):
     """Try to turn a string into utf-8 if possible.
@@ -64,7 +81,7 @@ def utf8(value):
 
 
 def get_value_from_dict(d, keys):
-    """ return value from d in keys. """
+    """return value from d in keys. """
     if not d:
         return None
     for k in keys:
@@ -73,11 +90,11 @@ def get_value_from_dict(d, keys):
         for v in d.values():
             if type(v) == dict:
                 r = get_value_from_dict(v, keys)
-                if r: return r
+                if r:
+                    return r
     return None
 
 
-# add from heat
 IMPL = LazyPluggable('backend',
                      sqlalchemy='conveyor.db.sqlalchemy.api')
 

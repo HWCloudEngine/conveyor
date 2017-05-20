@@ -53,8 +53,6 @@ class API(object):
         #                 the context alive...
         return glance.get_default_image_service()
 
-
-
     def get(self, context, id_or_uri, include_locations=False):
         """Retrieves the information record for a single disk image. If the
         supplied identifier parameter is a UUID, the default driver will
@@ -76,7 +74,6 @@ class API(object):
         return session.show(context, image_id,
                             include_locations=include_locations)
 
-
     def get_all(self, context, **kwargs):
         """Retrieves all information records about all disk images available
         to show to the requesting user. If the requesting user is an admin,
@@ -90,4 +87,3 @@ class API(object):
         """
         session = self._get_session(context)
         return session.detail(context, **kwargs)
-    

@@ -30,6 +30,7 @@ import eventlet
 import eventlet.wsgi
 import greenlet
 from oslo_config import cfg
+from oslo_log import log as logging
 from oslo_utils import excutils
 from oslo_utils import netutils
 from paste import deploy
@@ -37,13 +38,11 @@ import routes.middleware
 import webob.dec
 import webob.exc
 
-from oslo_log import log as logging
-from oslo_log import log as loggers
-
 from conveyor import exception
-from conveyor.i18n import _, _LE, _LI
+from conveyor.i18n import _
+from conveyor.i18n import _LE
+from conveyor.i18n import _LI
 from conveyor import utils
-
 
 socket_opts = [
     cfg.BoolOpt('tcp_keepalive',
@@ -90,10 +89,9 @@ eventlet_opts = [
                 default=True,
                 help='If False, closes the client socket connection '
                      'explicitly. Setting it to True to maintain backward '
-                     'compatibility. Recommended setting is set it to False.'),
+                     'compatibility. Recommended setting is '
+                     'set it to False.'),
 ]
-
-
 
 CONF = cfg.CONF
 CONF.register_opts(socket_opts)
@@ -185,7 +183,7 @@ class Server(object):
 
         if not self._socket:
             raise RuntimeError(_("Could not bind to %(host)s:%(port)s "
-                               "after trying for 30 seconds") %
+                                 "after trying for 30 seconds") %
                                {'host': host, 'port': port})
 
         (self._host, self._port) = self._socket.getsockname()[0:2]
@@ -303,7 +301,9 @@ class Request(webob.Request):
 
 
 class Application(object):
-    """Base WSGI application wrapper. Subclasses need to implement __call__."""
+    """Base WSGI application wrapper. Subclasses need
+    to implement __call__.
+    """
 
     @classmethod
     def factory(cls, global_config, **local_config):
@@ -400,8 +400,10 @@ class Middleware(Application):
         but using the kwarg passing it shouldn't be necessary.
 
         """
+
         def _factory(app):
             return cls(app, **local_config)
+
         return _factory
 
     def __init__(self, application):

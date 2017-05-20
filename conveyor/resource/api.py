@@ -1,23 +1,34 @@
-'''
-Created on 2016
+# Copyright 2010 United States Government as represented by the
+# Administrator of the National Aeronautics and Space Administration.
+# Copyright 2011 Justin Santa Barbara
+# All Rights Reserved.
+#
+#    Licensed under the Apache License, Version 2.0 (the "License"); you may
+#    not use this file except in compliance with the License. You may obtain
+#    a copy of the License at
+#
+#         http://www.apache.org/licenses/LICENSE-2.0
+#
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+#    License for the specific language governing permissions and limitations
+#    under the License.
 
-@author: g00357909
-'''
-
-import six
 import copy
 import numbers
+import six
+
 from oslo_config import cfg
-
 from oslo_log import log as logging
-from conveyor.resource import rpcapi
 from oslo_utils import uuidutils
-from conveyor.common import plan_status as p_status
-from conveyor.resource import resource
 
+from conveyor.common import plan_status as p_status
 from conveyor.db import api as db_api
-from conveyor import heat
 from conveyor import exception
+from conveyor import heat
+from conveyor.resource import resource
+from conveyor.resource import rpcapi
 
 LOG = logging.getLogger(__name__)
 
@@ -189,7 +200,8 @@ class ResourceAPI(object):
                 LOG.error(msg)
                 raise exception.PlanUpdateError(message=msg)
             elif action == 'delete' and 'resource_id' not in res.keys():
-                msg = "'resource_id' must be provided when deleting resources."
+                msg = "'resource_id' must be provided when " \
+                      "deleting resources."
                 LOG.error(msg)
                 raise exception.PlanUpdateError(message=msg)
 
@@ -267,8 +279,9 @@ class ResourceAPI(object):
         return rsp
 
     def _is_template_skip_heat_check(self, template):
-        ''' template has resources that heat does not exist,
-         template skip heat api check'''
+        """template has resources that heat does not exist,
+        template skip heat api check
+        """
 
         LOG.debug('Resouce api check template start.')
         RESORCE_TYPE_LIST = ["OS::Neutron::Vip",

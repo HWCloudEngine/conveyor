@@ -15,11 +15,10 @@
 
 """Policy Engine For Cinder"""
 
-
 from oslo_config import cfg
 
-from conveyor import exception
 from conveyor.common import policy
+from conveyor import exception
 
 CONF = cfg.CONF
 

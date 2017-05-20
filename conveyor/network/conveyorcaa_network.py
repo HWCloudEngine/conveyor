@@ -15,18 +15,17 @@
 """
 Handles all requests to conveyorcaa.
 """
-from webob import exc
 
+from neutronclient.common import exceptions as neutronclient_exceptions
 from oslo_config import cfg
 from oslo_log import log as logging
+from webob import exc
 
 from conveyor.conveyorcaa.api import ConveyorcaaClientWrapper
 from conveyor import exception
 from conveyor.i18n import _LE
-from neutronclient.common import exceptions as neutronclient_exceptions
 
 CONF = cfg.CONF
-
 
 LOG = logging.getLogger(__name__)
 

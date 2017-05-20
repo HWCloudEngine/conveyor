@@ -15,12 +15,13 @@
 #    under the License.
 
 import json
-from conveyor import exception
-from conveyor import heat
 
 from oslo_log import log as logging
-from conveyor.resource import resource
+
+from conveyor import exception
+from conveyor import heat
 from conveyor.resource.driver import base
+from conveyor.resource import resource as res
 
 LOG = logging.getLogger(__name__)
 
@@ -86,11 +87,12 @@ class StackResource(base.resource):
 
             resource_type = "OS::Heat::Stack"
             resource_name = 'stack_%d' % self._get_resource_num(resource_type)
-            stack_res = resource.Resource(resource_name, resource_type,
-                                          stack_id, properties=properties)
-            stack_dep = resource.ResourceDependency(stack_id, stack.stack_name,
-                                                    resource_name,
-                                                    resource_type)
+            stack_res = res.Resource(resource_name, resource_type,
+                                     stack_id, properties=properties)
+            stack_dep = res.ResourceDependency(stack_id,
+                                               stack.stack_name,
+                                               resource_name,
+                                               resource_type)
 
             self._collected_resources[stack_id] = stack_res
             self._collected_dependencies[stack_id] = stack_dep
@@ -114,7 +116,7 @@ class StackResource(base.resource):
         return t and t.startswith('file://')
 
     def get_resources(self, res_list, t):
-        """ filter by resource type. """
+        """filter by resource type. """
         return [r for r in res_list if r.resource_type == t]
 
     def _extract_resource(self, context, stack_id):

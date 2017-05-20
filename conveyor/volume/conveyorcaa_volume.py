@@ -15,18 +15,18 @@
 """
 Handles all requests to conveyorcaa.
 """
+
 from webob import exc
 
+from cinderclient import exceptions as cinderclient_exceptions
 from oslo_config import cfg
 from oslo_log import log as logging
 
-from cinderclient import exceptions as cinderclient_exceptions
 from conveyor.conveyorcaa.api import ConveyorcaaClientWrapper
 from conveyor import exception
 from conveyor.i18n import _LE
 
 CONF = cfg.CONF
-
 
 LOG = logging.getLogger(__name__)
 
@@ -53,11 +53,11 @@ class API(ConveyorcaaClientWrapper):
         try:
             volumes = self.call('list_volume')
         except Exception as e:
-            LOG.error(_LE('Query all volume info error: %(err)s'),  e)
+            LOG.error(_LE('Query all volume info error: %(err)s'), e)
             raise exception.V2vException
         return volumes
 
-    def create_volume(self, context, size,  name,
+    def create_volume(self, context, size, name,
                       snapshot_id=None, description=None,
                       volume_type=None, user_id=None,
                       project_id=None, availability_zone=None,
@@ -81,7 +81,7 @@ class API(ConveyorcaaClientWrapper):
         try:
             type_list = self.call('list_volume_type')
         except Exception as e:
-            LOG.error(_LE('Query all volume type info error: %(err)s'),  e)
+            LOG.error(_LE('Query all volume type info error: %(err)s'), e)
             raise exception.V2vException
         return type_list
 

@@ -26,7 +26,6 @@ from conveyor.i18n import _LE
 from conveyor.i18n import _LW
 from conveyor.resource.plugins import driver
 
-
 CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
 
@@ -101,7 +100,8 @@ class OpenstackDriver(driver.BaseDriver):
                         self.volume_api.reset_state(context, vid, v_state)
                 elif res_type == 'OS::Nova::Server':
                     sid = value.get('extra_properties', {}).get('id')
-                    s_state = value.get('extra_properties', {}).get('vm_state')
+                    s_state = value.get('extra_properties', {}).\
+                        get('vm_state')
                     if sid:
                         self.compute_api.reset_state(context, sid, s_state)
                 elif res_type and res_type.startswith('file://'):
@@ -135,8 +135,8 @@ class OpenstackDriver(driver.BaseDriver):
                                                                      volume_id,
                                                                      False)
                     except Exception as e:
-                        LOG.error(_LE('Error from handle volume of stack after'
-                                      ' clone.'
+                        LOG.error(_LE('Error from handle volume '
+                                      'of stack after clone.'
                                       'Error=%(e)s'), {'e': e})
                 elif res_type and res_type.startswith('file://'):
                     son_template = json.loads(res.get('content'))
@@ -149,7 +149,8 @@ class OpenstackDriver(driver.BaseDriver):
 
     def _handle_volume_for_svm_after_clone(self, context,
                                            server_resource, resources):
-        bdms = server_resource['properties'].get('block_device_mapping_v2', [])
+        bdms = server_resource['properties'].get('block_device_mapping_v2',
+                                                 [])
         vgw_id = server_resource.get('extra_properties', {}).get('gw_id')
         for bdm in bdms:
             volume_key = bdm.get('volume_id', {}).get('get_resource')
@@ -157,7 +158,8 @@ class OpenstackDriver(driver.BaseDriver):
             device_name = bdm.get('device_name')
             volume_res = resources.get(volume_key)
             try:
-                if volume_res.get('extra_properties', {}).get('is_deacidized'):
+                if volume_res.get('extra_properties', {}).\
+                        get('is_deacidized'):
                     volume_id = volume_res.get('extra_properties', {}) \
                                           .get('id')
                     vgw_url = volume_res.get('extra_properties', {}) \
@@ -193,8 +195,8 @@ class OpenstackDriver(driver.BaseDriver):
                                                        volume_id)
                         self._wait_for_volume_status(context, volume_id,
                                                      vgw_id, 'available')
-                        server_id = server_resource.get('extra_properties', {}) \
-                                                   .get('id')
+                        server_id = server_resource.get('extra_properties',
+                                                        {}).get('id')
                         self.compute_api.attach_volume(context, server_id,
                                                        volume_id,
                                                        device_name)

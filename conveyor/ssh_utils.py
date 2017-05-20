@@ -19,16 +19,17 @@
 """Utilities related to SSH connection management."""
 
 import os
+import six
 import string
 
 from eventlet import pools
 from oslo_config import cfg
-import paramiko
-import six
-
 from oslo_log import log as logging
+import paramiko
+
 from conveyor import exception
-from conveyor.i18n import _, _LI
+from conveyor.i18n import _
+from conveyor.i18n import _LI
 
 LOG = logging.getLogger(__name__)
 
@@ -38,12 +39,14 @@ ssh_opts = [
                 help='Option to enable strict host key checking.  When '
                      'set to "True" Cinder will only connect to systems '
                      'with a host key present in the configured '
-                     '"ssh_hosts_key_file".  When set to "False" the host key '
+                     '"ssh_hosts_key_file".  When set '
+                     'to "False" the host key '
                      'will be saved upon first connection and used for '
                      'subsequent connections.  Default=False'),
     cfg.StrOpt('ssh_hosts_key_file',
                default='$state_path/ssh_known_hosts',
-               help='File containing SSH host keys for the systems with which '
+               help='File containing SSH host keys for '
+                    'the systems with which '
                     'Cinder needs to communicate.  OPTIONAL: '
                     'Default=$state_path/ssh_known_hosts'),
 ]
@@ -81,7 +84,8 @@ class SSHPool(pools.Pool):
         if 'hosts_key_file' in kwargs.keys():
             self.hosts_key_file = kwargs.pop('hosts_key_file')
             LOG.info(_LI("Secondary ssh hosts key file %(kwargs)s will be "
-                         "loaded along with %(conf)s from /etc/conveyor.conf."),
+                         "loaded along with %(conf)s "
+                         "from /etc/conveyor.conf."),
                      {'kwargs': self.hosts_key_file,
                       'conf': CONF.ssh_hosts_key_file})
 
@@ -137,10 +141,12 @@ class SSHPool(pools.Pool):
                 raise exception.CinderException(msg)
 
             # Paramiko by default sets the socket timeout to 0.1 seconds,
-            # ignoring what we set through the sshclient. This doesn't help for
+            # ignoring what we set through the sshclient.
+            # This doesn't help for
             # keeping long lived connections. Hence we have to bypass it, by
             # overriding it after the transport is initialized. We are setting
-            # the sockettimeout to None and setting a keepalive packet so that,
+            # the sockettimeout to None and setting a
+            # keepalive packet so that,
             # the server will keep the connection open. All that does is send
             # a keepalive packet every ssh_conn_timeout seconds.
             if self.conn_timeout:

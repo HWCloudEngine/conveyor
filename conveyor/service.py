@@ -17,34 +17,34 @@
 
 """Generic Node base class for all workers that run on hosts."""
 
-import socket
 import inspect
 import os
 import random
+import socket
 
+from oslo_concurrency import processutils
 from oslo_config import cfg
 from oslo_db import exception as db_exc
+from oslo_log import log as logging
 import oslo_messaging as messaging
+from oslo_service import service
 from oslo_utils import importutils
+from oslo_utils import timeutils
 import osprofiler.notifier
 from osprofiler import profiler
 import osprofiler.web
-from conveyor import utils
 
-from oslo_concurrency import processutils
-from oslo_log import log as logging
-from oslo_service import service
-from conveyor import context
-#from conveyor import db
-from conveyor import exception
-from conveyor.i18n import _, _LE, _LI, _LW
 from conveyor.common import loopingcall
+from conveyor import context
+from conveyor import exception
+from conveyor.i18n import _
+from conveyor.i18n import _LE
+from conveyor.i18n import _LI
+from conveyor.i18n import _LW
 from conveyor import rpc
+from conveyor import utils
 from conveyor import version
 from conveyor import wsgi
-from oslo_utils import timeutils
-
-
 
 LOG = logging.getLogger(__name__)
 
@@ -69,13 +69,12 @@ service_opts = [
                help='Port on which OpenStack Volume API listens'),
     cfg.IntOpt('osapi_clone_workers',
                help='Number of workers for OpenStack Volume API service. '
-                    'The default is equal to the number of CPUs available.'), 
+                    'The default is equal to the number of CPUs available.'),
     cfg.StrOpt('host',
                default=socket.gethostname(),
                help='Number of workers for OpenStack Volume API service. '
-                    'The default is equal to the number of CPUs available.'),                
+                    'The default is equal to the number of CPUs available.'),
 ]
-
 
 profiler_opts = [
     cfg.BoolOpt("profiler_enabled", default=False,
@@ -122,15 +121,15 @@ class Service(service.Service):
                  *args, **kwargs):
         super(Service, self).__init__()
 
-        #init rpc service
+        # init rpc service
         if not rpc.initialized():
             rpc.init(CONF)
 
         self.host = host
         self.binary = binary
         self.topic = topic
-        
-        #init manager rpc 
+
+        # init manager rpc
         self.manager_class_name = manager
         manager_class = importutils.import_class(self.manager_class_name)
         manager_class = profiler.trace_cls("rpc")(manager_class)
@@ -151,42 +150,42 @@ class Service(service.Service):
         LOG.info(_LI('Starting %(topic)s node (version %(version_string)s)'),
                  {'topic': self.topic, 'version_string': version_string})
         self.model_disconnected = False
-        
-        ####1.init host info
-        #self.manager.init_host()
-        ctxt = context.get_admin_context()
-        
-        #####2.create service in db#####
-        #try:
+
+        # 1.init host info
+        # self.manager.init_host()
+        # ctxt = context.get_admin_context()
+
+        # 2.create service in db#####
+        # try:
         #    service_ref = db.service_get_by_args(ctxt,
         #                                         self.host,
         #                                         self.binary)
         #    self.service_id = service_ref['id']
-        #except exception.NotFound:
+        # except exception.NotFound:
         #   self._create_service_ref(ctxt)
-        
-        ####3.start mananger RPC service####
+
+        # 3.start mananger RPC service####
 
         LOG.debug("Creating RPC server for service %s", self.topic)
         if self.backdoor_port is not None:
             self.manager.backdoor_port = self.backdoor_port
-                    
+
         target = messaging.Target(topic=self.topic, server=self.host)
         endpoints = [self.manager]
         endpoints.extend(self.manager.additional_endpoints)
         self.rpcserver = rpc.get_server(target, endpoints)
         self.rpcserver.start()
 
-        ###4.refresh service status in db####
-        #if self.report_interval:
+        # 4.refresh service status in db####
+        # if self.report_interval:
         #    pulse = loopingcall.FixedIntervalLoopingCall(
         #        self.report_state)
         #    pulse.start(interval=self.report_interval,
         #                initial_delay=self.report_interval)
         #    self.timers.append(pulse)
 
-        #####5. start refresh service status task####
-        #if self.periodic_interval:
+        # 5. start refresh service status task####
+        # if self.periodic_interval:
         #    if self.periodic_fuzzy_delay:
         #        initial_delay = random.randint(0, self.periodic_fuzzy_delay)
         #    else:
@@ -198,7 +197,6 @@ class Service(service.Service):
         #                   initial_delay=initial_delay)
         #    self.timers.append(periodic)
 
-                
     def basic_config_check(self):
         """Perform basic config checks before starting service."""
         # Make sure report interval is less than service down time
@@ -217,15 +215,16 @@ class Service(service.Service):
                 CONF.set_override('service_down_time', new_down_time)
 
     def _create_service_ref(self, context):
-        zone = CONF.storage_availability_zone
-        #wanggang delete db
-        #service_ref = db.service_create(context,
+        pass
+        # zone = CONF.storage_availability_zone
+        # wanggang delete db
+        # service_ref = db.service_create(context,
         #                                {'host': self.host,
         #                                 'binary': self.binary,
         #                                'topic': self.topic,
         #                                 'report_count': 0,
         #                                'availability_zone': zone})
-        #self.service_id = service_ref['id']
+        # self.service_id = service_ref['id']
 
     def __getattr__(self, key):
         manager = self.__dict__.get('manager', None)
@@ -252,13 +251,13 @@ class Service(service.Service):
             binary = os.path.basename(inspect.stack()[-1][1])
         if not topic:
             topic = binary
-        
-        #manager init
+
+        # manager init
         if not manager:
             subtopic = topic.rpartition('conveyor-')[2]
             manager = CONF.get('%s_manager' % subtopic, None)
-        
-        #get the periodic task time:renew service status in db task
+
+        # get the periodic task time:renew service status in db task
         if report_interval is None:
             report_interval = CONF.report_interval
         if periodic_interval is None:
@@ -275,10 +274,10 @@ class Service(service.Service):
     def kill(self):
         """Destroy the service object in the datastore."""
         self.stop()
-        #try:
-            #wanggang delete db
-            #db.service_destroy(context.get_admin_context(), self.service_id)
-        #except exception.NotFound:
+        # try:
+        # wanggang delete db
+        # db.service_destroy(context.get_admin_context(), self.service_id)
+        # except exception.NotFound:
         #   LOG.warning(_LW('Service killed that has no database entry'))
 
     def stop(self):
@@ -310,23 +309,23 @@ class Service(service.Service):
 
     def report_state(self):
         """Update the state of this service in the datastore."""
-        ctxt = context.get_admin_context()
-        zone = CONF.storage_availability_zone
-        state_catalog = {}
+        # ctxt = context.get_admin_context()
+        # zone = CONF.storage_availability_zone
+        # state_catalog = {}
         try:
-            #try:
-                #service_ref = db.service_get(ctxt, self.service_id)
-            #except exception.NotFound:
+            # try:
+            # service_ref = db.service_get(ctxt, self.service_id)
+            # except exception.NotFound:
             #   LOG.debug('The service database object disappeared, '
             #             'recreating it.')
             #   self._create_service_ref(ctxt)
-                #service_ref = db.service_get(ctxt, self.service_id)
+            # service_ref = db.service_get(ctxt, self.service_id)
 
-            #state_catalog['report_count'] = service_ref['report_count'] + 1
-            #if zone != service_ref['availability_zone']:
-                #state_catalog['availability_zone'] = zone
+            # state_catalog['report_count'] = service_ref['report_count'] + 1
+            # if zone != service_ref['availability_zone']:
+            # state_catalog['availability_zone'] = zone
 
-            #db.service_update(ctxt,
+            # db.service_update(ctxt,
             #                  self.service_id, state_catalog)
 
             # TODO(termie): make this pattern be more elegant.
@@ -357,7 +356,8 @@ class WSGIService(service.Service):
         self.app = self.loader.load_app(name)
         self.host = getattr(CONF, '%s_listen' % name, "0.0.0.0")
         self.port = getattr(CONF, '%s_listen_port' % name, 0)
-        LOG.error("test host: %(host)s, port: %(port)s", {'host': self.host, 'port': self.port})
+        LOG.error("test host: %(host)s, port: %(port)s",
+                  {'host': self.host, 'port': self.port})
         self.workers = (getattr(CONF, '%s_workers' % name, None) or
                         processutils.get_worker_count())
         if self.workers and self.workers < 1:
@@ -367,14 +367,13 @@ class WSGIService(service.Service):
                    {'worker_name': worker_name,
                     'workers': self.workers})
             raise exception.InvalidInput(msg)
-        
+
         self.server = wsgi.Server(name,
                                   self.app,
                                   host=self.host,
                                   port=self.port)
         self.periodic_fuzzy_delay = None
         self.periodic_interval = 10
-
 
     def _get_manager(self):
         """Initialize a Manager object appropriate for this service.
@@ -418,8 +417,8 @@ class WSGIService(service.Service):
         periodic = loopingcall.FixedIntervalLoopingCall(self._update_vgw)
         periodic.start(interval=self.periodic_interval,
                        initial_delay=initial_delay)
-        #self.timers.append(periodic)
-        
+        # self.timers.append(periodic)
+
     def _update_vgw(self):
         config_vaule = CONF.vgw_info
         config_value_str = '{' + config_vaule + '}'
@@ -428,7 +427,7 @@ class WSGIService(service.Service):
         for key, value in utils.vgw_update_time.items():
             update_time = timeutils.parse_isotime(str(value))
             if timeutils.is_older_than(update_time, 20):
-                LOG.debug('the server %s too long not updated' %key)
+                LOG.debug('the server %s too long not updated' % key)
                 utils.remove_vgw_info(key, 'vgw_info', config_value_dict)
 
     def stop(self):
@@ -482,7 +481,7 @@ def wait():
         # should use secret flag when switch over to openstack-common
         if ("_password" in flag or "_key" in flag or
                 (flag == "sql_connection" and
-                    ("mysql:" in flag_get or "postgresql:" in flag_get))):
+                     ("mysql:" in flag_get or "postgresql:" in flag_get))):
             LOG.debug('%s : FLAG SET ', flag)
         else:
             LOG.debug('%(flag)s : %(flag_get)s',
@@ -491,7 +490,7 @@ def wait():
         _launcher.wait()
     except KeyboardInterrupt:
         _launcher.stop()
-    #rpc.cleanup()
+        # rpc.cleanup()
 
 
 class Launcher(object):
@@ -503,7 +502,8 @@ class Launcher(object):
 def get_launcher():
     # Note(lpetrut): ProcessLauncher uses green pipes which fail on Windows
     # due to missing support of non-blocking I/O pipes. For this reason, the
-    # service must be spawned differently on Windows, using the ServiceLauncher
+    # service must be spawned differently on Windows,
+    # using the ServiceLauncher
     # class instead.
     if os.name == 'nt':
         return Launcher()

@@ -24,7 +24,8 @@ path_opts = [
     cfg.StrOpt('pybasedir',
                default=os.path.abspath(os.path.join(os.path.dirname(__file__),
                                                     '../')),
-               help='Directory where the conveyor python module is installed'),
+               help='Directory where the conveyor python'
+                    'module is installed'),
     cfg.StrOpt('bindir',
                default=os.path.join(sys.prefix, 'local', 'bin'),
                help='Directory where conveyor binaries are installed'),

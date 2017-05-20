@@ -17,6 +17,15 @@
 # See blueprint backportable-db-migrations-icehouse
 # http://lists.openstack.org/pipermail/openstack-dev/2013-March/006827.html
 
+from oslo_log import log as logging
+from sqlalchemy import BigInteger, Column
+from sqlalchemy import MetaData, Table
+from sqlalchemy.types import NullType
+
+from conveyor.i18n import _
+
+LOG = logging.getLogger(__name__)
+
 
 def _create_shadow_tables(migrate_engine):
     meta = MetaData(migrate_engine)
@@ -49,6 +58,7 @@ def _create_shadow_tables(migrate_engine):
             LOG.info(repr(shadow_table))
             LOG.exception(_('Exception while creating table.'))
             raise
+
 
 def upgrade(migrate_engine):
     _create_shadow_tables(migrate_engine)

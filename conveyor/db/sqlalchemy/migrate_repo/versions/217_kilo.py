@@ -336,9 +336,12 @@ def upgrade(migrate_engine):
 
     plan_stack = sqlalchemy.Table(
         'plan_stack', meta,
-        sqlalchemy.Column('id', sqlalchemy.Integer, primary_key=True, nullable=False),
-        sqlalchemy.Column('stack_id', sqlalchemy.String(length=36), nullable=False),
-        sqlalchemy.Column('plan_id', sqlalchemy.String(length=36), nullable=False),
+        sqlalchemy.Column('id', sqlalchemy.Integer, primary_key=True,
+                          nullable=False),
+        sqlalchemy.Column('stack_id', sqlalchemy.String(length=36),
+                          nullable=False),
+        sqlalchemy.Column('plan_id', sqlalchemy.String(length=36),
+                          nullable=False),
         sqlalchemy.Column('created_at', sqlalchemy.DateTime(timezone=False)),
         sqlalchemy.Column('updated_at', sqlalchemy.DateTime(timezone=False)),
         sqlalchemy.Column('deleted_at', sqlalchemy.DateTime(timezone=False)),

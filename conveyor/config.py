@@ -13,8 +13,6 @@
 # under the License.
 """Wrapper for keystone.common.config that configures itself on import."""
 
-import os
-
 from oslo_config import cfg
 from oslo_db import options
 from oslo_log import log
@@ -24,7 +22,8 @@ from conveyor import paths
 from conveyor import rpc
 import version
 
-_DEFAULT_SQL_CONNECTION = 'sqlite:///' + paths.state_path_def('conveyor.sqlite')
+_DEFAULT_SQL_CONNECTION = 'sqlite:///' + \
+                          paths.state_path_def('conveyor.sqlite')
 
 CONF = cfg.CONF
 
@@ -40,4 +39,3 @@ def parse_args(argv, default_config_files=None):
          version=version.version_string(),
          default_config_files=default_config_files)
     rpc.init(CONF)
-

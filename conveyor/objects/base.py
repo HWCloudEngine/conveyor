@@ -19,22 +19,22 @@ import contextlib
 import copy
 import datetime
 import functools
+import netaddr
+import six
 import traceback
 
-import netaddr
+from oslo_log import log as logging
+from oslo_log import versionutils
 import oslo_messaging as messaging
 from oslo_utils import timeutils
-import six
 
-from oslo_log import log as logging
 from conveyor import context
 from conveyor import exception
-from conveyor.i18n import _, _LE
+from conveyor.i18n import _
+from conveyor.i18n import _LE
 from conveyor import objects
 from conveyor.objects import fields
-from oslo_log import versionutils
 from conveyor import utils
-
 
 LOG = logging.getLogger('object')
 
@@ -778,9 +778,9 @@ class CinderObjectSerializer(messaging.NoOpSerializer):
         """
         iterable = values.__class__
         if issubclass(iterable, dict):
-#             return iterable(**{k: action_fn(context, v)
-#                                for k, v in six.iteritems(values)})
-            return 
+            # return iterable(**{k: action_fn(context, v)
+            #                    for k, v in six.iteritems(values)})
+            return
         else:
             # NOTE(danms): A set can't have an unhashable value inside, such as
             # a dict. Convert sets to tuples, which is fine, since we can't

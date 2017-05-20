@@ -19,21 +19,20 @@
 SQLAlchemy models for conveyor data.
 """
 
+import six
+import uuid
+
 from oslo_db.sqlalchemy import models
 from oslo_utils import timeutils
+import sqlalchemy
 from sqlalchemy import Column, Index, Integer, String
 from sqlalchemy import DateTime, Text
 from sqlalchemy.dialects.mysql import MEDIUMTEXT
 from sqlalchemy.ext.declarative import declarative_base
-
-#add from heat
-import uuid
-import six
-import sqlalchemy
-# from sqlalchemy.ext import declarative
 from sqlalchemy.orm import backref
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm import session as orm_session
+
 from conveyor.db.sqlalchemy import types
 
 BASE = declarative_base()
@@ -44,8 +43,8 @@ def MediumText():
 
 
 class ConveyorBase(models.SoftDeleteMixin,
-               models.TimestampMixin,
-               models.ModelBase):
+                   models.TimestampMixin,
+                   models.ModelBase):
     metadata = None
 
     # TODO(ekudryashova): remove this after both conveyor and oslo.db
@@ -165,7 +164,7 @@ class Plan(BASE, ConveyorBase):
     """Represents a plan."""
     __tablename__ = "plans"
     __table_args__ = (
-        Index('plan_id', 'plan_id', unique=True), 
+        Index('plan_id', 'plan_id', unique=True),
     )
 
     id = Column(Integer, primary_key=True)
@@ -177,15 +176,9 @@ class Plan(BASE, ConveyorBase):
     task_status = Column(String(length=255))
     plan_status = Column(String(length=255))
     plan_type = Column(String(length=255))
-    original_resources = Column( String(length=1023))
-    updated_resources   = Column(String(length=1023))
-    stack_id =  Column(String(length=36))
-
-
-# add from heat
-from conveyor.db.sqlalchemy import types
-
-# BASE = declarative.declarative_base()
+    original_resources = Column(String(length=1023))
+    updated_resources = Column(String(length=1023))
+    stack_id = Column(String(length=36))
 
 
 def get_session():

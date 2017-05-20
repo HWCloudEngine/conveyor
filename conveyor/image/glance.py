@@ -20,23 +20,22 @@ from __future__ import absolute_import
 import copy
 import itertools
 import random
+import six
+import six.moves.urllib.parse as urlparse
 import sys
 import time
 
 import glanceclient
 import glanceclient.exc
 from oslo_config import cfg
-import six
-import six.moves.urllib.parse as urlparse
+from oslo_log import log as logging
+from oslo_serialization import jsonutils
+from oslo_utils import importutils
+from oslo_utils import timeutils
 
 from conveyor import exception
 from conveyor.i18n import _
-from oslo_serialization import jsonutils
-from oslo_log import log as logging
-from oslo_utils import timeutils
 from conveyor import utils
-from oslo_utils import importutils
-
 
 glance_opts = [
     cfg.StrOpt('host',
@@ -50,23 +49,23 @@ glance_opts = [
                deprecated_group='DEFAULT',
                deprecated_name='glance_port'),
     cfg.StrOpt('protocol',
-                default='http',
-                help='Default protocol to use when connecting to glance. '
-                     'Set to https for SSL.',
+               default='http',
+               help='Default protocol to use when connecting to glance. '
+                    'Set to https for SSL.',
                deprecated_group='DEFAULT',
                deprecated_name='glance_protocol'),
     cfg.ListOpt('api_servers',
                 help='A list of the glance api servers available to nova. '
                      'Prefix with https:// for ssl-based glance api servers. '
                      '([hostname|ip]:port)',
-               deprecated_group='DEFAULT',
-               deprecated_name='glance_api_servers'),
+                deprecated_group='DEFAULT',
+                deprecated_name='glance_api_servers'),
     cfg.BoolOpt('api_insecure',
                 default=False,
                 help='Allow to perform insecure SSL (https) requests to '
                      'glance',
-               deprecated_group='DEFAULT',
-               deprecated_name='glance_api_insecure'),
+                deprecated_group='DEFAULT',
+                deprecated_name='glance_api_insecure'),
     cfg.IntOpt('num_retries',
                default=0,
                help='Number of retries when downloading an image from glance',
@@ -77,7 +76,7 @@ glance_opts = [
                 help='A list of url scheme that can be downloaded directly '
                      'via the direct_url.  Currently supported schemes: '
                      '[file].',
-               deprecated_group='DEFAULT'),
+                deprecated_group='DEFAULT'),
     ]
 
 LOG = logging.getLogger(__name__)
@@ -86,9 +85,9 @@ CONF = cfg.CONF
 CONF.register_opts(glance_opts, 'glance')
 
 CONF.import_opt('auth_strategy', 'conveyor.api.middleware.auth')
-#CONF.import_opt('my_ip', 'conveyor.netconf')
-####if use ssl must config this
-#CONF.import_group('ssl', 'conveyor.common.sslutils')
+# CONF.import_opt('my_ip', 'conveyor.netconf')
+# if use ssl must config this
+# CONF.import_group('ssl', 'conveyor.common.sslutils')
 
 
 def generate_glance_url():
@@ -140,11 +139,11 @@ def _create_glance_client(context, host, port, use_ssl, version=1):
         # https specific params
         params['insecure'] = CONF.glance.api_insecure
         params['ssl_compression'] = False
-        #if CONF.ssl.cert_file:
+        # if CONF.ssl.cert_file:
         #    params['cert_file'] = CONF.ssl.cert_file
-        #if CONF.ssl.key_file:
+        # if CONF.ssl.key_file:
         #    params['key_file'] = CONF.ssl.key_file
-        #if CONF.ssl.ca_file:
+        # if CONF.ssl.ca_file:
         #    params['cacert'] = CONF.ssl.ca_file
     else:
         scheme = 'http'
@@ -223,8 +222,8 @@ class GlanceClientWrapper(object):
         retry the request according to CONF.glance.num_retries.
         """
         retry_excs = (glanceclient.exc.ServiceUnavailable,
-                glanceclient.exc.InvalidEndpoint,
-                glanceclient.exc.CommunicationError)
+                      glanceclient.exc.InvalidEndpoint,
+                      glanceclient.exc.CommunicationError)
         num_attempts = 1 + CONF.glance.num_retries
 
         for attempt in xrange(1, num_attempts + 1):
@@ -312,18 +311,19 @@ class GlanceImageService(object):
             image['locations'] = locations
 
         return image
-    
+
+
 class Image(object):
-    def __init__(self, id, name, size, container_format=None, disk_format=None, is_public=None, **kwsg):
-        
+    def __init__(self, id, name, size, container_format=None,
+                 disk_format=None, is_public=None, **kwsg):
         self.id = id
         self.name = name
         self.size = size
         self.container_format = container_format
         self.disk_format = disk_format
         self.is_public = is_public
-        
-        
+
+
 def _extract_query_params(params):
     _params = {}
     accepted_params = ('filters', 'marker', 'limit',
@@ -508,7 +508,7 @@ def _reraise_translated_exception():
 
 def _translate_image_exception(image_id, exc_value):
     if isinstance(exc_value, (glanceclient.exc.Forbidden,
-                    glanceclient.exc.Unauthorized)):
+                              glanceclient.exc.Unauthorized)):
         return exception.ImageNotAuthorized(image_id=image_id)
     if isinstance(exc_value, glanceclient.exc.NotFound):
         return exception.ImageNotFound(image_id=image_id)
@@ -519,7 +519,7 @@ def _translate_image_exception(image_id, exc_value):
 
 def _translate_plain_exception(exc_value):
     if isinstance(exc_value, (glanceclient.exc.Forbidden,
-                    glanceclient.exc.Unauthorized)):
+                              glanceclient.exc.Unauthorized)):
         return exception.Forbidden(unicode(exc_value))
     if isinstance(exc_value, glanceclient.exc.NotFound):
         return exception.NotFound(unicode(exc_value))
@@ -550,15 +550,19 @@ def get_remote_image_service(context, image_href):
         (image_id, glance_host, glance_port, use_ssl) = \
             _parse_image_ref(image_href)
         glance_client = GlanceClientWrapper(context=context,
-                host=glance_host, port=glance_port, use_ssl=use_ssl)
+                                            host=glance_host,
+                                            port=glance_port,
+                                            use_ssl=use_ssl)
     except ValueError:
         raise exception.InvalidImageRef(image_href=image_href)
 
-    image_service_class = importutils.import_class('conveyor.image.glance.GlanceImageService')
+    image_service_class = importutils.import_class('conveyor.image.'
+                                                   'glance.GlanceImageService')
     image_service = image_service_class(client=glance_client)
     return image_service, image_id
 
 
 def get_default_image_service():
-    image_service_class = importutils.import_class('conveyor.image.glance.GlanceImageService')
+    image_service_class = importutils.import_class('conveyor.image.glance.'
+                                                   'GlanceImageService')
     return image_service_class()

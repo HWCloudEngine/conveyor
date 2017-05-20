@@ -12,15 +12,9 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from migrate.changeset import UniqueConstraint
-from migrate import ForeignKeyConstraint
-from sqlalchemy import Boolean, BigInteger, Column, DateTime, Enum
-from sqlalchemy import ForeignKey, Index, Integer, MetaData, String, Table
-from sqlalchemy import Text
-from sqlalchemy.types import NullType
-
-from conveyor.i18n import _
 from oslo_log import log as logging
+from sqlalchemy import Column, DateTime
+from sqlalchemy import Index, Integer, MetaData, String, Table
 
 LOG = logging.getLogger(__name__)
 
@@ -55,11 +49,10 @@ def upgrade(migrate_engine):
                  mysql_charset='utf8'
                  )
 
-
     plan.create()
     Index('plan_id', plan.c.plan_id, unique=True).create()
     # create all tables
-  
+
     if migrate_engine.name == 'mysql':
         # In Folsom we explicitly converted migrate_version to UTF8.
         migrate_engine.execute(
@@ -68,7 +61,6 @@ def upgrade(migrate_engine):
         migrate_engine.execute(
             'ALTER DATABASE %s DEFAULT CHARACTER SET utf8' %
             migrate_engine.url.database)
-
 
 
 def downgrade(migrate_engine):

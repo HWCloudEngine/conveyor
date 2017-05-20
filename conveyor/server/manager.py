@@ -16,19 +16,17 @@
 #    under the License.
 
 from oslo_config import cfg
+from oslo_log import log as logging
 import oslo_messaging as messaging
 
-from oslo_log import log as logging
-from conveyor.i18n import _, _LE, _LI, _LW
-
 from conveyor import manager
-from conveyor import volume 
-from conveyor import compute
 from conveyor.server import rpcapi
+from conveyor import volume
 
 CONF = cfg.CONF
 
 LOG = logging.getLogger(__name__)
+
 
 class MigrationManager(manager.Manager):
     """Manages the running instances from creation to destruction."""
@@ -51,11 +49,9 @@ class MigrationManager(manager.Manager):
 
         self._resource_tracker_dict = {}
         self._syncs_in_progress = {}
-        
 
-        super(MigrationManager, self).__init__(service_name="conveyor-migration",
-                                             *args, **kwargs)
-
+        super(MigrationManager, self).\
+            __init__(service_name="conveyor-migration", *args, **kwargs)
 
     def get_all(self, context):
         LOG.debug("MigrationManager get all start")

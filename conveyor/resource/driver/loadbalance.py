@@ -14,15 +14,15 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from oslo_log import log as logging
+
 from conveyor import compute
 from conveyor import exception
 from conveyor import network
-
-from oslo_log import log as logging
-from conveyor.resource import resource
 from conveyor.resource.driver import base
-from conveyor.resource.driver import networks
 from conveyor.resource.driver import instances
+from conveyor.resource.driver import networks
+from conveyor.resource import resource
 
 LOG = logging.getLogger(__name__)
 
@@ -71,7 +71,8 @@ class LoadbalanceVip(base.resource):
             raise exception.ResourceExtractFailed(reason=_msg)
 
         properties['protocol_port'] = vip_info.get('protocol_port')
-        properties['session_persistence'] = vip_info.get('session_persistence')
+        properties['session_persistence'] = vip_info.\
+            get('session_persistence')
         # properties['protocol'] = vip_info.get('protocol')
         vip_name = vip_info.get('name')
         vip_address = vip_info.get('address')
@@ -343,7 +344,8 @@ class LoadbalanceListener(base.resource):
 
         try:
             for listener_id in listener_ids:
-                self.extract_loadbalanceListener(listener_id, vip_id, vip_name)
+                self.extract_loadbalanceListener(listener_id, vip_id,
+                                                 vip_name)
         except exception.ResourceExtractFailed:
             raise
         except Exception as e:

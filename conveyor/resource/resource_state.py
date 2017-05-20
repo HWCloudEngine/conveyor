@@ -15,6 +15,4 @@
 #    under the License.
 
 INSTANCE_CLONE_STATE = ['active', 'stopped', 'SHUTOFF']
-
-
 VOLUME_CLONE_STATE = ['available', 'in-use']

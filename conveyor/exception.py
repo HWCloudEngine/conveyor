@@ -22,16 +22,15 @@ SHOULD include dedicated exception logging.
 
 """
 
-import sys
-
-from oslo_config import cfg
 import six
+import sys
 import webob.exc
 
+from oslo_config import cfg
 from oslo_log import log as logging
 
-from conveyor.i18n import _, _LE
-
+from conveyor.i18n import _
+from conveyor.i18n import _LE
 
 LOG = logging.getLogger(__name__)
 
@@ -103,7 +102,8 @@ class V2vException(Exception):
         elif isinstance(message, Exception):
             message = six.text_type(message)
 
-        # NOTE(luisg): We put the actual message in 'msg' so that we can access
+        # NOTE(luisg): We put the actual message in
+        # 'msg' so that we can access
         # it, because if we try to access the message via 'message' it will be
         # overshadowed by the class' message attribute
         self.msg = message
@@ -250,9 +250,9 @@ class IncompatibleObjectVersion(V2vException):
 
 # ZFSSA NFS driver exception.
 class WebDAVClientError(V2vException):
-        message = _("The WebDAV request failed. Reason: %(msg)s, "
-                    "Return code/reason: %(code)s, Source Volume: %(src)s, "
-                    "Destination Volume: %(dst)s, Method: %(method)s.")
+    message = _("The WebDAV request failed. Reason: %(msg)s, "
+                "Return code/reason: %(code)s, Source Volume: %(src)s, "
+                "Destination Volume: %(dst)s, Method: %(method)s.")
 
 
 class Forbidden(V2vException):
@@ -354,7 +354,8 @@ class PlanTypeNotSupported(V2vException):
 
 
 class ResourceTypeNotFound(NotFound):
-    message = _("SearchOptions has no attribution 'type' or the type is None.")
+    message = _("SearchOptions has no attribution "
+                "'type' or the type is None.")
 
 
 class ResourceTypeNotSupported(V2vException):
@@ -404,6 +405,7 @@ class ServiceCatalogException(V2vException):
     """Raised when a requested service is not available in the
     ``ServiceCatalog`` returned by Keystone.
     """
+
     def __init__(self, service_name):
         message = 'Invalid service catalog service: %s' % service_name
         super(ServiceCatalogException, self).__init__(message)

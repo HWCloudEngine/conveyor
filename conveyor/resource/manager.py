@@ -14,45 +14,43 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import yaml
 import copy
-import six
-import numbers
 import netaddr
+import numbers
 import random
+import six
+import yaml
+
 from oslo_config import cfg
-from oslo_utils import importutils
+from oslo_log import log as logging
 import oslo_messaging as messaging
+from oslo_utils import fileutils
+from oslo_utils import importutils
+from oslo_utils import timeutils
+from oslo_utils import uuidutils
 
 from conveyor.common import plan_status as p_status
-from oslo_utils import fileutils
-from oslo_utils import uuidutils
-from oslo_utils import timeutils
-from oslo_log import log as logging
-from conveyor.db import api as db_api
-
-from conveyor import exception
 from conveyor import compute
-from conveyor import volume
-from conveyor import network
-from conveyor import image
 from conveyor.conveyorheat.api import api as heat
-from conveyor import utils
+from conveyor.db import api as db_api
+from conveyor import exception
+from conveyor import image
 from conveyor import manager
-from conveyor.resource import resource
-
+from conveyor import network
 from conveyor.resource.driver.float_ips import FloatIps
 from conveyor.resource.driver.instances import InstanceResource
 from conveyor.resource.driver import loadbalance
 from conveyor.resource.driver.networks import NetworkResource
 from conveyor.resource.driver.secgroup import SecGroup
-from conveyor.resource.driver.volumes import VolumeType
+from conveyor.resource.driver.stacks import StackResource
 from conveyor.resource.driver.volumes import QosResource
 from conveyor.resource.driver.volumes import Volume
-from conveyor.resource.driver.stacks import StackResource
+from conveyor.resource.driver.volumes import VolumeType
+from conveyor.resource import resource
+from conveyor import utils
+from conveyor import volume
 
 CONF = cfg.CONF
-
 
 LOG = logging.getLogger(__name__)
 resource_plugins_opts = [
@@ -83,7 +81,7 @@ class ResourceManager(manager.Manager):
     SHUTDOWN_RETRY_INTERVAL = 10
 
     def __init__(self, *args, **kwargs):
-        """  ."""
+        """."""
         self.nova_api = compute.API()
         self.cinder_api = volume.API()
         self.neutron_api = network.API()
@@ -95,33 +93,37 @@ class ResourceManager(manager.Manager):
 
         # Start periodic task to clear expired plan
         # context = ctxt.get_admin_context()
-#         kwargs = {
-#             'username': CONF.keystone_authtoken.conveyor_admin_user,
-#             'password': CONF.keystone_authtoken.password,
-#             'tenant_name': CONF.keystone_authtoken.conveyor_admin_tenant_name,
-#             'auth_url': CONF.keystone_authtoken.auth_url,
-#             'insecure': True,
-#         }
-#         cs = kc.Client(**kwargs)
-#         cs.authenticate()
-#         user_id = cs.auth_ref['user']['id']
-#         project_id = cs.auth_ref['token']['tenant']['id']
-#         auth_token = cs.auth_ref['token']['id']
-#         sc = service_catalog.ServiceCatalog.factory(cs.auth_ref)
-#         service_catalog = sc.get_data()
-#         context = ctxt.RequestContext(user_id,
-#                                      project_id,
-#                                      auth_token=auth_token,
-#                                      service_catalog=service_catalog)
-#         timer = loopingcall.FixedIntervalLoopingCall(self._clear_expired_plan, context)
-#         timer.start(interval=CONF.clear_expired_plan_interval)
+        # kwargs = {
+        #     'username': CONF.keystone_authtoken.conveyor_admin_user,
+        #     'password': CONF.keystone_authtoken.password,
+        #     'tenant_name':
+        # CONF.keystone_authtoken.conveyor_admin_tenant_name,
+        #     'auth_url': CONF.keystone_authtoken.auth_url,
+        #     'insecure': True,
+        # }
+        # cs = kc.Client(**kwargs)
+        # cs.authenticate()
+        # user_id = cs.auth_ref['user']['id']
+        # project_id = cs.auth_ref['token']['tenant']['id']
+        # auth_token = cs.auth_ref['token']['id']
+        # sc = service_catalog.ServiceCatalog.factory(cs.auth_ref)
+        # service_catalog = sc.get_data()
+        # context = ctxt.RequestContext(user_id,
+        #                              project_id,
+        #                              auth_token=auth_token,
+        #                              service_catalog=service_catalog)
+        # timer = loopingcall.FixedIntervalLoopingCall(self.
+        # _clear_expired_plan, context)
+        # timer.start(interval=CONF.clear_expired_plan_interval)
 
-        super(ResourceManager, self).__init__(service_name="conveyor-resource",
+        super(ResourceManager, self).__init__(service_name=
+                                              "conveyor-resource",
                                               *args, **kwargs)
 
     def get_resource_detail(self, context, resource_type, resource_id):
 
-        LOG.info("Get %s resource details with id of <%s>.", resource_type, resource_id)
+        LOG.info("Get %s resource details with id of <%s>.",
+                 resource_type, resource_id)
 
         method_map = {
             "OS::Nova::Server": "self.nova_api.get_server",
@@ -133,13 +135,15 @@ class ResourceManager(manager.Manager):
             "OS::Neutron::Net": "self.neutron_api.get_network",
             "OS::Neutron::Subnet": "self.neutron_api.get_subnet",
             "OS::Neutron::Router": "self.neutron_api.get_router",
-            "OS::Neutron::SecurityGroup": "self.neutron_api.get_security_group",
+            "OS::Neutron::SecurityGroup":
+                "self.neutron_api.get_security_group",
             "OS::Neutron::FloatingIP": "self.neutron_api.get_floatingip",
             "OS::Neutron::Vip": "self.neutron_api.get_vip",
             "OS::Neutron::Pool": "self.neutron_api.show_pool",
-            #"OS::Neutron::Listener": "self.neutron_api.show_listener",
+            # "OS::Neutron::Listener": "self.neutron_api.show_listener",
             "OS::Neutron::PoolMember": "self.neutron_api.show_member",
-            "OS::Neutron::HealthMonitor": "self.neutron_api.show_health_monitor"
+            "OS::Neutron::HealthMonitor":
+                "self.neutron_api.show_health_monitor"
         }
 
         if resource_type in method_map.keys():
@@ -155,9 +159,11 @@ class ResourceManager(manager.Manager):
                 raise exception.ResourceNotFound(message=msg)
         else:
             LOG.error("The resource type %s is unsupported.", resource_type)
-            raise exception.ResourceTypeNotSupported(resource_type=resource_type) 
+            raise exception.ResourceTypeNotSupported(resource_type=
+                                                     resource_type)
 
-    def get_resources(self, context, search_opts=None, marker=None, limit=None):
+    def get_resources(self, context, search_opts=None, marker=None,
+                      limit=None):
 
         LOG.info("Get resources filtering by: %s", search_opts)
 
@@ -220,7 +226,8 @@ class ResourceManager(manager.Manager):
             LOG.error(msg)
             raise exception.PlanTypeNotSupported(type=plan_type)
 
-        LOG.info("Begin to create a %s plan by resources: %s.", plan_type, resources)
+        LOG.info("Begin to create a %s plan by resources: %s.", plan_type,
+                 resources)
 
         instance_ids = []
         volume_ids = []
@@ -237,7 +244,8 @@ class ResourceManager(manager.Manager):
             res_id = res.get('id', '')
 
             if not res_id or not res_type:
-                LOG.warn("Unresolved id or type, id(%s), type(%s)", res_id, res_type)
+                LOG.warn("Unresolved id or type, id(%s), type(%s)", res_id,
+                         res_type)
                 continue
 
             if res_type == 'OS::Nova::Server':
@@ -260,13 +268,16 @@ class ResourceManager(manager.Manager):
                 pool_ids.append(res_id)
             else:
                 LOG.error("The resource type %s is unsupported.", res_type)
-                raise exception.ResourceTypeNotSupported(resource_type=res_type)
+                raise exception.ResourceTypeNotSupported(resource_type=
+                                                         res_type)
 
-        res_num = len(instance_ids) + len(volume_ids) + len(network_ids) \
-                    + len(router_ids) + len(secgroup_ids) + len(loadbalancer_ids) \
-                    + len(stack_ids) + len(floatingip_ids) + len(pool_ids)
+        res_num = len(instance_ids) + len(volume_ids) + len(network_ids) + \
+                  len(router_ids) + len(secgroup_ids) + \
+                  len(loadbalancer_ids) + len(stack_ids) + \
+                  len(floatingip_ids) + len(pool_ids)
         if 0 == res_num:
-            msg = "No valid resources found, please check the resource id and type."
+            msg = "No valid resources found, please check " \
+                  "the resource id and type."
             LOG.error(msg)
             raise exception.ResourceExtractFailed(reason=msg)
         ir = InstanceResource(context)
@@ -304,8 +315,10 @@ class ResourceManager(manager.Manager):
         # loadbalance resource create
         if pool_ids:
             lb = loadbalance.LoadbalancePool(context,
-                                             collected_resources=new_resources,
-                                             collected_dependencies=new_dependencies)
+                                             collected_resources=
+                                             new_resources,
+                                             collected_dependencies=
+                                             new_dependencies)
             lb.extract_loadbalancePools(pool_ids)
             new_resources = lb.get_collected_resources()
             new_dependencies = lb.get_collected_dependencies()
@@ -333,14 +346,14 @@ class ResourceManager(manager.Manager):
         ori_res = self._actual_id_to_resource_id(new_resources)
         ori_dep = self._actual_id_to_resource_id(new_dependencies)
 
-        new_plan = resource.Plan(plan_id, plan_type, 
-                                 context.project_id, 
+        new_plan = resource.Plan(plan_id, plan_type,
+                                 context.project_id,
                                  context.user_id,
                                  plan_name=plan_name,
                                  original_resources=ori_res,
                                  original_dependencies=ori_dep)
 
-        # Resources of migrate plan are not allowed to be modified, 
+        # Resources of migrate plan are not allowed to be modified,
         # so 'updated fields' are empty.
         if plan_type == "clone":
             new_plan.updated_resources = copy.deepcopy(ori_res)
@@ -356,7 +369,8 @@ class ResourceManager(manager.Manager):
         return plan_id, plan_dict['original_dependencies']
 
     def build_plan_by_template(self, context, plan_dict, template):
-        LOG.info("Begin to build plan <%s> by template.", plan_dict['plan_id'])
+        LOG.info("Begin to build plan <%s> by template.",
+                 plan_dict['plan_id'])
 
         # extract resources
         plan = resource.Plan.from_dict(plan_dict)
@@ -371,8 +385,10 @@ class ResourceManager(manager.Manager):
             resource_obj = resource.Resource(key,
                                              value.get('type'),
                                              res_id,
-                                             properties=value.get('properties'),
-                                             extra_properties=value.get('extra_properties'))
+                                             properties=
+                                             value.get('properties'),
+                                             extra_properties=
+                                             value.get('extra_properties'))
             resource_obj.rebuild_parameter(template.get('parameters'))
             resources[key] = resource_obj
 
@@ -380,11 +396,12 @@ class ResourceManager(manager.Manager):
         plan.rebuild_dependencies(is_original=True)
         plan.plan_status = p_status.AVAILABLE
 
-        # Resources of migrate plan are not allowed to be modified, 
+        # Resources of migrate plan are not allowed to be modified,
         # so 'updated fields' are empty.
         if plan.plan_type == "clone":
             plan.updated_resources = copy.deepcopy(resources)
-            plan.updated_dependencies = copy.deepcopy(plan.original_dependencies)
+            plan.updated_dependencies = \
+                copy.deepcopy(plan.original_dependencies)
 
         # Save to memory
         _plans[plan_id] = plan
@@ -399,27 +416,28 @@ class ResourceManager(manager.Manager):
 
         try:
             # Update to database
-            resource.update_plan_to_db(context, plan_file_dir, plan_id, update_values)
+            resource.update_plan_to_db(context, plan_file_dir, plan_id,
+                                       update_values)
 
             # Save template file
             with open(tpl_full_path, 'w') as fp:
                 yaml.safe_dump(template, fp, default_flow_style=False)
 
             LOG.info("Create plan by template finished. Plan_id is %s, "
-                     "and template file has been saved to %s." 
+                     "and template file has been saved to %s."
                       % (plan_id, tpl_full_path))
         except Exception as e:
             msg = "Create plan by template failed! %s" % unicode(e)
             LOG.error(msg)
             # Roll back: change plan status to error
-            resource.update_plan_to_db(context, plan_file_dir, plan_id, 
+            resource.update_plan_to_db(context, plan_file_dir, plan_id,
                                        {'plan_status': p_status.ERROR})
             raise exception.PlanCreateFailed(message=msg)
 
-    def get_resource_detail_from_plan(self, context, plan_id, 
+    def get_resource_detail_from_plan(self, context, plan_id,
                                       resource_id, is_original=True):
-        LOG.info("Get details of resource %s in plan <%s>. is_original is %d.", 
-                                                resource_id, plan_id, is_original)
+        LOG.info("Get details of resource %s in plan <%s>. "
+                 "is_original is %d.", resource_id, plan_id, is_original)
 
         # Check whether plan exist. If not found in memory, get plan from db.
         self.get_plan_by_id(context, plan_id)
@@ -431,8 +449,8 @@ class ResourceManager(manager.Manager):
             resource = plan.updated_resources.get(resource_id)
 
         if not resource:
-            msg = "Resource <%s> not found in plan <%s>" % (resource_id,
-                                                            plan_id)
+            msg = "Resource <%s> not found in plan <%s>" % \
+                  (resource_id, plan_id)
             LOG.error(msg)
             raise exception.ResourceNotFound(message=msg)
         return resource.to_dict()
@@ -452,7 +470,7 @@ class ResourceManager(manager.Manager):
             if detail:
                 return plan_dict
             else:
-                fields = ('original_resources', 'updated_resources', 
+                fields = ('original_resources', 'updated_resources',
                           'original_dependencies', 'updated_dependencies')
                 for field in fields:
                     plan_dict.pop(field, None)
@@ -486,8 +504,9 @@ class ResourceManager(manager.Manager):
         except Exception as e:
             msg = "Delete plan <%s> failed. %s" % (plan_id, unicode(e))
             LOG.error(msg)
-            resource.update_plan_to_db(context, plan_file_dir, plan_id, 
-                                       {'plan_status': p_status.ERROR_DELETING})
+            resource.update_plan_to_db(context, plan_file_dir, plan_id,
+                                       {'plan_status':
+                                            p_status.ERROR_DELETING})
             raise exception.PlanDeleteError(message=msg)
 
         # self.heat_api.clear_resource(context, plan['stack_id'], plan_id)
@@ -549,7 +568,7 @@ class ResourceManager(manager.Manager):
                               'stack_id', 'expire_at', 'updated_resources']
 
         # Verify the keys and values
-        for k,v in values.items():
+        for k, v in values.items():
             if k not in allowed_properties:
                 msg = ("Update plan failed. %s field "
                        "not found or unsupported to update." % k)
@@ -571,9 +590,10 @@ class ResourceManager(manager.Manager):
             values_to_db.pop('task_status', None)
 
         if values_to_db:
-            resource.update_plan_to_db(context, plan_file_dir, plan_id, values_to_db)
+            resource.update_plan_to_db(context, plan_file_dir, plan_id,
+                                       values_to_db)
 
-        # Update to memory. If exists, update plan, 
+        # Update to memory. If exists, update plan,
         # else extract updated plan into memory.
         if _plans.get(plan_id):
             plan = _plans[plan_id]
@@ -591,21 +611,22 @@ class ResourceManager(manager.Manager):
             plan_dict, plan_obj = resource.read_plan_from_db(context, plan_id)
             _plans[plan_id] = plan_obj
 
-        LOG.info("Update plan with id of %s succeed!", plan_id)   
+        LOG.info("Update plan with id of %s succeed!", plan_id)
 
-    def _extract_resources(self, context, id,  type, updated_res):
+    def _extract_resources(self, context, id, type, updated_res):
         if type == 'OS::Cinder::VolumeType':
-            vtr = VolumeType(context,updated_res)
-            resource_ids = [id]
-            resources = vtr.extract_volume_types(resource_ids)
+            vtr = VolumeType(context, updated_res)
+            # resource_ids = [id]
+            # resources = vtr.extract_volume_types(resource_ids)
             return vtr.get_collected_resources()
         elif type == 'OS::Cinder::Qos':
-            vor = QosResource(context,updated_res)
-            resources = vor.extract_qos(id)
+            vor = QosResource(context, updated_res)
+            # resources = vor.extract_qos(id)
             return vor.get_collected_resources()
 
     def update_plan_resources(self, context, plan_id, resources):
-        LOG.info("Update resources of plan <%s> with values: %s", plan_id, resources)
+        LOG.info("Update resources of plan <%s> with values: %s", plan_id,
+                 resources)
 
         # Get plan object
         plan = _plans.get(plan_id)
@@ -618,31 +639,37 @@ class ResourceManager(manager.Manager):
         # Update resources
         for res in resources:
             if res.get('action') == 'delete':
-                #Remind: dep delete and add
+                # Remind: dep delete and add
                 resource_id = res.pop('resource_id', None)
                 updated_res.pop(resource_id)
-                for key,value in updated_res.items():
+                for key, value in updated_res.items():
                     if resource_id in value.dependencies:
-                        msg = 'have resource denpend on the %s resource ,delete failed' %resource_id
-                        raise exception.PlanResourcesUpdateError(message=msg) 
+                        msg = 'have resource denpend on the %s ' \
+                              'resource ,delete failed' % resource_id
+                        raise exception.PlanResourcesUpdateError(message=msg)
                 dependencies = updated_dep.get(resource_id).dependencies
                 if dependencies:
-                    self._remove_org_depends(dependencies, updated_dep, updated_res)
+                    self._remove_org_depends(dependencies, updated_dep,
+                                             updated_res)
+
             elif res.get('action') == 'add':
                 # Remind: dep delete and add
-                LOG.debug('the add resource info is %s' %res)
+                LOG.debug('the add resource info is %s' % res)
                 resource_id = res.pop('resource_id', None)
                 id = res.get('id')
                 type = res.get('resource_type')
                 self._resource_id_to_actual_id(updated_res)
-                updated_res =self._extract_resources(context, id, type, updated_res)
+                updated_res = self._extract_resources(context, id, type,
+                                                     updated_res)
                 self._actual_id_to_resource_id(updated_res)
             elif res.get('action') == 'edit':
-                self._edit_plan_resource(context, plan, updated_res, updated_dep, res, resources_list)
+                self._edit_plan_resource(context, plan, updated_res,
+                                         updated_dep, res, resources_list)
 
         # Update to memory
         plan.updated_resources = updated_res
-        # plan.updated_resources = self._actual_id_to_resource_id(context, updated_res)
+        # plan.updated_resources =
+        # self._actual_id_to_resource_id(context, updated_res)
         plan.rebuild_dependencies()
 
         # Update to database
@@ -679,7 +706,8 @@ class ResourceManager(manager.Manager):
                 heat_res_type = heat_api.get_resource_type(context, res_type)
                 res_properties = heat_res_type.get('properties')
                 LOG.debug("Validate the properties to be updated.")
-                self._simple_validate_update_properties(properties, res_properties)
+                self._simple_validate_update_properties(properties,
+                                                        res_properties)
         except exception.PlanResourcesUpdateError:
             raise
         except Exception as e:
@@ -691,14 +719,15 @@ class ResourceManager(manager.Manager):
                 updated_res[resource_id].properties[k] = v
 
         simple_handle_type = ['OS::Neutron::Vip']
-        #Update resource
+        # Update resource
         if 'OS::Nova::Server' == res_type:
             allowed_fields = ['user_data', 'metadata']
-            for key,value in properties.items():
+            for key, value in properties.items():
                 if key in allowed_fields:
                     resource_obj.properties[key] = value
                 else:
-                    msg = ("'%s' field of server is not allowed to update." % key)
+                    msg = ("'%s' field of server is not "
+                           "allowed to update." % key)
                     LOG.error(msg)
                     raise exception.PlanResourcesUpdateError(message=msg)
         elif res_type in ('OS::Nova::KeyPair'):
@@ -717,7 +746,7 @@ class ResourceManager(manager.Manager):
             else:
                 resource_obj.id = None
 
-            # Update other fields. 
+            # Update other fields.
             _update_simple_fields(resource_id, properties)
 
         elif 'OS::Neutron::SecurityGroup' == res_type:
@@ -736,18 +765,20 @@ class ResourceManager(manager.Manager):
                 updated_res[resource_id] = sec_res
             else:
                 resource_obj.id = None
-            #Update other fields. 
+            # Update other fields.
             _update_simple_fields(resource_id, properties)
 
         elif 'OS::Neutron::FloatingIP' == res_type:
             if not new_res_id:
-                msg = "'id' must be provided when updating floating ip resource."
+                msg = "'id' must be provided when " \
+                      "updating floating ip resource."
                 LOG.error(msg)
                 raise exception.PlanResourcesUpdateError(message=msg)
 
             if new_res_id != resource_obj.id:
 
-                floatingip = self.neutron_api.get_floatingip(context, new_res_id)
+                floatingip = self.neutron_api.get_floatingip(context,
+                                                             new_res_id)
                 if floatingip.get('port_id'):
                     msg = "FloatingIp <%s> is in use."
                     LOG.error(msg)
@@ -769,15 +800,17 @@ class ResourceManager(manager.Manager):
                 self._actual_id_to_resource_id(updated_res)
             else:
                 resource_obj.id = None
-            # Update other fields. 
+            # Update other fields.
             _update_simple_fields(resource_id, properties)
 
         elif 'OS::Neutron::Port' == res_type:
             self._update_port_resource(context, updated_res, resource)
         elif 'OS::Neutron::Net' == res_type:
-            self._update_network_resource(context, updated_res, updated_dep, resource)
+            self._update_network_resource(context, updated_res, updated_dep,
+                                          resource)
         elif 'OS::Neutron::Subnet' == res_type:
-            self._update_subnet_resource(context, updated_res, updated_dep, resource, resources_list)
+            self._update_subnet_resource(context, updated_res, updated_dep,
+                                         resource, resources_list)
         elif res_type in simple_handle_type:
             _update_simple_fields(resource_id, properties)
         elif 'OS::Cinder::Volume' == res_type:
@@ -829,13 +862,15 @@ class ResourceManager(manager.Manager):
                 if dep in value.dependencies:
                     org_dep_also_exist.append(dep)
                     break
-        delete_deps = [item for item in org_dependices if item not in org_dep_also_exist]
+        delete_deps = [item for item in org_dependices if
+                       item not in org_dep_also_exist]
         for dep in delete_deps:
             updated_res.pop(dep)
             dependices = new_updated_dep.get(dep).dependencies
             new_updated_dep.pop(dep)
             if dependices:
-                self._remove_org_depends(dependices, new_updated_dep, updated_res)
+                self._remove_org_depends(dependices, new_updated_dep,
+                                         updated_res)
 
     def _update_port_resource(self, context, updated_res, resource):
 
@@ -845,7 +880,7 @@ class ResourceManager(manager.Manager):
         properties = resource
         resource_id = properties.pop('resource_id', None)
         resource_obj = updated_res[resource_id]
-        properties.pop('resource_type',None)
+        properties.pop('resource_type', None)
         # Only fixed_ips can be updated.
         ips_to_update = properties.pop('fixed_ips')
         if not ips_to_update:
@@ -893,26 +928,30 @@ class ResourceManager(manager.Manager):
                     if subnet_id.get('get_param'):
                         sub_param_id = subnet_id['get_param']
                         if isinstance(sub_param_id, six.string_types):
-                            subnet_id = resource_obj.parameters\
-                                            .get(sub_param_id, {}).get('default')
-                            LOG.debug("Get subnet id <%s> from parameter <%s>.", 
-                                      subnet_id, sub_param_id)
+                            subnet_id = resource_obj.\
+                                parameters .\
+                                get(sub_param_id, {}).get('default')
+                            LOG.debug("Get subnet id <%s> "
+                                      "from parameter <%s>.", subnet_id,
+                                      sub_param_id)
                             if subnet_id:
                                 allocation_pools = _get_pools(subnet_id)
                             else:
                                 msg = "%s parameter not found." % sub_param_id
                                 LOG.error(msg)
-                                raise exception.PlanResourcesUpdateError(message=msg)
+                                raise exception.\
+                                    PlanResourcesUpdateError(message=msg)
                     elif subnet_id.get('get_resource'):
                         sub_res_id = subnet_id['get_resource']
                         if isinstance(sub_res_id, six.string_types) \
                             and updated_res.get(sub_res_id):
-                            allocation_pools = updated_res[sub_res_id]\
-                                                .properties.get('allocation_pools')
+                            allocation_pools = updated_res[sub_res_id].\
+                                properties.get('allocation_pools')
                         else:
                             msg = "%s resource not found." % sub_res_id
                             LOG.error(msg)
-                            raise exception.PlanResourcesUpdateError(message=msg)
+                            raise exception.\
+                                PlanResourcesUpdateError(message=msg)
                 elif isinstance(subnet_id, six.string_types):
                     if uuidutils.is_uuid_like(subnet_id):
                         allocation_pools = _get_pools(subnet_id)
@@ -933,11 +972,12 @@ class ResourceManager(manager.Manager):
                     end = pool.get('end')
                     if isinstance(start, six.string_types) \
                         and isinstance(end, six.string_types) \
-                        and netaddr.IPAddress(ip_address) in netaddr.IPRange(start, end):
+                        and netaddr.IPAddress(ip_address) in \
+                                    netaddr.IPRange(start, end):
                         ip_valid = True
 
                 if not ip_valid:
-                    msg = ("Ip address doesn't match allocation_pools %s." 
+                    msg = ("Ip address doesn't match allocation_pools %s."
                            % allocation_pools)
                     LOG.error(msg)
                     raise exception.PlanResourcesUpdateError(message=msg)
@@ -954,14 +994,15 @@ class ResourceManager(manager.Manager):
             # If subnets are the same, only update ip_address if provided.
             if original_subnet == subnet_id:
                 pass
-            # If subnet_id is from other exist resource, replace directly.        
+            # If subnet_id is from other exist resource, replace directly.
             elif isinstance(subnet_id, dict) and len(subnet_id) == 1 \
                                 and subnet_id.get('get_resource'):
                 sub_res_id = subnet_id['get_resource']
                 if isinstance(sub_res_id, six.string_types) \
                             and updated_res.get(sub_res_id):
                     original_ips[ip_index]['subnet_id'] = subnet_id
-                    LOG.debug("Update ip_address property %s.", original_ips[ip_index])
+                    LOG.debug("Update ip_address property %s.",
+                              original_ips[ip_index])
                 else:
                     msg = "%s resource not found." % sub_res_id
                     LOG.error(msg)
@@ -979,9 +1020,11 @@ class ResourceManager(manager.Manager):
 
                 # Restore the keys
                 self._actual_id_to_resource_id(updated_res)
-                original_ips[ip_index]['subnet_id'] = {'get_resource': subnet_res.name}
+                original_ips[ip_index]['subnet_id'] = {'get_resource':
+                                                           subnet_res.name}
 
-                LOG.debug("Update ip_address property %s.", original_ips[ip_index])
+                LOG.debug("Update ip_address property %s.",
+                          original_ips[ip_index])
             else:
                 msg = "subnet_id (%s) is invalid." % subnet_id
                 LOG.error(msg)
@@ -1002,7 +1045,7 @@ class ResourceManager(manager.Manager):
         properties = resource
         new_res_id = properties.pop('id', None)
         resource_id = properties.pop('resource_id', None)
-        properties.pop('resource_type',None)
+        properties.pop('resource_type', None)
         resource_obj = updated_res[resource_id]
         org_subnet_id = resource_obj.id
 
@@ -1023,23 +1066,25 @@ class ResourceManager(manager.Manager):
 
             # Update network and all corresponding subnets
             if org_net_res.id != new_net_id:
-                res_to_update = {'id': new_net_id, 'resource_id': org_net_res_id}
-                self._update_network_resource(context, updated_res, updated_dep, 
+                res_to_update = {'id': new_net_id,
+                                 'resource_id': org_net_res_id}
+                self._update_network_resource(context, updated_res,
+                                              updated_dep,
                                               res_to_update, resource_id)
 
             # Update currect subnet resource.
-            self._update_subnet_and_port(context, updated_res, updated_dep, 
+            self._update_subnet_and_port(context, updated_res, updated_dep,
                                          resource_id, new_res_id)
         else:
             self._update_org_subnet_info(context, updated_res,
-                                      updated_dep, resource_id, resources_list)
+                                         updated_dep, resource_id,
+                                         resources_list)
 
-        # Update other fields. 
+        # Update other fields.
         for k, v in properties.items():
             updated_res[resource_id].properties[k] = v
 
-
-    def _update_subnet_and_port(self, context, updated_res, 
+    def _update_subnet_and_port(self, context, updated_res,
                                 updated_dep, resource_id, subnet_id):
 
         resource_obj = updated_res[resource_id]
@@ -1067,10 +1112,11 @@ class ResourceManager(manager.Manager):
         # add by liuling
         # need to remove the port_id
         for rid, dep in updated_dep.items():
-            if dep.type == "OS::Neutron::Port" and resource_id in dep.dependencies:
+            if dep.type == "OS::Neutron::Port" and \
+                            resource_id in dep.dependencies:
                 port_res = updated_res.get(rid)
                 if not port_res:
-                    continue 
+                    continue
                 port_res.id = None
                 fixed_ips = port_res.properties.get('fixed_ips')
 
@@ -1078,17 +1124,18 @@ class ResourceManager(manager.Manager):
                     continue
 
                 for fip in fixed_ips:
-                    if fip.get('ip_address') and \
-                        fip.get('subnet_id') == {'get_resource': resource_id}:
+                    if fip.get('ip_address') and fip.get('subnet_id') == \
+                            {'get_resource': resource_id}:
                         del fip['ip_address']
 
     def _update_org_net_info(self, context, updated_res,
                              updated_dep, resource_id):
         # set the related resourece id dependencied on net resource_id
         net_update_resource = ["OS::Neutron::Subnet", "OS::Neutron::Port",
-                              "OS::Neutron::FloatingIP","OS::Neutron::Router"]
+                               "OS::Neutron::FloatingIP",
+                               "OS::Neutron::Router"]
         sub_update_resource = ["OS::Neutron::RouterInterface",
-                                  "OS::Neutron::Port"]
+                               "OS::Neutron::Port"]
         for rid, dep in updated_dep.items():
                 if dep.type in net_update_resource\
                    and resource_id in dep.dependencies:
@@ -1117,19 +1164,21 @@ class ResourceManager(manager.Manager):
                         need_pop_seg = False
                         break
                 if need_pop_seg:
-                    if updated_res[key].properties.get('value_specs').get('provider:segmentation_id'):
-                        updated_res[key].properties.get('value_specs').pop('provider:segmentation_id') 
+                    if updated_res[key].properties.get('value_specs').\
+                            get('provider:segmentation_id'):
+                        updated_res[key].properties.get('value_specs').\
+                            pop('provider:segmentation_id')
 
-    def _update_network_resource(self, context, updated_res, updated_dep, 
+    def _update_network_resource(self, context, updated_res, updated_dep,
                                  resource, except_subnet=None):
 
-        LOG.debug("Update network %s resource with %s.", 
+        LOG.debug("Update network %s resource with %s.",
                   resource['resource_id'], resource)
 
         properties = resource
         new_res_id = properties.pop('id', None)
         resource_id = properties.pop('resource_id', None)
-        properties.pop('resource_type',None) 
+        properties.pop('resource_type', None)
 
         org_net = updated_res[resource_id]
         org_net_id = org_net.id
@@ -1140,7 +1189,7 @@ class ResourceManager(manager.Manager):
             raise exception.PlanResourcesUpdateError(message=msg)
 
         if new_res_id and new_res_id != org_net_id:
-            #Make sure the number of subnets larger than one.
+            # Make sure the number of subnets larger than one.
             net = self.neutron_api.get_network(context, new_res_id)
             subnets = net.get('subnets', [])
             if not subnets:
@@ -1148,8 +1197,8 @@ class ResourceManager(manager.Manager):
                 LOG.error(msg)
                 raise exception.PlanResourcesUpdateError(message=msg)
 
-            # Validate whether network exists on a server. 
-            self._validate_server_network_duplication(updated_res, 
+            # Validate whether network exists on a server.
+            self._validate_server_network_duplication(updated_res,
                                                       resource_id, new_res_id)
 
             # Extracted network resource.
@@ -1162,19 +1211,20 @@ class ResourceManager(manager.Manager):
 
             # Update corresponding subnet resources.
             for rid, dep in updated_dep.items():
-                if dep.type == "OS::Neutron::Subnet" \
-                    and resource_id in dep.dependencies:
+                if dep.type == "OS::Neutron::Subnet" and resource_id in \
+                        dep.dependencies:
                     subnet_res = updated_res.get(rid)
 
                     if not subnet_res or except_subnet == subnet_res.name:
                         continue
 
-                    #Randomly choose a subnet.
-                    random_index = random.randint(0, len(subnets)-1)
+                    # Randomly choose a subnet.
+                    random_index = random.randint(0, len(subnets) - 1)
                     random_sub_id = subnets[random_index]
 
-                    self._update_subnet_and_port(context, updated_res, 
-                                                 updated_dep, rid, random_sub_id)
+                    self._update_subnet_and_port(context, updated_res,
+                                                 updated_dep, rid,
+                                                 random_sub_id)
         else:
             # need to modify
             LOG.info("Network <%s> is the same as original network. "
@@ -1183,18 +1233,23 @@ class ResourceManager(manager.Manager):
                                       updated_dep, resource_id)
 
             if properties.get('value_specs') and \
-               not properties.get('value_specs').get('provider:segmentation_id'):
-                if updated_res[resource_id].properties.get('value_specs').get('provider:segmentation_id'):
-                    updated_res[resource_id].properties.get('value_specs').pop('provider:segmentation_id')
+               not properties.get('value_specs').\
+                       get('provider:segmentation_id'):
+                if updated_res[resource_id].properties.\
+                        get('value_specs').get('provider:segmentation_id'):
+                    updated_res[resource_id].properties.\
+                        get('value_specs').pop('provider:segmentation_id')
             elif not properties.get('value_specs'):
-                if updated_res[resource_id].properties.get('value_specs').get('provider:segmentation_id'):
-                    updated_res[resource_id].properties.get('value_specs').pop('provider:segmentation_id')
- 
+                if updated_res[resource_id].properties.\
+                        get('value_specs').get('provider:segmentation_id'):
+                    updated_res[resource_id].properties.\
+                        get('value_specs').pop('provider:segmentation_id')
+
         # Update other fields.
         for k, v in properties.items():
             updated_res[resource_id].properties[k] = v
 
-    def _validate_server_network_duplication(self, updated_res, 
+    def _validate_server_network_duplication(self, updated_res,
                                              net_res_id_to_update, net_id):
 
         LOG.debug("Validate whether network exists on a server.")
@@ -1234,7 +1289,7 @@ class ResourceManager(manager.Manager):
 
             for net in networks:
                 port_res_id = net.get('port', {}).get('get_resource')
-                net_uuid = net.get('uuid', {})   
+                net_uuid = net.get('uuid', {})
                 network = net.get('network', {})
 
                 if port_res_id:
@@ -1247,11 +1302,11 @@ class ResourceManager(manager.Manager):
 
                     if uuidutils.is_uuid_like(network_id):
                         exist_nets.append(network_id)
-                    elif isinstance(network_id, dict) \
-                        and len(network_id) == 1:
+                    elif isinstance(network_id, dict) and \
+                                    len(network_id) == 1:
 
                         if network_id.get('get_param'):
-                            net_param = _get_param(port_res, 
+                            net_param = _get_param(port_res,
                                                    network_id['get_param'])
                             if uuidutils.is_uuid_like(net_param):
                                 exist_nets.append(net_param)
@@ -1265,15 +1320,15 @@ class ResourceManager(manager.Manager):
                                     exist_nets.append(net_res.id)
 
                 if net_uuid:
-                    if _get_net_id(net_uuid) == True:
+                    if _get_net_id(net_uuid) is True:
                         need_validate = True
 
                 if network:
-                    if _get_net_id(network) == True:
+                    if _get_net_id(network) is True:
                         need_validate = True
 
             if need_validate and net_id in exist_nets:
-                msg = ("Duplicate networks <%s> found on server <%s>." 
+                msg = ("Duplicate networks <%s> found on server <%s>."
                        % (net_id, res.name))
                 LOG.error(msg)
                 raise exception.PlanResourcesUpdateError(message=msg)
@@ -1305,13 +1360,14 @@ class ResourceManager(manager.Manager):
                 return False
             elif expected_type not in (list, dict) \
                 and isinstance(value, dict) and len(value) == 1 \
-                and (value.keys()[0] in ('get_resource', 'get_param', 'get_attr')):
+                and (value.keys()[0] in ('get_resource', 'get_param',
+                                         'get_attr')):
                 return True
             else:
                 return False
 
         for key, value in args.items():
-            #Validate whether property exists.
+            # Validate whether property exists.
             if key in properties.keys():
                 pro = properties[key]
             elif len(properties) == 1 and properties.keys()[0] == '*':
@@ -1339,8 +1395,8 @@ class ResourceManager(manager.Manager):
 
             # Validate type
             if not _validate_type(value, expected_type):
-                msg = ("The type of property (%s: %s) is incorrect (expect %s type)." 
-                        % (key, value, expected_type))
+                msg = ("The type of property (%s: %s) is incorrect "
+                       "(expect %s type)." % (key, value, expected_type))
                 LOG.error(msg)
                 raise exception.PlanResourcesUpdateError(message=msg)
 
@@ -1350,20 +1406,23 @@ class ResourceManager(manager.Manager):
 
             # Validate children properties of list type
             if isinstance(value, list) and pro.get('schema') \
-                                       and len(pro['schema']) == 1 \
-                                       and pro['schema'].keys()[0] == "*":
+                    and len(pro['schema']) == 1 \
+                    and pro['schema'].keys()[0] == "*":
                 child_schema = pro['schema'].values()[0]
                 child_type = child_schema.get('type')
                 child_type = type_map.get(child_type)
                 if child_type == dict and child_schema.get('schema'):
                     for v in value:
-                        self._simple_validate_update_properties(v, child_schema['schema'])
+                        self._simple_validate_update_properties(
+                            v,
+                            child_schema['schema'])
                 elif child_type not in (list, dict):
                     for v in value:
                         if not _validate_type(v, child_type):
                             msg = "%s is not string type." % v
                             LOG.error(msg)
-                            raise exception.PlanResourcesUpdateError(message=msg)
+                            raise exception.\
+                                PlanResourcesUpdateError(message=msg)
 
     def _actual_id_to_resource_id(self, res_or_dep):
         new_res = {}
@@ -1400,7 +1459,7 @@ class ResourceManager(manager.Manager):
             if self._has_expired(plan):
                 exist_expired_plan = True
                 plan_id = plan['plan_id']
-                tpl_file_path = plan_file_dir + plan_id + '.template'
+                # tpl_file_path = plan_file_dir + plan_id + '.template'
                 LOG.debug('Plan <%s> has expired.', plan_id)
                 plan = self.get_plan_by_id(context, plan_id)
                 resources = plan.get('updated_resources', {})
@@ -1417,10 +1476,8 @@ class ResourceManager(manager.Manager):
         else:
             LOG.debug("Complete to clearing expired plan.")
 
-
-
     def _has_expired(self, plan):
-        status = (p_status.INITIATING, p_status.CREATING, p_status.AVAILABLE, 
+        status = (p_status.INITIATING, p_status.CREATING, p_status.AVAILABLE,
                   p_status.ERROR, p_status.FINISHED)
 
         if isinstance(plan, resource.Plan):

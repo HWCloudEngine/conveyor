@@ -14,15 +14,14 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-
 import copy
 import six
 
 from oslo_config import cfg
+from oslo_log import log as logging
 from oslo_serialization import jsonutils
 from oslo_utils import fileutils
 from oslo_utils import timeutils
-from oslo_log import log as logging
 
 from conveyor.common import plan_status as p_status
 from conveyor.common import utils
@@ -31,9 +30,10 @@ from conveyor import exception
 
 LOG = logging.getLogger(__name__)
 
-
-# instance_allowed_search_opts = ['reservation_id', 'name', 'status', 'image', 'flavor',
-#                                'tenant_id', 'ip', 'changes-since', 'all_tenants']
+# instance_allowed_search_opts = ['reservation_id', 'name', 'status',
+#                                 'image', 'flavor',
+#                                 'tenant_id', 'ip', 'changes-since',
+#                                 'all_tenants']
 
 
 class Resource(object):
@@ -108,15 +108,18 @@ class Resource(object):
                 key = properties.keys()[0]
                 value = properties[key]
                 if key == "get_param":
-                    if isinstance(value, six.string_types) and value in parameters.keys():
+                    if isinstance(value, six.string_types) and \
+                                    value in parameters.keys():
                         param = parameters[value]
-                        self.add_parameter(value,
-                                           param.get('description', ''), 
-                                           parameter_type=param.get('type', 'string'),
-                                           constraints=param.get('constraints', ''),
-                                           default=param.get('default', ''))
+                        self.add_parameter(
+                            value,
+                            param.get('description', ''),
+                            parameter_type=param.get('type', 'string'),
+                            constraints=param.get('constraints', ''),
+                            default=param.get('default', ''))
                     else:
-                        msg = ("Parameter %s is invalid or not found." % value)
+                        msg = ("Parameter %s is invalid or "
+                               "not found." % value)
                         LOG.error(msg)
                         raise exception.ParameterNotFound(message=msg)
                 else:
@@ -209,7 +212,7 @@ class Plan(object):
                                 and value in resources.keys():
                         deps.append(value)
                 elif key == "get_attr":
-                    if isinstance(value, list) and len(value) >=1 \
+                    if isinstance(value, list) and len(value) >= 1 \
                                 and isinstance(value[0], six.string_types) \
                                 and value[0] in resources.keys():
                         deps.append(value[0])
@@ -223,23 +226,24 @@ class Plan(object):
                 for p in properties:
                     get_dependencies(p, deps)
 
-        resources = self.original_resources if is_original \
-                                    else self.updated_resources
-        dependencies = self.original_dependencies if is_original \
-                                    else self.updated_dependencies
+        resources = \
+            self.original_resources if is_original else self.updated_resources
+        dependencies = self.original_dependencies if \
+            is_original else self.updated_dependencies
 
         if not resources:
             return
 
-        # if resource has not been modified, there is no need to update dependencies
-#         if len(resources) == len(dependencies):
-#             is_same = True
-#             for res_name in resources.keys():
-#                 if res_name not in dependencies.keys():
-#                     is_same = False
-#                     break
-#             if is_same:
-#                 return
+        # if resource has not been modified, there is no
+        # need to update dependencies
+        # if len(resources) == len(dependencies):
+        #     is_same = True
+        #     for res_name in resources.keys():
+        #         if res_name not in dependencies.keys():
+        #             is_same = False
+        #             break
+        #     if is_same:
+        #         return
         # begin to rebuild
         dependencies = {}
         for res in resources.values():
@@ -247,10 +251,11 @@ class Plan(object):
             get_dependencies(res.properties, deps)
             # remove duplicate dependencies
             deps = {}.fromkeys(deps).keys()
-            new_dependencies = ResourceDependency(res.id,
-                                                  res.properties.get('name', ''),
-                                                  res.name, res.type,
-                                                  dependencies=deps)
+            new_dependencies = ResourceDependency(
+                res.id,
+                res.properties.get('name', ''),
+                res.name, res.type,
+                dependencies=deps)
             dependencies[res.name] = new_dependencies
 
         if is_original:
@@ -273,20 +278,27 @@ class Plan(object):
                 'project_id': self.project_id,
                 'user_id': self.user_id,
                 'stack_id': self.stack_id,
-                'created_at': str(self.created_at) if self.created_at else None,
-                'updated_at': str(self.updated_at) if self.updated_at else None,
+                'created_at': str(self.created_at) if
+                self.created_at else None,
+                'updated_at': str(self.updated_at) if
+                self.updated_at else None,
                 'expire_at': str(self.expire_at) if self.expire_at else None,
-                'deleted_at': str(self.deleted_at) if self.deleted_at else None,
+                'deleted_at': str(self.deleted_at) if
+                self.deleted_at else None,
                 'deleted': self.deleted,
                 'task_status': self.task_status,
                 'plan_status': self.plan_status
                 }
 
         if detail:
-            plan['original_resources'] = trans_from_obj_dict(self.original_resources)
-            plan['updated_resources'] = trans_from_obj_dict(self.updated_resources)
-            plan['original_dependencies'] = trans_from_obj_dict(self.original_dependencies)
-            plan['updated_dependencies'] = trans_from_obj_dict(self.updated_dependencies)
+            plan['original_resources'] = \
+                trans_from_obj_dict(self.original_resources)
+            plan['updated_resources'] = \
+                trans_from_obj_dict(self.updated_resources)
+            plan['original_dependencies'] = \
+                trans_from_obj_dict(self.original_dependencies)
+            plan['updated_dependencies'] = \
+                trans_from_obj_dict(self.updated_dependencies)
 
         return plan
 
@@ -308,9 +320,11 @@ class Plan(object):
         upd_dep = plan_dict.get('updated_dependencies')
 
         ori_res = trans_to_obj_dict(ori_res, 'Resource') if ori_res else {}
-        ori_dep = trans_to_obj_dict(ori_dep, 'ResourceDependency') if ori_dep else {}
+        ori_dep = trans_to_obj_dict(ori_dep, 'ResourceDependency') if \
+            ori_dep else {}
         upd_res = trans_to_obj_dict(upd_res, 'Resource') if upd_res else {}
-        upd_dep = trans_to_obj_dict(upd_dep, 'ResourceDependency') if upd_dep else {}
+        upd_dep = trans_to_obj_dict(upd_dep, 'ResourceDependency') if \
+            upd_dep else {}
 
         plan = {
             'plan_id': '',
@@ -339,7 +353,7 @@ class Plan(object):
         return self
 
 
-class TaskStatus():
+class TaskStatus(object):
     """
     creating server_0
     creating volume_0

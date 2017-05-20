@@ -18,16 +18,9 @@
 Handles all requests relating to neutron.
 """
 
-from neutronclient.common import exceptions
 from neutronclient.v2_0 import client as neutron_client
-
 from oslo_config import cfg
-
 from oslo_log import log as logging
-
-from conveyor import exception
-from conveyor.i18n import _
-from conveyor.i18n import _LW
 
 neutron_opts = [
     cfg.StrOpt('url',
@@ -58,8 +51,8 @@ neutron_opts = [
     cfg.BoolOpt('api_insecure',
                 default=False,
                 help='If set, ignore any SSL validation issues',
-               deprecated_group='DEFAULT',
-               deprecated_name='neutron_api_insecure'),
+                deprecated_group='DEFAULT',
+                deprecated_name='neutron_api_insecure'),
     cfg.StrOpt('auth_strategy',
                default='keystone',
                help='Authorization strategy for connecting to '
@@ -67,12 +60,11 @@ neutron_opts = [
                deprecated_group='DEFAULT',
                deprecated_name='neutron_auth_strategy'),
     cfg.StrOpt('ca_certificates_file',
-                help='Location of CA certificates file to use for '
-                     'neutron client requests.',
+               help='Location of CA certificates file to use for '
+                    'neutron client requests.',
                deprecated_group='DEFAULT',
                deprecated_name='neutron_ca_certificates_file'),
    ]
-
 
 CONF = cfg.CONF
 CONF.register_opts(neutron_opts, 'neutron')
@@ -104,31 +96,39 @@ class API(object):
         return neutronclient(context).list_networks(**_params)['networks']
 
     def get_network(self, context, network_id, timeout=None, **_params):
-        return neutronclient(context).show_network(network_id, **_params)['network']
+        return neutronclient(context).show_network(network_id,
+                                                   **_params)['network']
 
     def subnet_list(self, context, **_params):
         return neutronclient(context).list_subnets(**_params)['subnets']
 
     def get_subnet(self, context, subnet_id, **_params):
-        return neutronclient(context).show_subnet(subnet_id, **_params)['subnet']
+        return neutronclient(context).show_subnet(subnet_id,
+                                                  **_params)['subnet']
 
     def secgroup_list(self, context, **_params):
-        return neutronclient(context).list_security_groups(**_params)['security_groups']
+        return neutronclient(context).\
+            list_security_groups(**_params)['security_groups']
 
     def get_security_group(self, context, security_group_id, **_params):
-        return neutronclient(context).show_security_group(security_group_id, **_params)['security_group']
+        return neutronclient(context).\
+            show_security_group(security_group_id,
+                                **_params)['security_group']
 
     def floatingip_list(self, context, **_params):
-        return neutronclient(context).list_floatingips(**_params)['floatingips']
+        return neutronclient(context).\
+            list_floatingips(**_params)['floatingips']
 
     def get_floatingip(self, context, floatingip_id, **_params):
-        return neutronclient(context).show_floatingip(floatingip_id, **_params)['floatingip']
+        return neutronclient(context).show_floatingip(floatingip_id,
+                                                      **_params)['floatingip']
 
     def router_list(self, context, **_params):
         return neutronclient(context).list_routers(**_params)['routers']
 
     def get_router(self, context, router_id, **_params):
-        return neutronclient(context).show_router(router_id, **_params)['router']
+        return neutronclient(context).show_router(router_id,
+                                                  **_params)['router']
 
     def router_interfaces_list(self, context, router_id):
         return neutronclient(context).list_ports(device_id=router_id)['ports']
@@ -136,7 +136,7 @@ class API(object):
     def port_list(self, context, **_params):
         return neutronclient(context).list_ports(**_params)['ports']
 
-    def get_port(self, context, port_id, **_params):    
+    def get_port(self, context, port_id, **_params):
         return neutronclient(context).show_port(port_id, **_params)['port']
 
     def vip_list(self, context, **_params):
@@ -159,17 +159,19 @@ class API(object):
     def disassociate_floating_ip(self, context, floatingip_id,
                                  affect_auto_assigned=False):
         """Disassociate a floating ip from the instance."""
-        neutronclient(context).update_floatingip(floatingip_id, {'floatingip': {'port_id': None}})
+        neutronclient(context).update_floatingip(floatingip_id,
+                                                 {'floatingip': {'port_id':
+                                                                     None}})
 
     def associate_floating_ip(self, context,
-                              floatingip_id, port_id, fixed_address = None,
+                              floatingip_id, port_id, fixed_address=None,
                               affect_auto_assigned=False):
         """Associate a floating ip with a fixed ip."""
         param = {'port_id': port_id}
         if fixed_address:
             param['fixed_ip_address'] = fixed_address
         neutronclient(context).update_floatingip(floatingip_id,
-                                         {'floatingip': param})
+                                                 {'floatingip': param})
 
     def list_pools(self, context, **_params):
         return neutronclient(context).list_pools(**_params)
@@ -192,11 +194,14 @@ class API(object):
 
     def show_health_monitor(self, context, health_monitor, **_params):
 
-        return neutronclient(context).show_health_monitor(health_monitor, **_params)
+        return neutronclient(context).show_health_monitor(health_monitor,
+                                                          **_params)
 
     def list_listeners(self, context, vip_id, retrieve_all=True, **_params):
         return neutronclient(context).list_vip_listener(vip_id,
-                                                        retrieve_all=retrieve_all, **_params)
+                                                        retrieve_all=
+                                                        retrieve_all,
+                                                        **_params)
 
     def show_listener(self, context, listener_id, vip_id, **_params):
         return neutronclient(context).show_vip_listener(vip_id,

@@ -14,16 +14,16 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from conveyor import network
-from conveyor import exception
-
-from conveyor.resource import resource
-from conveyor.resource.driver import base
+from copy import deepcopy
 
 from oslo_log import log as logging
 from oslo_utils import uuidutils
 
-from copy import deepcopy
+from conveyor import exception
+from conveyor import network
+from conveyor.resource.driver import base
+from conveyor.resource import resource
+
 LOG = logging.getLogger(__name__)
 
 
@@ -103,7 +103,8 @@ class NetworkResource(base.resource):
                                         net_id, properties=properties)
 
             net_dep = resource.ResourceDependency(net_id, net.get('name'),
-                                                  resource_name, resource_type)
+                                                  resource_name,
+                                                  resource_type)
 
             self._collected_resources[net_id] = net_res
             self._collected_dependencies[net_id] = net_dep
@@ -236,7 +237,8 @@ class NetworkResource(base.resource):
                 properties['host_routes'] = subnet.get('host_routes')
 
             resource_type = "OS::Neutron::Subnet"
-            resource_name = 'subnet_%d' % self._get_resource_num(resource_type)
+            resource_name = 'subnet_%d' % self.\
+                _get_resource_num(resource_type)
             subnet_res = resource.Resource(resource_name, resource_type,
                                            subnet_id, properties=properties)
 
@@ -292,14 +294,14 @@ class NetworkResource(base.resource):
                 properties['allowed_address_pairs'] = \
                     port.get('allowed_address_pairs')
 
-            value_specs = {}
-            #if port.get('binding:profile') is not None:
+            # value_specs = {}
+            # if port.get('binding:profile') is not None:
             #    value_specs['binding:profile'] = port.get('binding:profile')
-            #if port.get('binding:vnic_type') is not None:
+            # if port.get('binding:vnic_type') is not None:
             #    value_specs['binding:vnic_type'] = \
             #        port.get('binding:vnic_type')
-
-            #if value_specs:
+            #
+            # if value_specs:
             #    properties['value_specs'] = value_specs
 
             if port.get('security_groups'):
@@ -408,7 +410,8 @@ class NetworkResource(base.resource):
 
             if not floating_network_id or not floating_ip_address:
                 msg = "FloatingIp information is abnormal. \
-                        'floating_network_id' or 'floating_ip_address' is None"
+                        'floating_network_id' or 'floating_ip_address' " \
+                      "is None"
                 LOG.error(msg)
                 raise exception.ResourceAttributesException(message=msg)
 
@@ -512,7 +515,8 @@ class NetworkResource(base.resource):
             self._get_resource_num(resource_type)
         resource_id = uuidutils.generate_uuid()
         association_res = resource.Resource(resource_name, resource_type,
-                                            resource_id, properties=properties)
+                                            resource_id,
+                                            properties=properties)
 
         # remove duplicate dependencies
         dependencies = {}.fromkeys(dependencies).keys()
@@ -626,7 +630,8 @@ class NetworkResource(base.resource):
                         dependencies.append(net_res[0].name)
 
             resource_type = "OS::Neutron::Router"
-            resource_name = 'router_%d' % self._get_resource_num(resource_type)
+            resource_name = 'router_%d' % self.\
+                _get_resource_num(resource_type)
             router_res = resource.Resource(resource_name, resource_type,
                                            router_id, properties=properties)
 
@@ -636,7 +641,8 @@ class NetworkResource(base.resource):
                                                      router.get('name'),
                                                      resource_name,
                                                      resource_type,
-                                                     dependencies=dependencies)
+                                                     dependencies=
+                                                     dependencies)
 
             self._collected_resources[router_id] = router_res
             self._collected_dependencies[router_id] = router_dep
@@ -661,7 +667,8 @@ class NetworkResource(base.resource):
             secgroup_list = self.neutron_api.secgroup_list(self.context)
             secgroup_objs = filter(self._tenant_filter, secgroup_list)
         else:
-            LOG.debug('Extract resources of security groups: %s', secgroup_ids)
+            LOG.debug('Extract resources of security groups: %s',
+                      secgroup_ids)
             # remove duplicate secgroups
             secgroup_ids = {}.fromkeys(secgroup_ids).keys()
             for sec_id in secgroup_ids:
@@ -670,8 +677,8 @@ class NetworkResource(base.resource):
                                                               sec_id)
                     secgroup_objs.append(sec)
                 except Exception as e:
-                    msg = "SecurityGroup resource <%s> could not be found. %s" \
-                            % (sec_id, unicode(e))
+                    msg = "SecurityGroup resource <%s> could " \
+                          "not be found. %s" % (sec_id, unicode(e))
                     LOG.error(msg)
                     raise exception.ResourceNotFound(message=msg)
 
@@ -708,7 +715,8 @@ class NetworkResource(base.resource):
             # remove duplicate dependencies
             dependencies = {}.fromkeys(dependencies).keys()
             sec_dep = resource.ResourceDependency(sec_id, sec.get('name'),
-                                                  resource_name, resource_type,
+                                                  resource_name,
+                                                  resource_type,
                                                   dependencies=dependencies)
 
             self._collected_dependencies[sec_id] = sec_dep
@@ -772,8 +780,8 @@ class NetworkResource(base.resource):
                 if fip.get("subnet_id", "") == subnet_id:
                     router_id = interface.get('device_id')
 
-                    router_name = self._generate_router_resource(router_id,
-                                                                 other_net_ids)
+                    router_name = self.\
+                        _generate_router_resource(router_id, other_net_ids)
                     if not router_name:
                         return None
 
@@ -841,7 +849,8 @@ class NetworkResource(base.resource):
 
         # remove duplicate dependencies
         dependencies = {}.fromkeys(dependencies).keys()
-        router_dep = resource.ResourceDependency(router_id, router.get('name'),
+        router_dep = resource.ResourceDependency(router_id,
+                                                 router.get('name'),
                                                  resource_name, resource_type,
                                                  dependencies=dependencies)
 

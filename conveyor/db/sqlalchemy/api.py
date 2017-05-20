@@ -19,29 +19,21 @@
 
 import datetime
 import functools
+import six
 import sys
 import threading
 import time
 
-import six
+import migration
 from oslo_config import cfg
+from oslo_db import api as oslo_db_api
 from oslo_db import exception as db_exc
 from oslo_db.sqlalchemy import session as db_session
-from oslo_log import log as logging
-
-import conveyor.context
-from conveyor import exception as conveyor_exception
-from conveyor.db.sqlalchemy import models, utils
-from conveyor.i18n import _
-from conveyor.i18n import _LE
-
-# add from heat
-from oslo_serialization import jsonutils
-from oslo_utils import timeutils
-from oslo_db import api as oslo_db_api
 from oslo_db.sqlalchemy import utils
+from oslo_log import log as logging
+from oslo_serialization import jsonutils
 from oslo_utils import encodeutils
-
+from oslo_utils import timeutils
 import sqlalchemy
 from sqlalchemy import func
 from sqlalchemy import orm
@@ -49,17 +41,18 @@ from sqlalchemy.orm import aliased as orm_aliased
 from sqlalchemy.orm import RelationshipProperty
 from sqlalchemy.orm import session as orm_session
 
-import osprofiler.sqlalchemy
 from conveyor.common import sqlalchemyutils
+import conveyor.context
 from conveyor.conveyorheat.common import crypt
 from conveyor.conveyorheat.common import exception
-from conveyor.db.sqlalchemy import filters as db_filters
-from conveyor import exception
-import migration
-# from conveyor.db.sqlalchemy import models
-from conveyor.db.sqlalchemy import utils as db_utils
 from conveyor.conveyorheat.engine import environment as heat_environment
 from conveyor.conveyorheat.rpc import api as rpc_api
+from conveyor.db.sqlalchemy import filters as db_filters
+from conveyor.db.sqlalchemy import models
+from conveyor.db.sqlalchemy import utils as db_utils
+from conveyor import exception as conveyor_exception
+from conveyor.i18n import _
+from conveyor.i18n import _LE
 
 db_opts = [
     cfg.StrOpt('birdie_api_name_scope',
@@ -71,7 +64,6 @@ db_opts = [
 
 CONF = cfg.CONF
 CONF.register_opts(db_opts)
-# CONF = cfg.CONF
 CONF.import_opt('hidden_stack_tags',
                 'conveyor.conveyorheat.common.config')
 CONF.import_opt('max_events_per_stack',
@@ -80,11 +72,8 @@ CONF.import_group('profiler',
                   'conveyor.conveyorheat.common.config')
 
 LOG = logging.getLogger(__name__)
-# LOG.basicConfig(filename='myapp.log', level=LOG.INFO)
-
 
 _ENGINE_FACADE = None
-_facade = None
 _LOCK = threading.Lock()
 
 
@@ -95,33 +84,16 @@ def _create_facade_lazily():
             if _ENGINE_FACADE is None:
                 _ENGINE_FACADE = db_session.EngineFacade.from_config(CONF)
     return _ENGINE_FACADE
-    # global _facade
-    #
-    # if not _facade:
-    #     _facade = db_session.EngineFacade.from_config(CONF)
-    #     if CONF.profiler.enabled:
-    #         if CONF.profiler.trace_sqlalchemy:
-    #             osprofiler.sqlalchemy.add_tracing(sqlalchemy,
-    #                                               _facade.get_engine(),
-    #                                               "db")
-    #
-    # return _facade
 
 
 def get_engine(use_slave=False):
     facade = _create_facade_lazily()
     return facade.get_engine()
-    # return facade.get_engine(use_slave=use_slave)
 
 
 def get_session(use_slave=False, **kwargs):
     facade = _create_facade_lazily()
     return facade.get_session()
-    # return facade.get_session(use_slave=use_slave, **kwargs)
-
-
-# def get_session_heat():
-#     return get_facade().get_session()
 
 
 _SHADOW_TABLE_PREFIX = 'shadow_'
@@ -161,7 +133,7 @@ def _retry_on_deadlock(f):
             except db_exc.DBDeadlock:
                 LOG.warn(_("Deadlock detected when running "
                            "'%(func_name)s': Retrying..."),
-                           dict(func_name=f.__name__))
+                         dict(func_name=f.__name__))
                 # Retry!
                 time.sleep(0.5)
                 continue
@@ -179,9 +151,7 @@ def model_query_heat_original(context, *args):
 
 def model_query_heat(context, model, *args, **kwargs):
     session = get_session()
-    # session.begin(subtransactions=True)
     query = session.query(model, *args)
-    # session.commit()
     return query
 
 
@@ -229,7 +199,7 @@ def model_query(context, model, *args, **kwargs):
         query = query.filter(base_model.deleted != default_deleted_value)
     else:
         raise Exception(_("Unrecognized read_deleted value '%s'")
-                            % read_deleted)
+                        % read_deleted)
 
     return query
 
@@ -255,17 +225,20 @@ def _plan_get_query(context, session=None):
 
 
 def _plan_get(context, id, session=None, read_deleted='no'):
-    result = model_query(context, models.Plan, session=session, read_deleted='no').\
-               filter_by(plan_id=id).\
-                first()
+    result = model_query(
+        context,
+        models.Plan,
+        session=session,
+        read_deleted='no'). filter_by(
+        plan_id=id). first()
     if not result:
-        raise conveyor_exception.PlanNotFoundInDb(id = id)
+        raise conveyor_exception.PlanNotFoundInDb(id=id)
     return result
 
 
 @require_context
 def plan_get(context, id):
-    try: 
+    try:
         result = _plan_get(context, id)
     except db_exc.DBError:
         msg = _("Invalid plan id %s in request") % id
@@ -281,7 +254,7 @@ def plan_create(context, values):
     try:
         plan_ref.save()
     except db_exc.DBDuplicateEntry as e:
-        raise conveyor_exception.PlanExists( id=values.get('id'))
+        raise conveyor_exception.PlanExists(id=values.get('id'))
     except db_exc.DBReferenceError as e:
         raise conveyor_exception.IntegrityException(msg=str(e))
     except db_exc.DBError as e:
@@ -491,7 +464,7 @@ def process_sort_params(sort_keys, sort_dirs, default_keys=None,
         for sort_dir in sort_dirs:
             if sort_dir not in ('asc', 'desc'):
                 msg = _("Unknown sort direction, must be 'desc' or 'asc'.")
-                raise exception.InvalidInput(reason=msg)
+                raise conveyor_exception.InvalidInput(reason=msg)
             result_dirs.append(sort_dir)
     else:
         result_dirs = [default_dir_value for _sort_key in result_keys]
@@ -502,7 +475,7 @@ def process_sort_params(sort_keys, sort_dirs, default_keys=None,
     # Unless more direction are specified, which is an error
     if len(result_dirs) > len(result_keys):
         msg = _("Sort direction array size exceeds sort key array size.")
-        raise exception.InvalidInput(reason=msg)
+        raise conveyor_exception.InvalidInput(reason=msg)
 
     # Ensure defaults are included
     for key in default_keys:
@@ -518,7 +491,7 @@ def plan_delete(context, id):
     with session.begin():
         plan_ref = _plan_get(context, id, session=session)
         # if not plan_ref: raise conveyor_exception.planNotFound(id=id)
-        #plan_ref.soft_delete(session=session)
+        # plan_ref.soft_delete(session=session)
         session.delete(plan_ref)
 
 
@@ -556,8 +529,8 @@ def plan_stack_delete_all(context, plan_id):
         if not ps:
             raise exception.NotFound(_('Attempt to delete plan_id: '
                                        '%(id)s %(msg)s') % {
-                                         'id': plan_id,
-                                         'msg': 'that does not exist'})
+                'id': plan_id,
+                'msg': 'that does not exist'})
         for p in ps:
             session.delete(p)
 
@@ -572,8 +545,8 @@ def plan_stack_delete(context, plan_id, stack_id):
         if not ps:
             raise exception.NotFound(_('Attempt to delete plan_id: '
                                        '%(id)s %(msg)s') % {
-                                         'id': plan_id,
-                                         'msg': 'that does not exist'})
+                'id': plan_id,
+                'msg': 'that does not exist'})
         session.delete(ps)
 
 
@@ -593,24 +566,6 @@ def plan_stack_update(context, plan_id, stack_id, values):
             raise conveyor_exception.PlanExists()
 
     return dict(plan_ref)
-
-
-# add from heat
-# _facade = None
-#
-#
-# def get_facade():
-#     global _facade
-#
-#     if not _facade:
-#         _facade = db_session.EngineFacade.from_config(CONF)
-#         if CONF.profiler.enabled:
-#             if CONF.profiler.trace_sqlalchemy:
-#                 osprofiler.sqlalchemy.add_tracing(sqlalchemy,
-#                                                   _facade.get_engine(),
-#                                                   "db")
-#
-#     return _facade
 
 
 def soft_delete_aware_query(context, *args, **kwargs):
@@ -668,7 +623,8 @@ def raw_template_delete(context, template_id):
 
 def resource_get(context, resource_id):
     # result = model_query_heat(context, models.Resource).get(resource_id)
-    result = model_query_heat_original(context, models.Resource).get(resource_id)
+    result = model_query_heat_original(
+        context, models.Resource).get(resource_id)
     if not result:
         raise exception.NotFound(_("resource with id %s not found") %
                                  resource_id)
@@ -889,7 +845,10 @@ def stack_get(context, stack_id, show_deleted=False, tenant_safe=True,
     # if eager_load:
     #     query = query.options(orm.joinedload("raw_template"))
     # result = query.get(stack_id)
-    result = model_query_heat(context, models.Stack).filter_by(id=stack_id).first()
+    result = model_query_heat(
+        context,
+        models.Stack).filter_by(
+        id=stack_id).first()
 
     deleted_ok = show_deleted or context.show_deleted
     if result is None or result.deleted_at is not None and not deleted_ok:
@@ -1065,9 +1024,9 @@ def stack_update(context, stack_id, values, exp_trvsl=None):
 
     if stack is None:
         raise exception.NotFound(_('Attempt to update a stack with id: '
-                                 '%(id)s %(msg)s') % {
-                                     'id': stack_id,
-                                     'msg': 'that does not exist'})
+                                   '%(id)s %(msg)s') % {
+            'id': stack_id,
+            'msg': 'that does not exist'})
 
     if (exp_trvsl is not None
             and stack.current_traversal != exp_trvsl):
@@ -1080,7 +1039,7 @@ def stack_update(context, stack_id, values, exp_trvsl=None):
     with session.begin(subtransactions=True):
         rows_updated = (session.query(models.Stack)
                         .filter(models.Stack.id == stack.id)
-                        .filter(models.Stack.current_traversal\
+                        .filter(models.Stack.current_traversal
                                 == stack.current_traversal)
                         .update(values, synchronize_session=False))
     session.expire_all()
@@ -1096,9 +1055,9 @@ def stack_delete(context, stack_id):
     # s = query.get(stack_id)
     if not s:
         raise exception.NotFound(_('Attempt to delete a stack with id: '
-                                 '%(id)s %(msg)s') % {
-                                     'id': stack_id,
-                                     'msg': 'that does not exist'})
+                                   '%(id)s %(msg)s') % {
+            'id': stack_id,
+            'msg': 'that does not exist'})
     # session = orm_session.Session.object_session(s)
     for r in s.resources:
         session.delete(r)
@@ -1276,7 +1235,10 @@ def event_get_all_by_tenant(context, limit=None, marker=None,
 
 
 def _query_all_by_stack(context, stack_id):
-    query = model_query_heat(context, models.Event).filter_by(stack_id=stack_id)
+    query = model_query_heat(
+        context,
+        models.Event).filter_by(
+        stack_id=stack_id)
     return query
 
 
@@ -1408,9 +1370,9 @@ def watch_rule_update(context, watch_id, values):
 
     if not wr:
         raise exception.NotFound(_('Attempt to update a watch with id: '
-                                 '%(id)s %(msg)s') % {
-                                     'id': watch_id,
-                                     'msg': 'that does not exist'})
+                                   '%(id)s %(msg)s') % {
+            'id': watch_id,
+            'msg': 'that does not exist'})
     wr.update(values)
     wr.save(_session(context))
 
@@ -1419,9 +1381,9 @@ def watch_rule_delete(context, watch_id):
     wr = watch_rule_get(context, watch_id)
     if not wr:
         raise exception.NotFound(_('Attempt to delete watch_rule: '
-                                 '%(id)s %(msg)s') % {
-                                     'id': watch_id,
-                                     'msg': 'that does not exist'})
+                                   '%(id)s %(msg)s') % {
+            'id': watch_id,
+            'msg': 'that does not exist'})
     session = orm_session.Session.object_session(wr)
     with session.begin():
         for d in wr.watch_data:
@@ -1500,7 +1462,8 @@ def software_deployment_create(context, values):
 
 
 def software_deployment_get(context, deployment_id):
-    result = model_query_heat(context, models.SoftwareDeployment).get(deployment_id)
+    result = model_query_heat(
+        context, models.SoftwareDeployment).get(deployment_id)
     if (result is not None and context is not None and
         context.tenant_id not in (result.tenant,
                                   result.stack_user_project_id)):
@@ -1814,8 +1777,8 @@ def db_encrypt_parameters_and_properties(ctxt, encryption_key, batch_size=50):
 
                 for param_name, param_val in env['parameters'].items():
                     if ((param_name in encrypted_params) or
-                       (not param_schemata[param_name].hidden)):
-                            continue
+                            (not param_schemata[param_name].hidden)):
+                        continue
                     encrypted_val = crypt.encrypt(six.text_type(param_val),
                                                   encryption_key)
                     env['parameters'][param_name] = encrypted_val
@@ -1968,7 +1931,10 @@ def reset_stack_status(context, stack_id, stack=None):
             query = query.filter(models.ResourceData.id.in_(data_ids))
             query.delete(synchronize_session='fetch')
 
-    query = model_query_heat(context, models.Stack).filter_by(owner_id=stack_id)
+    query = model_query_heat(
+        context,
+        models.Stack).filter_by(
+        owner_id=stack_id)
     for child in query:
         reset_stack_status(context, child.id, child)
 
@@ -2084,7 +2050,10 @@ def gw_group_update(context, group_id, values):
 
 
 def gw_member_get_all_by_group(context, group_id):
-    query = model_query_heat(context, models.GWMember).filter_by(group_id=group_id)
+    query = model_query_heat(
+        context,
+        models.GWMember).filter_by(
+        group_id=group_id)
 
     return query.all()
 

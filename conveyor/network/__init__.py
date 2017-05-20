@@ -19,9 +19,9 @@ from oslo_utils import importutils
 
 _compute_opts = [
     cfg.StrOpt('network_api_class',
-                           default='conveyor.network.neutron.API',
-                           help='The full class name of the '
-                                'network API class to use'),
+               default='conveyor.network.neutron.API',
+               help='The full class name of the '
+                    'network API class to use'),
 ]
 
 cfg.CONF.register_opts(_compute_opts)
@@ -29,9 +29,9 @@ cfg.CONF.register_opts(_compute_opts)
 
 def API():
     network_api_class = cfg.CONF.network_api_class
-    
+
     if network_api_class is None:
         network_api_class = 'conveyor.network.neutron.API'
-        
+
     cls = importutils.import_class(network_api_class)
     return cls()

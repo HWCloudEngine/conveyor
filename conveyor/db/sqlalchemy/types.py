@@ -15,7 +15,6 @@ from oslo_serialization import jsonutils
 from sqlalchemy.dialects import mysql
 from sqlalchemy import types
 
-
 dumps = jsonutils.dumps
 loads = jsonutils.loads
 

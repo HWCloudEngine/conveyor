@@ -20,16 +20,16 @@ import time
 from oslo_config import cfg
 from oslo_log import log as logging
 
+from conveyor.clone.resources import common
 from conveyor import compute
 from conveyor.conveyoragentclient.v1 import client as birdiegatewayclient
-from conveyor.clone.resources import common
 from conveyor import exception
 from conveyor import heat
-from conveyor.i18n import _LE
 from conveyor import network
 from conveyor import volume
-from conveyor.resource import api as resource_api
 
+from conveyor.i18n import _LE
+from conveyor.resource import api as resource_api
 
 CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
@@ -113,8 +113,8 @@ class BaseDriver(object):
                                                               vgw_id,
                                                               'ACTIVE')
                 except Exception as e:
-                    LOG.error(_LE('Error from handle volume of vm after clone.'
-                                  'Error=%(e)s'), {'e': e})
+                    LOG.error(_LE('Error from handle volume of '
+                                  'vm after clone. Error=%(e)s'), {'e': e})
 
     def _wait_for_volume_status(self, context, volume_id, server_id, status):
         volume = self.volume_api.get(context, volume_id)

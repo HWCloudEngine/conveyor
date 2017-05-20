@@ -17,8 +17,8 @@
 
 """Defines interface for DB access.
 
-Functions in this module are imported into the conveyor.db namespace. Call these
-functions from conveyor.db namespace, not the conveyor.db.api namespace.
+Functions in this module are imported into the conveyor.db namespace. Call
+these functions from conveyor.db namespace, not the conveyor.db.api namespace.
 
 All functions in this module return objects that implement a dictionary-like
 interface. Currently, many of these objects are sqlalchemy objects that
@@ -28,12 +28,8 @@ these objects be simple dictionaries.
 """
 
 from oslo_config import cfg
-from oslo_db import concurrency
 from oslo_db import api
-
-from conveyor.i18n import _
 from oslo_log import log as logging
-
 
 db_opts = [
 ]
@@ -43,8 +39,7 @@ CONF.register_opts(db_opts)
 
 _BACKEND_MAPPING = {'sqlalchemy': 'conveyor.db.sqlalchemy.api'}
 
-
-#IMPL = concurrency.TpoolDbapiWrapper(CONF, backend_mapping=_BACKEND_MAPPING)
+# IMPL = concurrency.TpoolDbapiWrapper(CONF, backend_mapping=_BACKEND_MAPPING)
 IMPL = api.DBAPI.from_config(CONF, backend_mapping=_BACKEND_MAPPING)
 
 LOG = logging.getLogger(__name__)
@@ -56,13 +51,16 @@ MAX_INT = 0x7FFFFFFF
 def plan_get(context, id):
     return IMPL.plan_get(context, id)
 
+
 def plan_create(context, values):
     """Create a plan from the values dictionary."""
     return IMPL.plan_create(context, values)
 
+
 def plan_delete(context, id):
     """Destroy the plan or raise if it does not exist."""
     return IMPL.plan_delete(context, id)
+
 
 def plan_update(context, id, values):
     return IMPL.plan_update(context, id, values)

@@ -14,13 +14,13 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from oslo_log import log as logging
+
 from conveyor import exception
 from conveyor import network
-
-from conveyor.resource import resource
 from conveyor.resource.driver import base
+from conveyor.resource import resource
 
-from oslo_log import log as logging
 LOG = logging.getLogger(__name__)
 
 
@@ -44,7 +44,8 @@ class SecGroup(base.resource):
             secgroup_list = self.neutron_api.secgroup_list(self.context)
             secgroup_objs = filter(self._tenant_filter, secgroup_list)
         else:
-            LOG.debug('Extract resources of security groups: %s', secgroup_ids)
+            LOG.debug('Extract resources of security groups: %s',
+                      secgroup_ids)
             # remove duplicate secgroups
             secgroup_ids = {}.fromkeys(secgroup_ids).keys()
             for sec_id in secgroup_ids:
@@ -53,8 +54,8 @@ class SecGroup(base.resource):
                                                               sec_id)
                     secgroup_objs.append(sec)
                 except Exception as e:
-                    msg = "SecurityGroup resource <%s> could not be found. %s" \
-                            % (sec_id, unicode(e))
+                    msg = "SecurityGroup resource <%s> could " \
+                          "not be found. %s" % (sec_id, unicode(e))
                     LOG.error(msg)
                     raise exception.ResourceNotFound(message=msg)
 
@@ -91,7 +92,8 @@ class SecGroup(base.resource):
             # remove duplicate dependencies
             dependencies = {}.fromkeys(dependencies).keys()
             sec_dep = resource.ResourceDependency(sec_id, sec.get('name'),
-                                                  resource_name, resource_type,
+                                                  resource_name,
+                                                  resource_type,
                                                   dependencies=dependencies)
 
             self._collected_dependencies[sec_id] = sec_dep

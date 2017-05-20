@@ -14,15 +14,14 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from oslo_log import log as logging
+
 from conveyor import exception
 from conveyor import network
-
-from conveyor.resource import resource
 from conveyor.resource.driver import base
 from conveyor.resource.driver import networks
+from conveyor.resource import resource
 
-
-from oslo_log import log as logging
 LOG = logging.getLogger(__name__)
 
 

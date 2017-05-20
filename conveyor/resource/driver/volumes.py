@@ -14,14 +14,13 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from conveyor import exception
-from conveyor import volume
-
 from oslo_log import log as logging
 
+from conveyor import exception
+from conveyor.resource.driver import base
 from conveyor.resource import resource
 from conveyor.resource import resource_state
-from conveyor.resource.driver import base
+from conveyor import volume
 
 LOG = logging.getLogger(__name__)
 
@@ -82,7 +81,8 @@ class VolumeResource(base.resource):
                 properties['metadata'] = volume['volume_metadata']
 
             resource_type = "OS::Cinder::Volume"
-            resource_name = 'volume_%d' % self._get_resource_num(resource_type)
+            resource_name = 'volume_%d' % self.\
+                _get_resource_num(resource_type)
             volume_res = resource.Resource(resource_name, resource_type,
                                            volume_id, properties=properties)
             volume_dep = resource.ResourceDependency(volume_id,
@@ -146,7 +146,8 @@ class VolumeResource(base.resource):
             LOG.debug('Extract resources of all volume_types.')
             volume_type_dicts = self.cinder_api.volume_type_list(self.context)
         else:
-            LOG.debug('Extract resources of volume_types: %s', volume_type_ids)
+            LOG.debug('Extract resources of volume_types: %s',
+                      volume_type_ids)
             # remove duplicate volume_type
             volume_type_ids = {}.fromkeys(volume_type_ids).keys()
             for volume_type_id in volume_type_ids:

@@ -18,9 +18,9 @@
 from oslo_config import cfg
 from oslo_log import log as logging
 
-from conveyor.resource.plugins import driver
 from conveyor.conveyoragentclient.v1 import client as birdiegatewayclient
 from conveyor.i18n import _LE
+from conveyor.resource.plugins import driver
 
 CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
@@ -45,7 +45,8 @@ class AwsDriver(driver.BaseDriver):
 
     def _handle_volume_for_vm_after_clone(self, context,
                                           server_resource, resources):
-        bdms = server_resource['properties'].get('block_device_mapping_v2', [])
+        bdms = server_resource['properties'].get('block_device_mapping_v2',
+                                                 [])
         vgw_id = server_resource.get('extra_properties', {}).get('gw_id')
         sys_clone = server_resource.get('extra_properties', {}) \
                                    .get('sys_clone')

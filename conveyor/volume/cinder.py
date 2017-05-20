@@ -19,19 +19,17 @@ Handles all requests relating to volumes + cinder.
 """
 
 import copy
+import six
+import six.moves.urllib.parse as urlparse
 import sys
 
 from cinderclient import client as cinder_client
 from cinderclient import exceptions as cinder_exception
-from cinderclient.v1 import client as v1_client
-from keystoneclient import exceptions as keystone_exception
 from cinderclient import service_catalog
+from keystoneclient import exceptions as keystone_exception
 from oslo_config import cfg
-from oslo_utils import strutils
-import six
-import six.moves.urllib.parse as urlparse
-
 from oslo_log import log as logging
+from oslo_utils import strutils
 
 from conveyor import exception
 from conveyor.i18n import _
@@ -39,12 +37,12 @@ from conveyor.i18n import _LW
 
 cinder_opts = [
     cfg.StrOpt('catalog_info',
-            default='volume:cinder:publicURL',
-            help='Info to match when looking for cinder in the service '
-                 'catalog. Format is: separated values of the form: '
-                 '<service_type>:<service_name>:<endpoint_type>',
-            deprecated_group='DEFAULT',
-            deprecated_name='cinder_catalog_info'),
+               default='volume:cinder:publicURL',
+               help='Info to match when looking for cinder in the service '
+                    'catalog. Format is: separated values of the form: '
+                    '<service_type>:<service_name>:<endpoint_type>',
+               deprecated_group='DEFAULT',
+               deprecated_name='cinder_catalog_info'),
     cfg.StrOpt('endpoint_template',
                help='Override service catalog lookup with template for cinder '
                     'endpoint e.g. http://localhost:8776/v1/%(project_id)s',
@@ -58,8 +56,8 @@ cinder_opts = [
     cfg.IntOpt('http_retries',
                default=3,
                help='Number of cinderclient retries on failed http calls',
-            deprecated_group='DEFAULT',
-            deprecated_name='cinder_http_retries'),
+               deprecated_group='DEFAULT',
+               deprecated_name='cinder_http_retries'),
     cfg.IntOpt('http_timeout',
                help='HTTP inactivity timeout (in seconds)',
                deprecated_group='DEFAULT',
@@ -96,7 +94,8 @@ def cinderclient(context, http_timeout=None):
                              auth_url=CINDER_URL,
                              insecure=CONF.cinder.api_insecure,
                              retries=CONF.cinder.http_retries,
-                             timeout=CONF.cinder.http_timeout if CONF.cinder.http_timeout else http_timeout,
+                             timeout=CONF.cinder.http_timeout if
+                             CONF.cinder.http_timeout else http_timeout,
                              cacert=CONF.cinder.ca_certificates_file)
     # noauth extracts user_id:project_id from auth_token
     c.client.auth_token = context.auth_token or '%s:%s' % (context.user_id,
@@ -174,6 +173,7 @@ def _untranslate_qos_summary_view(qos):
 def translate_volume_exception(method):
     """Transforms the exception for the volume but keeps its traceback intact.
     """
+
     def wrapper(self, ctx, volume_id, *args, **kwargs):
         try:
             res = method(self, ctx, volume_id, *args, **kwargs)
@@ -195,6 +195,7 @@ def translate_volume_exception(method):
                 reason=six.text_type(exc_value))
             raise exc_value, None, exc_trace
         return res
+
     return wrapper
 
 
@@ -268,7 +269,7 @@ class API(object):
         search_opts = search_opts or {}
         items = cinderclient(context).volumes.list(detailed=True,
                                                    search_opts=search_opts)
-        if trans_map == False:
+        if trans_map is False:
             return items
 
         rval = []
@@ -278,7 +279,7 @@ class API(object):
 
         return rval
 
-    def create_volume(self, context, size,  name,
+    def create_volume(self, context, size, name,
                       snapshot_id=None, description=None,
                       volume_type=None, user_id=None,
                       project_id=None, availability_zone=None,
@@ -316,14 +317,15 @@ class API(object):
             old_volume_id, new_volume_id, error)
 
     def snapshot_list(self, context, detailed=True, search_opts=None):
-        return cinderclient(context).volume_snapshots.list(detailed=detailed,
-                                                           search_opts=search_opts)
+        return cinderclient(context). \
+            volume_snapshots.list(detailed=detailed, search_opts=search_opts)
 
     def get_snapshot(self, context, snapshot_id):
         return cinderclient(context).volume_snapshots.get(snapshot_id)
 
     def volume_type_list(self, context, search_opts=None, trans_map=True):
-        type_objs = cinderclient(context).volume_types.list(search_opts=search_opts)
+        type_objs = cinderclient(context). \
+            volume_types.list(search_opts=search_opts)
         if trans_map:
             return type_objs
 

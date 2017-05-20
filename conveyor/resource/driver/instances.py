@@ -14,19 +14,19 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from conveyor import exception
+from oslo_log import log as logging
 
 from conveyor import compute
-from conveyor import volume
-from conveyor import network
+from conveyor import exception
 from conveyor.i18n import _LE
+from conveyor import network
+from conveyor.resource.driver import base
+from conveyor.resource.driver.networks import NetworkResource
+from conveyor.resource.driver.volumes import VolumeResource
 from conveyor.resource import resource
 from conveyor.resource import resource_state
-from conveyor.resource.driver import base
-from conveyor.resource.driver.volumes import VolumeResource
-from conveyor.resource.driver.networks import NetworkResource
+from conveyor import volume
 
-from oslo_log import log as logging
 LOG = logging.getLogger(__name__)
 
 
@@ -124,7 +124,6 @@ class InstanceResource(base.resource):
             except Exception as e:
                 msg = "Instance flavor extracted failed. %s" % unicode(e)
                 LOG.error(msg)
-                # TODO  get flavor resource by another method
                 raise exception.ResourceNotFound(message=msg)
 
         # extract keypair resource, if failed, give up this resource
@@ -383,14 +382,13 @@ class InstanceResource(base.resource):
 
         volume_res = vr.extract_volumes(volume_ids)
 
-        # TODO  get bdm from nova api
         index = 0
         for v in volume_res:
             sys_boot_index = v.extra_properties.get('boot_index', None)
             if sys_boot_index == 0 or sys_boot_index == '0':
                 boot_index = sys_boot_index
             else:
-                boot_index = index+1
+                boot_index = index + 1
                 index += 1
             properties = {'volume_id': {'get_resource': v.name},
                           'boot_index': boot_index}
@@ -437,9 +435,12 @@ class InstanceResource(base.resource):
                     raise exception.ResourceAttributesException(message=msg)
 
                 nr = NetworkResource(self.context,
-                                     collected_resources=self._collected_resources,
-                                     collected_parameters=self._collected_parameters,
-                                     collected_dependencies=self._collected_dependencies)
+                                     collected_resources=
+                                     self._collected_resources,
+                                     collected_parameters=
+                                     self._collected_parameters,
+                                     collected_dependencies=
+                                     self._collected_dependencies)
 
                 if ip_type == 'fixed':
                     # Avoid the port with different ips was extract many times.

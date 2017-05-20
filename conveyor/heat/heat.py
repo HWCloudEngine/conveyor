@@ -9,13 +9,13 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-from oslo_config import cfg
 
 from heatclient import client as heat_client
-
-from conveyor import exception
+from oslo_config import cfg
 from oslo_log import log as logging
+
 from conveyor.common import client as url_client
+from conveyor import exception
 
 LOG = logging.getLogger(__name__)
 
@@ -37,12 +37,14 @@ ENDPOINT_TYPE_TO_INTERFACE = {
     'adminURL': 'admin',
 }
 
+
 def format_parameters(params):
     parameters = {}
     for count, p in enumerate(params, 1):
         parameters['Parameters.member.%d.ParameterKey' % count] = p
         parameters['Parameters.member.%d.ParameterValue' % count] = params[p]
     return parameters
+
 
 def get_service_from_catalog(catalog, service_type):
     if catalog:
@@ -52,6 +54,7 @@ def get_service_from_catalog(catalog, service_type):
             if service['type'] == service_type:
                 return service
     return None
+
 
 def get_version_from_service(service):
     if service and service.get('endpoints'):
@@ -73,6 +76,7 @@ def _get_endpoint_region(endpoint):
     both Keystone V2 and V3.
     """
     return endpoint.get('region_id') or endpoint.get('region')
+
 
 def get_url_for_service(service, endpoint_type, region=None):
     if 'type' not in service:
@@ -108,6 +112,7 @@ def get_url_for_service(service, endpoint_type, region=None):
             pass
     return None
 
+
 def url_for(context, service_type, endpoint_type=None, region=None):
     endpoint_type = endpoint_type or getattr(CONF,
                                              'OPENSTACK_ENDPOINT_TYPE',
@@ -129,6 +134,7 @@ def url_for(context, service_type, endpoint_type=None, region=None):
             return url
     raise exception.ServiceCatalogException(service_type)
 
+
 def heatclient(context, password=None):
     api_version = "1"
     insecure = getattr(CONF, 'OPENSTACK_SSL_NO_VERIFY', True)
@@ -136,12 +142,13 @@ def heatclient(context, password=None):
     try:
         endpoint = url_for(context, 'orchestration')
     except Exception as e:
-        LOG.error("HeatClient get URL from context.service_catalog error: %s" % e)
+        LOG.error("HeatClient get URL from context.service_catalog "
+                  "error: %s" % e)
         cs = url_client.Client()
         endpoint = cs.get_service_endpoint(context, 'orchestration',
                                           region_name=CONF.os_region_name)
         LOG.debug("HeatClient get URL from common function: %s" % endpoint)
-    
+
     if not endpoint:
         endpoint = CONF.heat.heat_url + '/' + context.project_id
     kwargs = {
@@ -160,12 +167,10 @@ def heatclient(context, password=None):
     return client
 
 
-
 class API(object):
-    
     def get_stack(self, context, stack_id):
         return heatclient(context).stacks.get(stack_id)
-    
+
     def delete_stack(self, context, stack_id):
         return heatclient(context).stacks.delete(stack_id)
 
@@ -177,28 +182,28 @@ class API(object):
 
     def validate_template(self, context, **kwargs):
         return heatclient(context).stacks.validate(**kwargs)
-    
+
     def resources_list(self, context, stack_name):
         return heatclient(context).resources.list(stack_name)
 
     def get_resource(self, context, stack_id, resource_name):
         return heatclient(context).resources.get(stack_id, resource_name)
-    
+
     def get_resource_type(self, context, resource_type):
         return heatclient(context).resource_types.get(resource_type)
-    
+
     def resource_type_list(self, context):
         return heatclient(context).resource_types.list()
-    
+
     def events_list(self, context, stack_id):
         return heatclient(context).events.list(stack_id)
-    
+
     def get_event(self, context, stack_id, resource_name, event_id):
-        return heatclient(context).events.get(stack_id, resource_name, event_id)
-    
+        return heatclient(context).events.get(stack_id, resource_name,
+                                              event_id)
+
     def get_template(self, context, stack_id):
         return heatclient(context).stacks.template(stack_id)
-    
+
     def stack_list(self, context, **kwargs):
         return heatclient(context).stacks.list(**kwargs)
-    

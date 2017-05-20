@@ -51,16 +51,13 @@ This module provides Manager, a base class for managers.
 
 """
 
-
 from oslo_config import cfg
+from oslo_log import log as logging
 import oslo_messaging as messaging
 
-from oslo_log import log as logging
 from conveyor.common import periodic_task
-
-from conveyor import version
 from conveyor import rpc
-
+from conveyor import version
 
 CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
@@ -88,9 +85,10 @@ class Manager(periodic_task.PeriodicTasks):
     def init_host(self):
         """Handle initialization if this is a standalone service.
 
-        A hook point for services to execute tasks before the services are made
-        available (i.e. showing up on RPC and starting to accept RPC calls) to
-        other components.  Child classes should override this method.
+        A hook point for services to execute tasks before the services
+        are made available (i.e. showing up on RPC and starting to accept
+        RPC calls) to other components.  Child classes should override
+        this method.
 
         """
         pass
@@ -113,4 +111,3 @@ class Manager(periodic_task.PeriodicTasks):
         for key in CONF:
             config[key] = CONF.get(key, None)
         return config
-

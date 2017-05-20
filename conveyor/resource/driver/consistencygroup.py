@@ -14,13 +14,13 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from conveyor import exception
-from conveyor import volume
-
 from oslo_log import log as logging
-from conveyor.resource import resource
+
+from conveyor import exception
 from conveyor.resource.driver import base
 from conveyor.resource.driver.volumes import VolumeResource
+from conveyor.resource import resource
+from conveyor import volume as cinder_vol
 
 LOG = logging.getLogger(__name__)
 
@@ -30,7 +30,7 @@ class ConsistencyGroup(base.resource):
     def __init__(self, context, collected_resources=None,
                  collected_parameters=None, collected_dependencies=None):
         self.context = context
-        self.cinder_api = volume.API()
+        self.cinder_api = cinder_vol.API()
         self._collected_resources = collected_resources or {}
         self._collected_parameters = collected_parameters or {}
         self._collected_dependencies = collected_dependencies or {}

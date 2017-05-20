@@ -15,12 +15,13 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-"""RequestContext: context for requests that persist through all of fs_gateway."""
+"""RequestContext: context for requests that persist
+through all of fs_gateway.
+"""
 
 import copy
-import uuid
-
 import six
+import uuid
 
 from keystoneclient import access
 from keystoneclient import auth
@@ -28,18 +29,17 @@ from keystoneclient.auth.identity import access as access_plugin
 from keystoneclient.auth.identity import v3
 from keystoneclient.auth import token_endpoint
 from oslo_config import cfg
+from oslo_log import log as logging
+from oslo_utils import timeutils
 
-import exception
+from conveyor.common import local
+from conveyor.conveyorheat.common import endpoint_utils
+from conveyor.conveyorheat.engine import clients
+from conveyor.db import api as db_api
+from conveyor import exception
 from conveyor.i18n import _
 from conveyor.i18n import _LE
 from conveyor.i18n import _LW
-from conveyor.common import local
-from oslo_log import log as logging
-from oslo_utils import timeutils
-from conveyor.db import api as db_api
-from conveyor.conveyorheat.engine import clients
-from conveyor.conveyorheat.common import endpoint_utils
-
 
 LOG = logging.getLogger(__name__)
 
@@ -79,7 +79,7 @@ class RequestContext(object):
         """
         if kwargs:
             LOG.warn(_('Arguments dropped when creating context: %s') %
-                    str(kwargs))
+                     str(kwargs))
 
         self.user_id = user_id
         self.project_id = project_id
@@ -112,8 +112,12 @@ class RequestContext(object):
         if service_catalog:
             # Only include required parts of service_catalog
             self.service_catalog = [s for s in service_catalog
-                if s.get('type') in ('identity', 'compute','volume',
-                                      'volumev2', 'network', 'key-manager', 'orchestration')]
+                                    if s.get('type') in ('identity',
+                                                         'compute', 'volume',
+                                                         'volumev2',
+                                                         'network',
+                                                         'key-manager',
+                                                         'orchestration')]
         else:
             # if list is empty or none
             self.service_catalog = []
@@ -157,7 +161,8 @@ class RequestContext(object):
         if self._trusts_auth_plugin:
             return self._trusts_auth_plugin
 
-        LOG.warning(_LW('Using the keystone_authtoken user as the conveyorheat '
+        LOG.warning(_LW('Using the keystone_authtoken user '
+                        'as the conveyorheat '
                         'trustee user directly is deprecated. Please add the '
                         'trustee credentials you need to the %s section of '
                         'your heat.conf file.') % TRUSTEE_CONF_GROUP)

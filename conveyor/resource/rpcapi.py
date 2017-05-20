@@ -14,11 +14,10 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import oslo_messaging as messaging
 from oslo_config import cfg
+import oslo_messaging as messaging
 
 from conveyor import rpc
-
 
 rpcapi_opts = [
     cfg.StrOpt('resource_topic',
@@ -30,9 +29,11 @@ CONF = cfg.CONF
 CONF.register_opts(rpcapi_opts)
 
 # rpcapi_cap_opt = cfg.StrOpt('resource',
-#         help='Set a version cap for messages sent to resource services. If you '
+#         help='Set a version cap for messages sent to '
+#              'resource services. If you '
 #              'plan to do a live upgrade from havana to icehouse, you should '
-#              'set this option to "icehouse-compat" before beginning the live '
+#              'set this option to "icehouse-compat" '
+#              'before beginning the live '
 #              'upgrade procedure.')
 # CONF.register_opt(rpcapi_cap_opt, 'upgrade_levels')
 

@@ -18,9 +18,6 @@ import os
 
 from oslo_db.sqlalchemy import migration as oslo_migration
 
-# from conveyor.db import api as db_api
-
-
 INIT_VERSION = 215
 _REPOSITORY = None
 
