@@ -58,21 +58,21 @@ class StackResource(base.resource):
                     raise exception.ResourceNotFound(message=msg)
 
         for stack in stack_dicts:
-            stack_id = stack.id
+            stack_id = stack['id']
             stack_res = self._collected_resources.get(stack_id)
             if stack_res:
                 stackResources.append(stack_res)
                 continue
             properties = {}
-            timeout_mins = stack.timeout_mins
+            timeout_mins = stack['timeout_mins']
             if timeout_mins:
                 properties['timeout'] = timeout_mins
-            parameters = stack.parameters
+            parameters = stack['parameters']
             if parameters and parameters.get('OS::stack_id'):
                 parameters.pop('OS::stack_id')
                 properties['parameters'] = parameters
-            properties['disable_rollback'] = stack.disable_rollback
-            properties['stack_name'] = stack.stack_name
+            properties['disable_rollback'] = stack['disable_rollback']
+            properties['stack_name'] = stack['stack_name']
 
             template = self._extract_resource(self.context, stack_id)
             template = json.loads(template)
@@ -90,7 +90,7 @@ class StackResource(base.resource):
             stack_res = res.Resource(resource_name, resource_type,
                                      stack_id, properties=properties)
             stack_dep = res.ResourceDependency(stack_id,
-                                               stack.stack_name,
+                                               stack['stack_name'],
                                                resource_name,
                                                resource_type)
 

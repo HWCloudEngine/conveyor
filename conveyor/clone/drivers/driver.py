@@ -24,7 +24,7 @@ from oslo_log import log as logging
 
 from conveyor.clone.resources import common
 from conveyor.conveyoragentclient.v1 import client as birdiegatewayclient
-from conveyor.conveyorheat.api import api as heat
+from conveyor import heat
 from conveyor.i18n import _LE
 from conveyor.i18n import _LW
 from conveyor.resource import api as resource_api
