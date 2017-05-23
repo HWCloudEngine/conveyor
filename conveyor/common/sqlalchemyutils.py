@@ -25,9 +25,9 @@ import sqlalchemy
 import sqlalchemy.sql as sa_sql
 from sqlalchemy.sql import type_api
 
-from cinder.db import api
-from cinder import exception
-from cinder.i18n import _
+# from conveyor.db import api
+from conveyor import exception
+from conveyor.i18n import _
 
 
 LOG = logging.getLogger(__name__)
@@ -121,8 +121,8 @@ def paginate_query(query, model, limit, sort_keys, marker=None,
             sort_key_attr = getattr(model, current_sort_key)
         except AttributeError:
             raise exception.InvalidInput(reason='Invalid sort key')
-        if not api.is_orm_value(sort_key_attr):
-            raise exception.InvalidInput(reason='Invalid sort key')
+#         if not api.is_orm_value(sort_key_attr):
+#             raise exception.InvalidInput(reason='Invalid sort key')
         query = query.order_by(sort_dir_func(sort_key_attr))
 
     # Add pagination

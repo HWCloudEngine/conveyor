@@ -471,3 +471,8 @@ class RetryException(V2vException):
 
 class AuthorizationFailure(V2vException):
     msg_fmt = _("Authorization failed.")
+
+
+class InvalidAPIVersionString(Invalid):
+    message = _("API Version String %(version)s is of invalid format. Must "
+                "be of format MajorNum.MinorNum.")

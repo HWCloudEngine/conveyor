@@ -19,8 +19,8 @@ import datetime
 from lxml import etree
 from oslo_config import cfg
 
-from conveyor.api.openstack import wsgi
 from conveyor.api.views import versions as views_versions
+from conveyor.api.wsgi import wsgi
 from conveyor.api import xmlutil
 
 
@@ -254,7 +254,7 @@ class Versions(wsgi.Resource):
         return args
 
 
-class VolumeVersionV1(object):
+class ConveyorVersionV1(object):
     @wsgi.serializers(xml=VersionTemplate,
                       atom=VersionAtomSerializer)
     def show(self, req):
@@ -263,4 +263,4 @@ class VolumeVersionV1(object):
 
 
 def create_resource():
-    return wsgi.Resource(VolumeVersionV1())
+    return wsgi.Resource(ConveyorVersionV1())
