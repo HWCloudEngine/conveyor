@@ -48,6 +48,8 @@ CONF.register_cli_opts(core_opts)
 CONF.register_cli_opts(debug_opts)
 
 global_opts = [
+    cfg.StrOpt('host',
+               help='Backend override of host value.'),
     cfg.StrOpt('my_ip',
                default="",
                help='IP address of this host'),

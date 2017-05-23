@@ -13,16 +13,16 @@
 #    under the License.
 
 import mock
-import testtools
 
 from conveyor.clone import manager
 from conveyor.resource import api as resource_api
+from conveyor.tests import test
 
 from conveyor import context
 from conveyor import exception
 
 
-class CloneManagerTestCase(testtools.TestCase):
+class CloneManagerTestCase(test.TestCase):
 
     def setUp(self):
         super(CloneManagerTestCase, self).setUp()

@@ -56,8 +56,6 @@ if os.path.exists(os.path.join(possible_topdir, 'conveyor', '__init__.py')):
 i18n.enable_lazy()
 
 
-host_opt = cfg.StrOpt('host',
-                      help='Backend override of host value.')
 CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
 

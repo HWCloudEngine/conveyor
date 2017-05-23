@@ -17,7 +17,6 @@
 
 
 import mock
-import testtools
 import webob
 
 from six.moves import http_client
@@ -26,15 +25,16 @@ from oslo_log import log as logging
 from oslo_serialization import jsonutils
 
 from conveyor.clone import api
+from conveyor import context
+from conveyor.tests import test
 from conveyor.tests.unit.api import fakes as fakes
 from conveyor.tests.unit import fake_constants as fake
 
-from conveyor import context
 
 LOG = logging.getLogger(__name__)
 
 
-class CloneActionControllerTestCase(testtools.TestCase):
+class CloneActionControllerTestCase(test.TestCase):
 
     def setUp(self):
         super(CloneActionControllerTestCase, self).setUp()
@@ -56,4 +56,4 @@ class CloneActionControllerTestCase(testtools.TestCase):
         req.headers["content-type"] = "application/json"
 
         res = req.get_response(fakes.wsgi_app(fake_auth_context=self.context))
-        self.assertEqual(http_client.OK, res.status_int)
+        self.assertEqual(http_client.ACCEPTED, res.status_int)
