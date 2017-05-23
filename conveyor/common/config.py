@@ -226,7 +226,10 @@ global_opts = [
     cfg.StrOpt('sys_image',
                default='',
                help='Provide cloud can detach volume '
-               'in instance active or not.')
+               'in instance active or not.'),
+    cfg.IntOpt('periodic_interval',
+               default=60,
+               help='Interval, in seconds, between running periodic tasks')
 ]
 birdie_opts = [
     cfg.IntOpt('v2vgateway_api_listen_port',

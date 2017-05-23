@@ -53,9 +53,9 @@ service_opts = [
                default=10,
                help='Interval, in seconds, between nodes reporting state '
                     'to datastore'),
-    cfg.IntOpt('periodic_interval',
-               default=60,
-               help='Interval, in seconds, between running periodic tasks'),
+    # cfg.IntOpt('periodic_interval',
+    #            default=60,
+    #            help='Interval, in seconds, between running periodic tasks'),
     cfg.IntOpt('periodic_fuzzy_delay',
                default=60,
                help='Range, in seconds, to randomly delay when starting the'
