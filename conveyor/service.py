@@ -20,7 +20,6 @@
 import inspect
 import os
 import random
-import socket
 
 from oslo_concurrency import processutils
 from oslo_config import cfg
@@ -65,10 +64,6 @@ service_opts = [
                default=9999,
                help='Port on which OpenStack Volume API listens'),
     cfg.IntOpt('osapi_clone_workers',
-               help='Number of workers for OpenStack Volume API service. '
-                    'The default is equal to the number of CPUs available.'),
-    cfg.StrOpt('host',
-               default=socket.gethostname(),
                help='Number of workers for OpenStack Volume API service. '
                     'The default is equal to the number of CPUs available.'),
 ]

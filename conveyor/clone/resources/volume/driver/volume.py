@@ -43,11 +43,21 @@ class VolumeCloneDriver(object):
     def start_volume_clone(self, context, resource_name, template,
                            trans_data_wait_fun=None,
                            volume_wait_fun=None,
-                           set_plan_state=None):
+                           set_plan_state=None,
+                           copy_data=True):
         resources = template.get('resources')
         volume_res = resources.get(resource_name)
         volume_id = volume_res.get('id')
         plan_id = template.get('plan_id', None)
+        ext_properties = volume_res.get('extra_properties', None)
+
+        d_copy = ext_properties.get('copy_data', True) if ext_properties \
+            else True
+        if not (d_copy and copy_data):
+            plan_state = 'DATA_TRANS_FINISHED'
+            set_plan_state(context, plan_id, plan_state,
+                           plan_status.STATE_MAP)
+            return
 
         # 1. check instance which dependences this volume in template or not
         # if instance exists in template do not execute copy data step
@@ -58,11 +68,11 @@ class VolumeCloneDriver(object):
                       {'id': volume_id, 'name': resource_name})
             # update plan status
             plan_state = 'DATA_TRANS_FINISHED'
-            set_plan_state(context, plan_id, plan_state, plan_status.STATE_MAP)
+            set_plan_state(context, plan_id, plan_state,
+                           plan_status.STATE_MAP)
             return
 
         # 2. if volume is system volume and does not clone, skip copy data step
-        ext_properties = volume_res.get('extra_properties', None)
         if ext_properties:
             sys_clone = ext_properties.get('sys_clone', False)
             boot_index = ext_properties.get('boot_index', 1)
@@ -71,7 +81,8 @@ class VolumeCloneDriver(object):
             boot_index = 1
         if not sys_clone and boot_index in ['0', 0]:
             plan_state = 'DATA_TRANS_FINISHED'
-            set_plan_state(context, plan_id, plan_state, plan_status.STATE_MAP)
+            set_plan_state(context, plan_id, plan_state,
+                           plan_status.STATE_MAP)
             return
 
         # 3. get volume info

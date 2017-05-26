@@ -49,16 +49,17 @@ class CloneAPI(object):
         cctxt = self.client.prepare(version='1.18')
         cctxt.cast(ctxt, 'start_template_clone', template=template)
 
-    def export_clone_template(self, ctxt, id, sys_clone):
+    def export_clone_template(self, ctxt, id, sys_clone, copy_data):
         LOG.debug("start call rpc api export_clone_template")
         cctxt = self.client.prepare(version='1.18')
-        cctxt.cast(ctxt, 'export_clone_template', id=id, sys_clone=sys_clone)
+        cctxt.cast(ctxt, 'export_clone_template', id=id, sys_clone=sys_clone,
+                   copy_data=copy_data)
 
-    def clone(self, ctxt, id, destination, sys_clone):
+    def clone(self, ctxt, id, destination, sys_clone, copy_data):
         LOG.debug("start call rpc api clone")
         cctxt = self.client.prepare(version='1.18')
         cctxt.cast(ctxt, 'clone', id=id, destination=destination,
-                   sys_clone=sys_clone)
+                   sys_clone=sys_clone, copy_data=copy_data)
 
     def export_migrate_template(self, ctxt, id):
         LOG.debug("start call rpc api export_migrate_template")
@@ -77,10 +78,12 @@ class CloneAPI(object):
 
     def export_template_and_clone(self, ctxt, id, destination,
                                   update_resources,
-                                  sys_clone=False):
+                                  sys_clone=False,
+                                  copy_data=True):
         LOG.debug("start call rpc api export_template_and_clone")
         cctxt = self.client.prepare(version='1.18')
         return cctxt.cast(ctxt, 'export_template_and_clone', id=id,
                           destination=destination,
                           update_resources=update_resources,
-                          sys_clone=sys_clone)
+                          sys_clone=sys_clone,
+                          copy_data=copy_data)

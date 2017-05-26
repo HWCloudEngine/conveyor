@@ -309,6 +309,7 @@ class Volume(base.resource):
         self._collected_dependencies[volume_id] = volume_dep
 
         volume_res.add_extra_property('status', vol_state)
+        volume_res.add_extra_property('copy_data', True)
         # 3. if volume has volume type, building volume type resource
         # and updating dependences
         volume_type_name = volume.get('volume_type')

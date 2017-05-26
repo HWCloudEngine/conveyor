@@ -231,3 +231,25 @@ FAKE_EVENT_LIST = {'resource_name': 'volume_0',
                    'resource_status': 'COMPLETE'}
 FAKE_RESOURCE = \
     {'physical_resource_id': '8e330083-d795-4cef-86de-f69a7dd9076a'}
+FAKE_UPDATED = {
+    "volume_0": {
+        "extra_properties": {
+            "status": "available",
+            "copy_data": True,
+            "id": "57af2efb-1e69-43bf-b1cd-ed7d8fff6bce"
+        },
+        "parameters": {},
+        "id": "57af2efb-1e69-43bf-b1cd-ed7d8fff6bce",
+        "type": "OS::Cinder::Volume",
+        "properties": {
+            "metadata": {
+                "__openstack_region_name": "az01.dc1--fusionsphere",
+                "tag:caa_volume_id": "7d08d212-5150-4ff9-b741-0a98e6f1a8e0"
+            },
+            "availability_zone": "az01.dc1--fusionsphere",
+            "name": "hml-test-vol-8",
+            "size": 1
+        },
+        "name": "volume_0"
+    }
+}

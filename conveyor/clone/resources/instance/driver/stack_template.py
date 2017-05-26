@@ -59,7 +59,8 @@ class StackTemplateCloneDriver(object):
                              volume_wait_fun=None,
                              trans_data_wait_fun=None,
                              create_instance_wait_fun=None,
-                             port_wait_fun=None):
+                             port_wait_fun=None,
+                             copy_data=True):
         LOG.debug("Clone instance %(i)s starting in template %(t)s driver",
                   {'i': resource_name, 't': template})
 
@@ -69,21 +70,21 @@ class StackTemplateCloneDriver(object):
                         resource_name,
                         template,
                         trans_data_wait_fun=trans_data_wait_fun,
-                        port_wait_fun=port_wait_fun)
+                        port_wait_fun=port_wait_fun, copy_data=copy_data)
 
         # 2. check data is transforming finished,
         # and refresh clone plan status
         plan_id = template.get('plan_id', None)
-        des_gw_ip = result.get('des_ip')
-        des_port = result.get('des_port')
-        task_ids = result.get('copy_tasks')
-        if trans_data_wait_fun:
+        des_gw_ip = result.get('des_ip', None)
+        des_port = result.get('des_port', None)
+        task_ids = result.get('copy_tasks', None)
+        if task_ids and trans_data_wait_fun:
             trans_data_wait_fun(context, des_gw_ip, des_port, task_ids,
                                 plan_status.STATE_MAP, plan_id)
 
         # 3 deatach data port for new intsance
-        server_id = result.get('server_id')
-        port_id = result.get('port_id')
+        server_id = result.get('server_id', None)
+        port_id = result.get('port_id', None)
         if port_id:
             self.nova_api.interface_detach(context, server_id, port_id)
 
@@ -123,7 +124,8 @@ class StackTemplateCloneDriver(object):
         LOG.debug("Migrate instance end in template driver")
 
     def _copy_volume_data(self, context, resource_name, template,
-                          trans_data_wait_fun=None, port_wait_fun=None):
+                          trans_data_wait_fun=None, port_wait_fun=None,
+                          copy_data=True):
         '''copy volumes in template data'''
         resources = template.get('resources')
         instance = resources.get(resource_name)
@@ -168,6 +170,8 @@ class StackTemplateCloneDriver(object):
             # don't add system volume to bdms
             if not sys_clone and boot_index in [0, '0']:
                 continue
+            if not (copy_data and ext_properties.get('copy_data')):
+                continue
             # 3.2 get volume id
             volume_id = self._get_resource_id(context, vol_res_name, stack_id)
             v_volume['id'] = volume_id
@@ -195,7 +199,7 @@ class StackTemplateCloneDriver(object):
             raise exception.AvailabilityZoneNotFound(server_uuid=id)
 
         migrate_net_map = CONF.migrate_net_map
-        migrate_net_id = migrate_net_map.get(server_az)
+        migrate_net_id = migrate_net_map.get(server_az, None)
 
         if migrate_net_id:
             # 4.1 call neutron api create port

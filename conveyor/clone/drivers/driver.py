@@ -57,33 +57,35 @@ class BaseDriver(object):
         self.resource_api = resource_api.ResourceAPI()
 
     def _add_extra_properties(self, context, resource_map,
-                              sys_clone, undo_mgr):
+                              sys_clone, copy_data, undo_mgr):
         for key, value in resource_map.items():
             resource_type = value.type
             if resource_type == 'OS::Nova::Server':
                 self.add_extra_properties_for_server(context, value,
                                                      resource_map, sys_clone,
-                                                     undo_mgr)
+                                                     copy_data, undo_mgr)
             elif resource_type == 'OS::Cinder::Volume':
                 self.add_extra_properties_for_volume(context, key,
                                                      value, resource_map,
-                                                     sys_clone, undo_mgr)
+                                                     sys_clone, copy_data,
+                                                     undo_mgr)
             elif resource_type == 'OS::Heat::Stack':
                 self.add_extra_properties_for_stack(context, value, undo_mgr)
 
     def add_extra_properties_for_server(self, context, resource, resource_map,
-                                        sys_clone, undo_mgr):
+                                        sys_clone, copy_data, undo_mgr):
         raise NotImplementedError()
 
     def add_extra_properties_for_stack(self, context, resource, undo_mgr):
         raise NotImplementedError()
 
-    def handle_resources(self, context, plan_id, resource_map, sys_clone):
+    def handle_resources(self, context, plan_id, resource_map, sys_clone,
+                         copy_data):
         raise NotImplementedError()
 
     def add_extra_properties_for_volume(self, context, resource_name,
                                         resource, resource_map,
-                                        sys_clone, undo_mgr):
+                                        sys_clone, copy_data, undo_mgr):
         clone_along_with_vm = False
         for name in resource_map:
             r = resource_map[name]
@@ -97,10 +99,10 @@ class BaseDriver(object):
                 break
         if not clone_along_with_vm:
             self._add_extra_properties_for_dep_volume(context, resource,
-                                                      undo_mgr)
+                                                      copy_data, undo_mgr)
 
     def _add_extra_properties_for_dep_volume(self, context, resource,
-                                             undo_mgr):
+                                             copy_data, undo_mgr):
         volume_id = resource.id
         volume = self.volume_api.get(context, volume_id)
         volume_status = volume['status']
@@ -119,8 +121,9 @@ class BaseDriver(object):
                 resource.extra_properties.update({"gw_url": gw_url,
                                                   "gw_id": gw_id})
                 resource.extra_properties['is_deacidized'] = True
-                self._handle_dep_volume(context, resource, gw_id, gw_ip,
-                                        undo_mgr)
+                if resource.extra_properties['copy_data'] and copy_data:
+                    self._handle_dep_volume(context, resource, gw_id, gw_ip,
+                                            undo_mgr)
 
     def _handle_dep_volume(self, context, resource, gw_id, gw_ip, undo_mgr):
         volume_id = resource.id
@@ -330,17 +333,18 @@ class BaseDriver(object):
             vol_res.extra_properties['mount_point'] = mount_point.get(
                 'mount_disk')
 
-    def reset_resources(self, context, resources):
+    def reset_resources(self, context, resources, copy_data):
         raise NotImplementedError()
 
-    def _handle_resources_after_clone(self, context, resources):
+    def _handle_resources_after_clone(self, context, resources, copy_data):
         for key, res in resources.items():
             if res['type'] == 'OS::Nova::Server':
                 self.handle_server_after_clone(context, res, resources)
             elif res['type'] == 'OS::Heat::Stack':
                 self.handle_stack_after_clone(context, res, resources)
             elif res['type'] == 'OS::Cinder::Volume':
-                self.handle_volume_after_clone(context, res, key, resources)
+                self.handle_volume_after_clone(context, res, key, resources,
+                                               copy_data)
 
     def handle_server_after_clone(self, context, resource, resources):
         raise NotImplementedError()
@@ -349,7 +353,7 @@ class BaseDriver(object):
         raise NotImplementedError()
 
     def handle_volume_after_clone(self, context, resource,
-                                  resource_name, resources):
+                                  resource_name, resources, copy_data):
         clone_along_with_vm = False
         for k, v in resources.items():
             if v['type'] == 'OS::Nova::Server':
@@ -361,13 +365,15 @@ class BaseDriver(object):
             if clone_along_with_vm:
                 break
         if not clone_along_with_vm:
-            self._handle_dep_volume_after_clone(context, resource)
+            self._handle_dep_volume_after_clone(context, resource, copy_data)
 
-    def _handle_dep_volume_after_clone(self, context, resource):
+    def _handle_dep_volume_after_clone(self, context, resource, copy_data):
         volume_id = resource.get('extra_properties', {}).get('id')
         if resource.get('extra_properties', {}).get('is_deacidized'):
             extra_properties = resource.get('extra_properties', {})
             vgw_id = extra_properties.get('gw_id')
+            if not (copy_data and extra_properties.get('copy_data', True)):
+                return
             if vgw_id:
                 try:
                     mount_point = resource.get('extra_properties', {}) \

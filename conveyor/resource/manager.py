@@ -694,6 +694,7 @@ class ResourceManager(manager.Manager):
         resource_obj = updated_res.get(resource_id)
         new_res_id = properties.pop('id', None)
         properties.pop('resource_type', None)
+        copy_data = properties.pop('copy_data', None)
         if not resource_id or not resource_obj:
             msg = "%s resource not found." % resource_id
             LOG.error(msg)
@@ -819,7 +820,7 @@ class ResourceManager(manager.Manager):
         elif 'OS::Cinder::Volume' == res_type:
             org_volume_id = resource_obj.id
             org_dependices = updated_dep.get(resource_id).dependencies
-            if new_res_id != org_volume_id:
+            if new_res_id and new_res_id != org_volume_id:
                 self._resource_id_to_actual_id(updated_res)
                 vr = Volume(context, updated_res)
                 volume_res = vr.extract_volume(new_res_id)
@@ -835,6 +836,8 @@ class ResourceManager(manager.Manager):
                 if org_dependices:
                     self._remove_org_depends(org_dependices,
                                              new_updated_dep, updated_res)
+            if copy_data is not None:
+                resource_obj.extra_properties['copy_data'] = copy_data
         elif 'OS::Cinder::VolumeType' == res_type:
             org_volume_type_id = resource_obj.id
             org_dependices = updated_dep.get(resource_id).dependencies
