@@ -31,13 +31,15 @@ class API(object):
         LOG.debug("Clone template start in Clone api mode")
         self.clone_rpcapi.start_template_clone(context, template)
 
-    def export_clone_template(self, context, id, sys_clone):
+    def export_clone_template(self, context, id, sys_clone, copy_data):
         LOG.debug("export clone template of elements")
-        self.clone_rpcapi.export_clone_template(context, id, sys_clone)
+        self.clone_rpcapi.export_clone_template(context, id, sys_clone,
+                                                copy_data)
 
-    def clone(self, context, id, destination, sys_clone):
+    def clone(self, context, id, destination, sys_clone, copy_data):
         LOG.debug("execute clone plan in clone api")
-        self.clone_rpcapi.clone(context, id, destination, sys_clone)
+        self.clone_rpcapi.clone(context, id, destination, sys_clone,
+                                copy_data)
 
     def export_migrate_template(self, context, id):
         LOG.debug("export migrate template of plan %s" % id)
@@ -53,8 +55,9 @@ class API(object):
 
     def export_template_and_clone(self, context, id, destination,
                                   update_resources={},
-                                  sys_clone=False):
+                                  sys_clone=False,
+                                  copy_data=True):
         LOG.debug("export template and clone plan %s" % id)
         return self.clone_rpcapi.export_template_and_clone(
             context, id, destination, update_resources=update_resources,
-            sys_clone=sys_clone)
+            sys_clone=sys_clone, copy_data=copy_data)

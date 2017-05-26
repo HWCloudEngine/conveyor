@@ -59,7 +59,8 @@ class CloneManager(object):
         values['task_status'] = status
         self.resource_api.update_plan(context, plan_id, values)
 
-    def start_template_clone(self, context, resource_name, template):
+    def start_template_clone(self, context, resource_name, template,
+                             copy_data):
 
         if not template:
             LOG.error("Resources in template is null")
@@ -72,7 +73,7 @@ class CloneManager(object):
                 context, resource_name, template,
                 volume_wait_fun=self.resource_common._await_volume_status,
                 trans_data_wait_fun=trans_data_wait_fun,
-                set_plan_state=self._set_plan_statu)
+                set_plan_state=self._set_plan_statu, copy_data=copy_data)
         except Exception as e:
             LOG.error(_LW("Clone volume error: %s"), e)
             _msg = 'Volume clone error: %s' % e

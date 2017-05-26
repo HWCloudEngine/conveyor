@@ -159,7 +159,7 @@ class CloneManager(manager.Manager):
                                            *args, **kwargs)
         self.conveyor_cmd = base.MigrationCmd()
 
-    def start_template_clone(self, context, template):
+    def start_template_clone(self, context, template, copy_data=True):
         LOG.debug("Clone resources start in clone manager")
         stack = None
         # (1. resolute template,and generate the dependences topo)
@@ -168,10 +168,10 @@ class CloneManager(manager.Manager):
         clone_type = CONF.clone_migrate_type
         if 'cold' == clone_type:
             template = self._cold_clone(context, template,
-                                        plan_status.STATE_MAP)
+                                        plan_status.STATE_MAP, copy_data)
         else:
             template = self._live_clone(context, template,
-                                        plan_status.STATE_MAP)
+                                        plan_status.STATE_MAP, copy_data)
         # 1. remove the self-defined keys in template to generate heat template
         src_template = copy.deepcopy(template.get('template'))
         try:
@@ -243,7 +243,7 @@ class CloneManager(manager.Manager):
                         'DATA_TRANS_FINISHED')
                     self.resource_api.update_plan(context, plan_id, values)
                     continue
-                rs_maganger.start_template_clone(context, key, src_template)
+                rs_maganger.start_template_clone(context, key, src_template, copy_data)
         except Exception as e:
             LOG.error("Clone resource error: %s", e)
             # if clone failed and rollback parameter is true,
@@ -265,7 +265,7 @@ class CloneManager(manager.Manager):
         return stack_info['id']
         LOG.debug("Clone resources end in clone manager")
 
-    def _export_template(self, context, id, sys_clone=False):
+    def _export_template(self, context, id, sys_clone=False, copy_data=True):
         # get plan info
         plan = self.resource_api.get_plan_by_id(context, id)
         if not plan:
@@ -282,7 +282,7 @@ class CloneManager(manager.Manager):
             undo_mgr = None
             try:
                 undo_mgr = self.clone_driver.handle_resources(
-                    context, id, resource_map, sys_clone)
+                    context, id, resource_map, sys_clone, copy_data)
                 self._update_plan_resources(context, resource_map, id)
                 self._format_template(resource_map, id, expire_time, plan_type)
             except Exception as e:
@@ -303,18 +303,19 @@ class CloneManager(manager.Manager):
         self.resource_api.update_plan(context, plan_id,
                                       {'updated_resources': updated_resources})
 
-    def export_clone_template(self, context, id, sys_clone):
+    def export_clone_template(self, context, id, sys_clone, copy_data):
         LOG.debug("Export clone template start in clone manager")
-        return self._export_template(context, id, sys_clone)
+        return self._export_template(context, id, sys_clone, copy_data)
 
     def export_template_and_clone(self, context, id, destination,
-                                  update_resources, sys_clone=False):
+                                  update_resources, sys_clone=False,
+                                  copy_data=True):
         LOG.debug('Export template and clone start in clone manager')
         if update_resources:
             self.resource_api.update_plan_resources(context, id,
                                                     update_resources)
-        self._export_template(context, id, sys_clone)
-        self.clone(context, id, destination, sys_clone)
+        self._export_template(context, id, sys_clone, copy_data)
+        self.clone(context, id, destination, sys_clone, copy_data)
 
     def _format_template(self, resource_map, id, expire_time, plan_type):
         with open(CONF.plan_file_path + id + '.template', 'w+') as f:
@@ -350,7 +351,7 @@ class CloneManager(manager.Manager):
             brules.append(rule)
         return brules
 
-    def clone(self, context, id, destination, sys_clone):
+    def clone(self, context, id, destination, sys_clone, copy_data):
         LOG.debug("Execute clone plan in clone manager")
         self.resource_api.update_plan(context, id,
                                       {'plan_status': plan_status.CLONING})
@@ -497,7 +498,7 @@ class CloneManager(manager.Manager):
             "plan_id": id
         }
         LOG.debug("The template is  %s ", template)
-        stack_id = self.start_template_clone(context, template)
+        stack_id = self.start_template_clone(context, template, copy_data)
         if not stack_id:
             LOG.error(_LE('Clone template error'))
             self.resource_api.update_plan(context, id,
@@ -518,7 +519,7 @@ class CloneManager(manager.Manager):
         # add reback resource status after clone finished (wanggang)
         plan = self.resource_api.get_plan_by_id(context, id)
         clone_resources = plan.get('updated_resources', {})
-        self.clone_driver.reset_resources(context, clone_resources)
+        self.clone_driver.reset_resources(context, clone_resources, copy_data)
         LOG.error('liuling end time of clone is %s' %
                   (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())))
 
@@ -1348,7 +1349,7 @@ class CloneManager(manager.Manager):
              'parameters': t.get('parameters', {}),
              'resources': new_resources}
 
-    def _cold_clone(self, context, template, state_map):
+    def _cold_clone(self, context, template, state_map, copy_data):
         '''volume dependence volume type, consistencygroup'''
         '''and volume type dependence qos'''
 
@@ -1409,7 +1410,7 @@ class CloneManager(manager.Manager):
                 stack_id = stack.get('stack').get('id')
                 self._afther_resource_created_handler(context,
                                                       origin_template,
-                                                      stack_id)
+                                                      stack_id, copy_data)
 #                for sys_vol in sys_vol_name:
 #                    heat_resource = self.heat_api.get_resource(context,
 #                                                               stack_id,
@@ -1448,7 +1449,7 @@ class CloneManager(manager.Manager):
         LOG.debug('Code clone template for finishing volumes: %s', template)
         return template
 
-    def _live_clone(self, context, template, state_map):
+    def _live_clone(self, context, template, state_map, copy_data):
 
         LOG.debug('Live clone start for %s', template)
         default_parameter = {'default': '',
@@ -1556,7 +1557,8 @@ class CloneManager(manager.Manager):
         LOG.debug('Live clone template for finishing volumes: %s', template)
         return template
 
-    def _afther_resource_created_handler(self, context, template, stack_id):
+    def _afther_resource_created_handler(self, context, template, stack_id,
+                                         copy_data):
 
         src_template = template['template']
         src_resources = src_template.get('resources')
@@ -1594,7 +1596,8 @@ class CloneManager(manager.Manager):
                         'DATA_TRANS_FINISHED')
                     self.resource_api.update_plan(context, plan_id, values)
                     continue
-                rs_maganger.start_template_clone(context, key, src_template)
+                rs_maganger.start_template_clone(context, key, src_template,
+                                                 copy_data)
         except Exception as e:
             LOG.error("Clone resource error: %s", e)
             # if clone failed and rollback parameter is true,

@@ -52,7 +52,7 @@ class BaseDriver(object):
             elif res['type'] == 'OS::Cinder::Volume':
                 self.handle_volume_after_clone(context, res, key, resources)
 
-    def reset_resources(self, context, resources):
+    def reset_resources(self, context, resources, copy_data):
         raise NotImplementedError()
 
     def handle_server_after_clone(self, context, resource, resources):
@@ -97,18 +97,18 @@ class BaseDriver(object):
                     # if provider cloud can not detach volume in active status
                     if not CONF.is_active_detach_volume:
                         resouce_common = common.ResourceCommon()
-                        self.nova_api.stop_server(context, vgw_id)
+                        self.compute_api.stop_server(context, vgw_id)
                         resouce_common._await_instance_status(context,
                                                               vgw_id,
                                                               'SHUTOFF')
-                    self.nova_api.detach_volume(context,
+                    self.compute_api.detach_volume(context,
                                                 vgw_id,
                                                 volume_id)
                     self._wait_for_volume_status(context, volume_id, vgw_id,
                                                  'available')
 
                     if not CONF.is_active_detach_volume:
-                        self.nova_api.start_server(context, vgw_id)
+                        self.compute_api.start_server(context, vgw_id)
                         resouce_common._await_instance_status(context,
                                                               vgw_id,
                                                               'ACTIVE')
@@ -167,13 +167,13 @@ class BaseDriver(object):
                     raise exception.TimeoutException(msg=message)
 
     def _detach_volume(self, context, server_id, volume_id):
-        self.nova_api.detach_volume(context, server_id,
+        self.compute_api.detach_volume(context, server_id,
                                     volume_id)
         self._wait_for_volume_status(context, volume_id, server_id,
                                      'available')
 
     def _attach_volume(self, context, server_id, volume_id, device):
-        self.nova_api.attach_volume(context, server_id, volume_id,
+        self.compute_api.attach_volume(context, server_id, volume_id,
                                     device)
         self._wait_for_volume_status(context, volume_id, server_id,
                                      'in-use')

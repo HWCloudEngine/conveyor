@@ -52,7 +52,7 @@ class CloneManager(object):
             importutils.import_object(CONF.instance_clone_driver)
         self.resource_common = common.ResourceCommon()
 
-    def start_template_clone(self, context, resource_name, instance):
+    def start_template_clone(self, context, resource_name, instance, copy_data):
 
         # 1 Traverse the list of resource, cloning every instance
         if not instance:
@@ -73,7 +73,7 @@ class CloneManager(object):
                 volume_wait_fun=self.resource_common._await_volume_status,
                 create_instance_wait_fun=create_instance_wait_fun,
                 port_wait_fun=self.resource_common._await_port_status,
-                trans_data_wait_fun=trans_data_wait_fun)
+                trans_data_wait_fun=trans_data_wait_fun, copy_data=copy_data)
 
         except Exception as e:
             LOG.error(_LW("Clone vm error: %s"), e)

@@ -25,6 +25,8 @@ stepping stone.
 
 """
 
+import socket
+
 from oslo_config import cfg
 
 from conveyor.i18n import _
@@ -49,7 +51,9 @@ CONF.register_cli_opts(debug_opts)
 
 global_opts = [
     cfg.StrOpt('host',
-               help='Backend override of host value.'),
+               default=socket.gethostname(),
+               help='Number of workers for OpenStack Volume API service. '
+                    'The default is equal to the number of CPUs available.'),
     cfg.StrOpt('my_ip',
                default="",
                help='IP address of this host'),

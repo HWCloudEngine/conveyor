@@ -34,7 +34,7 @@ class OpenstackDriver(driver.BaseDriver):
     def __init__(self):
         super(OpenstackDriver, self).__init__()
 
-    def reset_resources(self, context, resources):
+    def reset_resources(self, context, resources, copy_data):
         self._reset_resources_state(context, resources)
         self._handle_resources_after_clone(context, resources)
 

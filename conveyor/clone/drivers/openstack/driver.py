@@ -39,12 +39,13 @@ class OpenstackDriver(driver.BaseDriver):
     def __init__(self):
         super(OpenstackDriver, self).__init__()
 
-    def handle_resources(self, context, plan_id, resource_map, sys_clone):
+    def handle_resources(self, context, plan_id, resource_map, sys_clone,
+                         copy_data):
         LOG.debug('Begin handle resources')
         undo_mgr = utils.UndoManager()
         try:
             self._add_extra_properties(context, resource_map, sys_clone,
-                                       undo_mgr)
+                                       copy_data, undo_mgr)
             # self._set_resources_state(context, resource_map)
             return undo_mgr
         except Exception as e:
@@ -86,7 +87,7 @@ class OpenstackDriver(driver.BaseDriver):
         _set_state(template)
 
     def add_extra_properties_for_server(self, context, resource, resource_map,
-                                        sys_clone, undo_mgr):
+                                        sys_clone, copy_data, undo_mgr):
         migrate_net_map = CONF.migrate_net_map
         server_properties = resource.properties
         server_id = resource.id
@@ -125,6 +126,9 @@ class OpenstackDriver(driver.BaseDriver):
                                                         server_id, dev_name,
                                                         gw_id, gw_ip, undo_mgr)
                         else:
+                            if not (copy_data and volume_resource.
+                                    extra_properties['copy_data']):
+                                continue
                             self._handle_dv_for_svm(context, volume_resource,
                                                     server_id, dev_name,
                                                     gw_id, gw_ip, undo_mgr)
@@ -174,33 +178,34 @@ class OpenstackDriver(driver.BaseDriver):
                         # waiting port attach finished, and can ping this vm
                         self._await_port_status(context, migrate_port_id,
                                                 migrate_fix_ip)
-                else:
-                    interfaces = self.neutron_api.port_list(
-                        context, device_id=server_id)
-                    host_ip = None
-                    for infa in interfaces:
-                        if host_ip:
-                            break
-                        binding_profile = infa.get("binding:profile", [])
-                        if binding_profile:
-                            host_ip = binding_profile.get('host_ip')
-                    if not host_ip:
-                        LOG.error(_LE('Not find the clone data ip for server'))
-                        raise exception.NoMigrateNetProvided(
-                            server_uuid=resource.id
-                        )
-                    gw_url = host_ip + ':' + str(
-                        CONF.v2vgateway_api_listen_port)
-                    extra_properties = {}
-                    extra_properties['gw_url'] = gw_url
-                    extra_properties['sys_clone'] = sys_clone
-                    resource.extra_properties.update(extra_properties)
+                # else:
+                #     interfaces = self.neutron_api.port_list(
+                #         context, device_id=server_id)
+                #     host_ip = None
+                #     for infa in interfaces:
+                #         if host_ip:
+                #             break
+                #         binding_profile = infa.get("binding:profile", [])
+                #         if binding_profile:
+                #             host_ip = binding_profile.get('host_ip')
+                #     if not host_ip:
+                #         LOG.error(_LE('Not find the clone data ip for server'))
+                #         raise exception.NoMigrateNetProvided(
+                #             server_uuid=resource.id
+                #         )
+                #     gw_url = host_ip + ':' + str(
+                #         CONF.v2vgateway_api_listen_port)
+                #     extra_properties = {}
+                #     extra_properties['gw_url'] = gw_url
+                #     extra_properties['sys_clone'] = sys_clone
+                #     resource.extra_properties.update(extra_properties)
                 block_device_mapping = server_properties.get(
                     'block_device_mapping_v2')
                 if block_device_mapping:
-                    gw_urls = gw_url.split(':')
-                    client = birdiegatewayclient.get_birdiegateway_client(
-                        gw_urls[0], gw_urls[1])
+                    if gw_url:
+                        gw_urls = gw_url.split(':')
+                        client = birdiegatewayclient.get_birdiegateway_client(
+                            gw_urls[0], gw_urls[1])
                     for block_device in block_device_mapping:
                         device_name = block_device.get('device_name')
                         volume_name = block_device.get('volume_id').get(
@@ -210,10 +215,17 @@ class OpenstackDriver(driver.BaseDriver):
                         if boot_index == 0 or boot_index == '0':
                             volume_resource.extra_properties['sys_clone'] = \
                                 sys_clone
-                        src_dev_format = client.vservices.get_disk_format(device_name) \
-                                                         .get('disk_format')
-                        src_mount_point = client.vservices.get_disk_mount_point(device_name) \
-                                                          .get('mount_point')
+                            if sys_clone:
+                                continue
+                        if not (copy_data and volume_resource.
+                                extra_properties['copy_data']):
+                            continue
+                        # need to check the vm disk name
+                        src_dev_format = client.vservices.\
+                            get_disk_format(device_name).get('disk_format')
+                        src_mount_point = client.\
+                            vservices.get_disk_mount_point(device_name).\
+                            get('mount_point')
                         volume_resource.extra_properties['guest_format'] = \
                             src_dev_format
                         volume_resource.extra_properties['mount_point'] = \
@@ -221,8 +233,9 @@ class OpenstackDriver(driver.BaseDriver):
                         volume_resource.extra_properties['gw_url'] = gw_url
                         volume_resource.extra_properties['is_deacidized'] = \
                             True
-                        sys_dev_name = client.vservices.get_disk_name(volume_resource.id) \
-                                                       .get('dev_name')
+                        sys_dev_name = client.\
+                            vservices.get_disk_name(volume_resource.id).\
+                            get('dev_name')
                         if not sys_dev_name:
                             sys_dev_name = device_name
                         volume_resource.extra_properties['sys_dev_name'] = \
@@ -395,9 +408,9 @@ class OpenstackDriver(driver.BaseDriver):
             vol_res.get('extra_properties')['mount_point'] = mount_point.get(
                 'mount_disk')
 
-    def reset_resources(self, context, resources):
+    def reset_resources(self, context, resources, copy_data):
         self._reset_resources_state(context, resources)
-        self._handle_resources_after_clone(context, resources)
+        self._handle_resources_after_clone(context, resources, copy_data)
 
     def _reset_resources_state(self, context, resources):
         for key, value in resources.items():

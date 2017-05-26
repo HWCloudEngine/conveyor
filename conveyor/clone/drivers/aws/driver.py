@@ -33,7 +33,8 @@ class AwsDriver(driver.BaseDriver):
     def __init__(self):
         super(AwsDriver, self).__init__()
 
-    def handle_resources(self, context, plan_id, resource_map, sys_clone):
+    def handle_resources(self, context, plan_id, resource_map, sys_clone,
+                         copy_data):
         LOG.debug('Begin handle resources')
         undo_mgr = utils.UndoManager()
         try:
@@ -46,7 +47,7 @@ class AwsDriver(driver.BaseDriver):
             raise exception.ExportTemplateFailed(id=plan_id, msg=str(e))
 
     def add_extra_properties_for_server(self, context, resource, resource_map,
-                                        sys_clone, undo_mgr):
+                                        sys_clone, copy_data, undo_mgr):
         server_properties = resource.properties
         server_id = resource.id
         server_az = server_properties.get('availability_zone')
