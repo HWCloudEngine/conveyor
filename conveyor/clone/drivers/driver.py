@@ -121,7 +121,10 @@ class BaseDriver(object):
                 resource.extra_properties.update({"gw_url": gw_url,
                                                   "gw_id": gw_id})
                 resource.extra_properties['is_deacidized'] = True
-                if resource.extra_properties['copy_data'] and copy_data:
+                new_copy = \
+                    resource.extra_properties['copy_data'] and copy_data
+                resource.extra_properties.update({'copy_data': new_copy})
+                if new_copy:
                     self._handle_dep_volume(context, resource, gw_id, gw_ip,
                                             undo_mgr)
 
@@ -333,18 +336,17 @@ class BaseDriver(object):
             vol_res.extra_properties['mount_point'] = mount_point.get(
                 'mount_disk')
 
-    def reset_resources(self, context, resources, copy_data):
+    def reset_resources(self, context, resources):
         raise NotImplementedError()
 
-    def _handle_resources_after_clone(self, context, resources, copy_data):
+    def _handle_resources_after_clone(self, context, resources):
         for key, res in resources.items():
             if res['type'] == 'OS::Nova::Server':
                 self.handle_server_after_clone(context, res, resources)
             elif res['type'] == 'OS::Heat::Stack':
                 self.handle_stack_after_clone(context, res, resources)
             elif res['type'] == 'OS::Cinder::Volume':
-                self.handle_volume_after_clone(context, res, key, resources,
-                                               copy_data)
+                self.handle_volume_after_clone(context, res, key, resources)
 
     def handle_server_after_clone(self, context, resource, resources):
         raise NotImplementedError()
@@ -353,7 +355,7 @@ class BaseDriver(object):
         raise NotImplementedError()
 
     def handle_volume_after_clone(self, context, resource,
-                                  resource_name, resources, copy_data):
+                                  resource_name, resources):
         clone_along_with_vm = False
         for k, v in resources.items():
             if v['type'] == 'OS::Nova::Server':
@@ -365,14 +367,14 @@ class BaseDriver(object):
             if clone_along_with_vm:
                 break
         if not clone_along_with_vm:
-            self._handle_dep_volume_after_clone(context, resource, copy_data)
+            self._handle_dep_volume_after_clone(context, resource)
 
-    def _handle_dep_volume_after_clone(self, context, resource, copy_data):
+    def _handle_dep_volume_after_clone(self, context, resource):
         volume_id = resource.get('extra_properties', {}).get('id')
         if resource.get('extra_properties', {}).get('is_deacidized'):
             extra_properties = resource.get('extra_properties', {})
             vgw_id = extra_properties.get('gw_id')
-            if not (copy_data and extra_properties.get('copy_data', True)):
+            if not extra_properties.get('copy_data', True):
                 return
             if vgw_id:
                 try:

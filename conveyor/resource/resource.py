@@ -177,7 +177,7 @@ class Plan(object):
                  expire_at=None, deleted=None, plan_status=None,
                  task_status=None, plan_name=None, original_resources=None,
                  updated_resources=None, original_dependencies=None,
-                 updated_dependencies=None):
+                 updated_dependencies=None, sys_clone=False, copy_data=True):
 
         self.plan_id = plan_id
         self.plan_type = plan_type
@@ -195,6 +195,8 @@ class Plan(object):
         self.deleted = deleted or False
         self.plan_status = plan_status or p_status.INITIATING
         self.task_status = task_status or ''
+        self.sys_clone = sys_clone
+        self.copy_data = copy_data
 
         self.original_resources = original_resources or {}
         self.updated_resources = updated_resources or {}
@@ -287,7 +289,9 @@ class Plan(object):
                 self.deleted_at else None,
                 'deleted': self.deleted,
                 'task_status': self.task_status,
-                'plan_status': self.plan_status
+                'plan_status': self.plan_status,
+                'sys_clone': self.sys_clone,
+                'copy_data': self.copy_data
                 }
 
         if detail:

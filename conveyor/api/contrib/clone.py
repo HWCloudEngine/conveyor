@@ -113,9 +113,9 @@ class CloneActionController(wsgi.Controller):
         clone_body = body['clone']
         destination = clone_body.get('destination')
         sys_clone = clone_body.get('sys_clone', False)
-        copy_data = clone_body.get('copy_data', True)
+        # copy_data = clone_body.get('copy_data', True)
         context = req.environ['conveyor.context']
-        self.clone_api.clone(context, id, destination, sys_clone, copy_data)
+        self.clone_api.clone(context, id, destination, sys_clone)
 
     @wsgi.response(202)
     @wsgi.action('export_template_and_clone')
@@ -132,7 +132,8 @@ class CloneActionController(wsgi.Controller):
         resources = clone_body.get('resources')
         plan = self._resource_api.get_plan_by_id(context, id)
         plan_status = plan['plan_status']
-        if plan_status not in (p_status.INITIATING, p_status.CREATING):
+        if plan_status not in (p_status.INITIATING, p_status.AVAILABLE,
+                               p_status.FINISHED, p_status.CREATING):
             msg = _("the plan %(plan_id)s in state %(state)s"
                     "can't export_template_and_clone") % {
                 'plan_id': id,

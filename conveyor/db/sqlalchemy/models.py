@@ -25,7 +25,7 @@ import uuid
 from oslo_db.sqlalchemy import models
 from oslo_utils import timeutils
 import sqlalchemy
-from sqlalchemy import Column, Index, Integer, String
+from sqlalchemy import Boolean, Column, Index, Integer, String
 from sqlalchemy import DateTime, Text
 from sqlalchemy.dialects.mysql import MEDIUMTEXT
 from sqlalchemy.ext.declarative import declarative_base
@@ -179,6 +179,8 @@ class Plan(BASE, ConveyorBase):
     original_resources = Column(String(length=1023))
     updated_resources = Column(String(length=1023))
     stack_id = Column(String(length=36))
+    sys_clone = Column('sys_clone', Boolean)
+    copy_data = Column('copy_data', Boolean)
 
 
 def get_session():

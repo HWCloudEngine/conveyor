@@ -30,7 +30,7 @@ class AwsDriver(driver.BaseDriver):
     def __init__(self):
         super(AwsDriver, self).__init__()
 
-    def reset_resources(self, context, resources, copy_data):
+    def reset_resources(self, context, resources):
         self._handle_resources_after_clone(context, resources)
 
     def handle_server_after_clone(self, context, resource, resources):

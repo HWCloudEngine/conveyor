@@ -43,8 +43,7 @@ class VolumeCloneDriver(object):
     def start_volume_clone(self, context, resource_name, template,
                            trans_data_wait_fun=None,
                            volume_wait_fun=None,
-                           set_plan_state=None,
-                           copy_data=True):
+                           set_plan_state=None):
         resources = template.get('resources')
         volume_res = resources.get(resource_name)
         volume_id = volume_res.get('id')
@@ -53,7 +52,7 @@ class VolumeCloneDriver(object):
 
         d_copy = ext_properties.get('copy_data', True) if ext_properties \
             else True
-        if not (d_copy and copy_data):
+        if not d_copy:
             plan_state = 'DATA_TRANS_FINISHED'
             set_plan_state(context, plan_id, plan_state,
                            plan_status.STATE_MAP)

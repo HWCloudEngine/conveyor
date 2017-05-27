@@ -13,7 +13,7 @@
 #    under the License.
 
 from oslo_log import log as logging
-from sqlalchemy import Column, DateTime
+from sqlalchemy import Boolean, Column, DateTime
 from sqlalchemy import Index, Integer, MetaData, String, Table
 
 LOG = logging.getLogger(__name__)
@@ -44,6 +44,8 @@ def upgrade(migrate_engine):
                  Column('original_resources', String(length=1023)),
                  Column('updated_resources', String(length=1023)),
                  Column('stack_id', String(length=36)),
+                 Column('sys_clone', Boolean, default=False),
+                 Column('copy_data', Boolean, default=True),
                  Column('deleted', Integer),
                  mysql_engine='InnoDB',
                  mysql_charset='utf8'

@@ -126,8 +126,11 @@ class OpenstackDriver(driver.BaseDriver):
                                                         server_id, dev_name,
                                                         gw_id, gw_ip, undo_mgr)
                         else:
-                            if not (copy_data and volume_resource.
-                                    extra_properties['copy_data']):
+                            d_copy = copy_data and volume_resource.\
+                                extra_properties['copy_data']
+                            volume_resource.extra_properties['copy_data'] = \
+                                d_copy
+                            if not d_copy:
                                 continue
                             self._handle_dv_for_svm(context, volume_resource,
                                                     server_id, dev_name,
@@ -189,7 +192,8 @@ class OpenstackDriver(driver.BaseDriver):
                 #         if binding_profile:
                 #             host_ip = binding_profile.get('host_ip')
                 #     if not host_ip:
-                #         LOG.error(_LE('Not find the clone data ip for server'))
+                #         LOG.error(_LE('Not find the clone data
+                # ip for server'))
                 #         raise exception.NoMigrateNetProvided(
                 #             server_uuid=resource.id
                 #         )
@@ -215,11 +219,15 @@ class OpenstackDriver(driver.BaseDriver):
                         if boot_index == 0 or boot_index == '0':
                             volume_resource.extra_properties['sys_clone'] = \
                                 sys_clone
-                            if sys_clone:
+                            if not sys_clone:
                                 continue
-                        if not (copy_data and volume_resource.
-                                extra_properties['copy_data']):
-                            continue
+                        else:
+                            d_copy = copy_data and volume_resource. \
+                                extra_properties['copy_data']
+                            volume_resource.extra_properties['copy_data'] = \
+                                d_copy
+                            if not d_copy:
+                                continue
                         # need to check the vm disk name
                         src_dev_format = client.vservices.\
                             get_disk_format(device_name).get('disk_format')
@@ -408,9 +416,9 @@ class OpenstackDriver(driver.BaseDriver):
             vol_res.get('extra_properties')['mount_point'] = mount_point.get(
                 'mount_disk')
 
-    def reset_resources(self, context, resources, copy_data):
+    def reset_resources(self, context, resources):
         self._reset_resources_state(context, resources)
-        self._handle_resources_after_clone(context, resources, copy_data)
+        self._handle_resources_after_clone(context, resources)
 
     def _reset_resources_state(self, context, resources):
         for key, value in resources.items():

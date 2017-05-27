@@ -52,7 +52,7 @@ class BaseDriver(object):
             elif res['type'] == 'OS::Cinder::Volume':
                 self.handle_volume_after_clone(context, res, key, resources)
 
-    def reset_resources(self, context, resources, copy_data):
+    def reset_resources(self, context, resources):
         raise NotImplementedError()
 
     def handle_server_after_clone(self, context, resource, resources):
@@ -78,6 +78,8 @@ class BaseDriver(object):
 
     def _handle_dep_volume_after_clone(self, context, resource):
         volume_id = resource.get('extra_properties', {}).get('id')
+        if not resource.get('extra_properties', {}).get('copy_data'):
+            return
         if resource.get('extra_properties', {}).get('is_deacidized'):
             extra_properties = resource.get('extra_properties', {})
             vgw_id = extra_properties.get('gw_id')

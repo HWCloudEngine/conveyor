@@ -59,8 +59,7 @@ class StackTemplateCloneDriver(object):
                              volume_wait_fun=None,
                              trans_data_wait_fun=None,
                              create_instance_wait_fun=None,
-                             port_wait_fun=None,
-                             copy_data=True):
+                             port_wait_fun=None):
         LOG.debug("Clone instance %(i)s starting in template %(t)s driver",
                   {'i': resource_name, 't': template})
 
@@ -70,7 +69,7 @@ class StackTemplateCloneDriver(object):
                         resource_name,
                         template,
                         trans_data_wait_fun=trans_data_wait_fun,
-                        port_wait_fun=port_wait_fun, copy_data=copy_data)
+                        port_wait_fun=port_wait_fun)
 
         # 2. check data is transforming finished,
         # and refresh clone plan status
@@ -124,8 +123,7 @@ class StackTemplateCloneDriver(object):
         LOG.debug("Migrate instance end in template driver")
 
     def _copy_volume_data(self, context, resource_name, template,
-                          trans_data_wait_fun=None, port_wait_fun=None,
-                          copy_data=True):
+                          trans_data_wait_fun=None, port_wait_fun=None):
         '''copy volumes in template data'''
         resources = template.get('resources')
         instance = resources.get(resource_name)
@@ -170,7 +168,7 @@ class StackTemplateCloneDriver(object):
             # don't add system volume to bdms
             if not sys_clone and boot_index in [0, '0']:
                 continue
-            if not (copy_data and ext_properties.get('copy_data')):
+            if not ext_properties.get('copy_data'):
                 continue
             # 3.2 get volume id
             volume_id = self._get_resource_id(context, vol_res_name, stack_id)

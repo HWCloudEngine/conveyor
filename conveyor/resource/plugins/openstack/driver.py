@@ -34,7 +34,7 @@ class OpenstackDriver(driver.BaseDriver):
     def __init__(self):
         super(OpenstackDriver, self).__init__()
 
-    def reset_resources(self, context, resources, copy_data):
+    def reset_resources(self, context, resources):
         self._reset_resources_state(context, resources)
         self._handle_resources_after_clone(context, resources)
 
@@ -160,6 +160,10 @@ class OpenstackDriver(driver.BaseDriver):
             try:
                 if volume_res.get('extra_properties', {}).\
                         get('is_deacidized'):
+                    d_copy = volume_res.get('extra_properties', {}).\
+                        get('copy_data')
+                    if not d_copy:
+                        continue
                     volume_id = volume_res.get('extra_properties', {}) \
                                           .get('id')
                     vgw_url = volume_res.get('extra_properties', {}) \
