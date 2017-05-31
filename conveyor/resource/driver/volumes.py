@@ -91,6 +91,7 @@ class VolumeResource(base.resource):
                                                      resource_type)
 
             volume_res.add_extra_property('status', vol_state)
+            volume_res.add_extra_property('copy_data', True)
             volume_type_name = volume['volume_type']
             if volume_type_name:
                 volume_types = self.cinder_api.volume_type_list(self.context)
