@@ -326,7 +326,7 @@ class API(object):
     def volume_type_list(self, context, search_opts=None, trans_map=True):
         type_objs = cinderclient(context). \
             volume_types.list(search_opts=search_opts)
-        if trans_map:
+        if not trans_map:
             return type_objs
 
         type_list = []
