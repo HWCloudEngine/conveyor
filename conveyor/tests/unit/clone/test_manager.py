@@ -86,13 +86,13 @@ class CloneManagerTestCase(test.TestCase):
         sys_clone = False
         self.assertRaises(exception.PlanNotFound,
                           self.clone_manager.export_clone_template,
-                          self.context, fake_id, sys_clone)
+                          self.context, fake_id, sys_clone, True)
 
     @mock.patch.object(resource_api.ResourceAPI, "update_plan")
     @mock.patch.object(resource_api.ResourceAPI, "get_plan_by_id")
-    def test_export_clone_template(self, mock1, mock2):
-        mock1.return_value = fake_constants.FAKE_PLAN
-        mock2.return_value = None
+    def test_export_clone_template(self, mock_plan, mock_update):
+        mock_plan.return_value = fake_constants.FAKE_PLAN
+        mock_update.return_value = None
         res = resource.Resource('test', 'test', 'test')
         manager.resource_from_dict = mock.MagicMock()
         manager.resource_from_dict.return_value = res
@@ -109,10 +109,20 @@ class CloneManagerTestCase(test.TestCase):
             self.assertEqual(
                 ret,
                 self.clone_manager.export_clone_template(self.context,
-                                                         fake_id, sys_clone))
+                                                         fake_id, sys_clone,
+                                                         True))
 
-    def test_clone(self):
-        pass
+    @mock.patch.object(resource_api.ResourceAPI, "update_plan")
+    @mock.patch.object(resource_api.ResourceAPI, "get_plan_by_id")
+    def test_clone(self, mock_plan, mock_update):
+        mock_plan.return_value = fake_constants.FAKE_PLAN
+        mock_update.return_value = None
+        res = resource.Resource('test', 'test', 'test')
+        manager.resource_from_dict = mock.MagicMock()
+        manager.resource_from_dict.return_value = res
+        self.clone_manager.start_template_clone = mock.MagicMock()
+        self.clone_manager.start_template_clone.return_value = '123'
+
 
     def test_clone_error(self):
         pass
