@@ -421,9 +421,11 @@ class CloneManager(manager.Manager):
             resource = template_resource[key]
             # change az for volume server
             if resource['type'] in add_destination_res_type:
-                resource.get('extra_properties')['availability_zone'] = \
-                    resource.get('properties')['availability_zone']
-                resource.get('properties')['availability_zone'] = destination
+                src_az = resource.get('properties')['availability_zone']
+                resource.get('extra_properties')['availability_zone'] = src_az
+                dst_az = destination[src_az]
+                resource.get('properties')['availability_zone'] = dst_az
+
             if resource['type'] == 'OS::Neutron::Port':
                 resource.get('properties').pop('mac_address')
                 _pop_need = True
@@ -1024,7 +1026,9 @@ class CloneManager(manager.Manager):
             resource = template_resource[key]
             # change az for volume server
             if resource['type'] in add_destination_res_type:
-                resource.get('properties')['availability_zone'] = destination
+                src_az = resource.get('properties')['availability_zone']
+                dst_az = destination[src_az]
+                resource.get('properties')['availability_zone'] = dst_az
             cb = resource_cb_map.get(resource['type'])
             if cb:
                 try:

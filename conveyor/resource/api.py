@@ -19,6 +19,7 @@
 from oslo_log import log as logging
 
 from conveyor.common import plan_status as p_status
+from conveyor.plan import api as plan_api
 from conveyor.resource import rpcapi
 
 LOG = logging.getLogger(__name__)
@@ -28,6 +29,7 @@ class ResourceAPI(object):
 
     def __init__(self):
         self.resource_rpcapi = rpcapi.ResourceAPI()
+        self._plan_api = plan_api.PlanAPI()
         super(ResourceAPI, self).__init__()
 
     def get_resource_types(self, context):
@@ -51,3 +53,17 @@ class ResourceAPI(object):
         return self.resource_rpcapi.get_resource_detail(context,
                                                         resource_type,
                                                         resource_id)
+
+    def list_plan_resource_availability_zones(self, context, plan):
+        if not isinstance(plan, dict):
+            plan = self._plan_api.get_plan_by_id(context, plan, detail=True)
+
+        res_azs = []
+        plan_res = plan.get('original_resources')
+        for key, res in plan_res.items():
+            if res['type'] in ('OS::Nova::Server', 'OS::Cinder::Volume'):
+                az = res['properties']['availability_zone']
+                if az not in res_azs:
+                    res_azs.append(az)
+        return res_azs
+
