@@ -64,6 +64,19 @@ class ResourceActionController(wsgi.Controller):
             LOG.error(unicode(e))
             raise exc.HTTPInternalServerError(explanation=unicode(e))
 
+    @wsgi.response(202)
+    @wsgi.action('list_plan_resource_availability_zones')
+    def _list_plan_resource_availability_zones(self, req, id, body):
+        if not self.is_valid_body(body,
+                                  'list_plan_resource_availability_zones'):
+            raise exc.HTTPUnprocessableEntity()
+        context = req.environ['conveyor.context']
+        plan_id = body.get('list_plan_resource_availability_zones',
+                           {}).get('plan_id', None)
+        res_azs = self.resource_api.list_plan_resource_availability_zones(
+            context, plan_id)
+        return {'availability_zones': res_azs}
+
 
 class Resource(extensions.ExtensionDescriptor):
     """Enable admin actions."""

@@ -40,18 +40,39 @@ class MigrateActionController(wsgi.Controller):
         context = req.environ['conveyor.context']
         self.clone_api.export_migrate_template(context, id)
 
+    def _check_plan_resource_availability_zone(self, context,
+                                               plan, destination):
+        src_res_azs = self._resource_api.list_plan_resource_availability_zones(
+            context, plan)
+        for src_res_az in src_res_azs:
+            if src_res_az not in destination:
+                return False
+        return True
+
     @wsgi.response(202)
     @wsgi.action('migrate')
     def _migrate(self, req, id, body):
         LOG.error('liuling begin time of migrate is %s'
                   % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())))
         LOG.debug(" start execute migrate plan in API,the plan id is %s" % id)
+        context = req.environ['conveyor.context']
         if not self.is_valid_body(body, 'migrate'):
             LOG.debug("migrate request body has not key:migrate")
             raise exc.HTTPUnprocessableEntity()
         migrate_body = body['migrate']
         destination = migrate_body.get('destination')
-        context = req.environ['conveyor.context']
+        if not isinstance(destination, dict):
+            msg = _("The parameter 'destination' must be a map.")
+            raise exc.HTTPBadRequest(explanation=msg)
+        if not self._check_plan_resource_availability_zone(context,
+                                                           id,
+                                                           destination):
+            msg = _("The destination %(destination)s does not contain all "
+                    "resource availability_zone of plan %{plan_id)s") % {
+                      'destination': destination,
+                      'plan_id': id
+                  }
+            raise exc.HTTPBadRequest(explanation=msg)
         self.clone_api.migrate(context, id, destination)
 
 
