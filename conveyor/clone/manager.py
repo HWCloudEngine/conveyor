@@ -400,8 +400,8 @@ class CloneManager(manager.Manager):
         for key, value in resource_map.items():
             if value.type == 'OS::Heat::Stack':
                 resource_map.pop(key)
-                stack_prop = value.properties
-                self._clone_stack(context, stack_prop, id)
+                # stack_prop = value.properties
+                self._clone_stack(context, key, value, id, destination)
 
         if not resource_map:
             self.resource_api.update_plan(
@@ -525,22 +525,36 @@ class CloneManager(manager.Manager):
         LOG.error('liuling end time of clone is %s' %
                   (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())))
 
-    def _clone_stack(self, context, stack_info, plan_id):
+    def _clone_stack(self, context, key, stack_info, plan_id, des):
         LOG.debug('begin clone stack')
         self.resource_api.update_plan(context, plan_id,
                                       {'plan_status': plan_status.CLONING})
-        template = stack_info.get('template')
+        stack_in = stack_info.to_dict()
+        template = stack_in['properties'].get('template')
         template_dict = json.loads(template)
         origin_template_dict = copy.deepcopy(template_dict)
-        disable_rollback = stack_info.get('disable_rollback')
-        stack_name = stack_info.get('stack_name')
-        f_template, son_file_template = self._get_template_contents(
-            template_dict)
-        stack_kwargs = dict(stack_name=stack_name + '_clone',
-                            disable_rollback=disable_rollback,
-                            template=f_template,
-                            files=son_file_template
-                            )
+        disable_rollback = stack_in['properties'].pop('disable_rollback')
+        stack_name = stack_in['properties'].pop('stack_name')
+        stack_in['properties'].pop('parameters')
+        stack_in.pop('extra_properties')
+        stack_in.pop('parameters')
+        stack_in.pop('id')
+        stack_in.pop('name')
+        stack_in['properties']['template'], son_file_template = \
+            self._get_template_contents(template_dict, des)
+        stack_in['properties']['template'] = \
+            json.dumps(stack_in['properties']['template'])
+        res = {key: stack_in}
+        heat_template = {
+            "heat_template_version": '2013-05-23',
+            "description": "clone template",
+            "resources": res
+        }
+        stack_kwargs = dict(
+            stack_name=stack_name + '-' + uuidutils.generate_uuid(),
+            disable_rollback=disable_rollback,
+            template=heat_template
+        )
         stack = None
         try:
             stack = self.heat_api.create_stack(context, **stack_kwargs)
@@ -620,7 +634,7 @@ class CloneManager(manager.Manager):
             if plan.get('plan_status') == plan_status.ERROR:
                 raise exception.PlanCloneFailed(id=id, msg='')
 
-    def _get_template_contents(self, template_dict):
+    def _get_template_contents(self, template_dict, des):
         LOG.debug('the origin template is %s', template_dict)
         resources = template_dict.get('resources')
         file_template = {}
@@ -630,6 +644,8 @@ class CloneManager(manager.Manager):
             if 'id' in res:
                 res.pop('id')
             res_type = res.get('type')
+            if 'availability_zone' in res.get('properties', {}):
+                res['properties']['availability_zone'] = des
             if res_type and res_type.startswith('file://'):
                 file_template[res_type] = res.get('content')
                 res.pop('content')
@@ -651,6 +667,8 @@ class CloneManager(manager.Manager):
                     if 'id' in res:
                         res.pop('id')
                     res_type = res.get('type')
+                    if 'availability_zone' in res.get('properties', {}):
+                        res['properties']['availability_zone'] = des
                     if res_type and res_type.startswith('file://'):
                         son_file_template[res_type] = res.get('content')
                         res.pop('content')
