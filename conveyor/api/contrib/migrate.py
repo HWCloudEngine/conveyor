@@ -50,6 +50,15 @@ class MigrateActionController(wsgi.Controller):
             raise exc.HTTPBadRequest(explanation=msg)
         self.clone_api.export_migrate_template(context, id)
 
+    def _check_plan_resource_availability_zone(self, context,
+                                               plan, destination):
+        src_res_azs = self._resource_api.list_plan_resource_availability_zones(
+            context, plan)
+        for src_res_az in src_res_azs:
+            if src_res_az not in destination:
+                return False
+        return True
+
     @wsgi.response(202)
     @wsgi.action('migrate')
     def _migrate(self, req, id, body):
@@ -68,7 +77,18 @@ class MigrateActionController(wsgi.Controller):
             raise exc.HTTPBadRequest(explanation=msg)
         migrate_body = body['migrate']
         destination = migrate_body.get('destination')
-        context = req.environ['conveyor.context']
+        if not isinstance(destination, dict):
+            msg = _("The parameter 'destination' must be a map.")
+            raise exc.HTTPBadRequest(explanation=msg)
+        if not self._check_plan_resource_availability_zone(context,
+                                                           plan,
+                                                           destination):
+            msg = _("The destination %(destination)s does not contain all "
+                    "resource availability_zone of plan %{plan_id)s") % {
+                      'destination': destination,
+                      'plan_id': id
+                  }
+            raise exc.HTTPBadRequest(explanation=msg)
         self.clone_api.migrate(context, id, destination)
 
 

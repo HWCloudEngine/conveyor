@@ -95,6 +95,19 @@ class PlansActionController(wsgi.Controller):
         plan_id = body.get('plan-delete-resource', {}).get('plan_id', None)
         self.resource_api.plan_delete_resource(context, plan_id)
 
+    @wsgi.response(202)
+    @wsgi.action('get_plan_resource_availability_zones')
+    def _get_plan_resource_availability_zones(self, req, id, body):
+        if not self.is_valid_body(body,
+                                  'get_plan_resource_availability_zones'):
+            raise exc.HTTPUnprocessableEntity()
+        context = req.environ['conveyor.context']
+        plan_id = body.get('get_plan_resource_availability_zones',
+                           {}).get('plan_id', None)
+        res_azs = self.resource_api.get_plan_resource_availability_zones(
+            context, plan_id)
+        return {'resource_availability_zones': res_azs}
+
 
 class Plan(extensions.ExtensionDescriptor):
     """Enable admin actions."""

@@ -85,6 +85,15 @@ class CloneActionController(wsgi.Controller):
         copy_data = clone_body.get('copy_data', True)
         self.clone_api.export_clone_template(context, id, sys_clone, copy_data)
 
+    def _check_plan_resource_availability_zone(self, context,
+                                               plan, destination):
+        src_res_azs = self._resource_api.list_plan_resource_availability_zones(
+            context, plan)
+        for src_res_az in src_res_azs:
+            if src_res_az not in destination:
+                return False
+        return True
+
     @wsgi.response(202)
     @wsgi.action('clone')
     def _clone(self, req, id, body):
@@ -112,6 +121,18 @@ class CloneActionController(wsgi.Controller):
             raise exc.HTTPBadRequest(explanation=msg)
         clone_body = body['clone']
         destination = clone_body.get('destination')
+        if not isinstance(destination, dict):
+            msg = _("The parameter 'destination' must be a map.")
+            if not self._check_plan_resource_availability_zone(context,
+                                                               plan,
+                                                               destination):
+                msg = _("The destination %(destination)s does not contain all "
+                        "resource availability_zone of plan %{plan_id)s") % {
+                          'destination': destination,
+                          'plan_id': id
+                      }
+                raise exc.HTTPBadRequest(explanation=msg)
+            raise exc.HTTPBadRequest(explanation=msg)
         sys_clone = clone_body.get('sys_clone', False)
         # copy_data = clone_body.get('copy_data', True)
         context = req.environ['conveyor.context']
@@ -127,6 +148,9 @@ class CloneActionController(wsgi.Controller):
             raise exc.HTTPUnprocessableEntity()
         clone_body = body['export_template_and_clone']
         destination = clone_body.get('destination')
+        if not isinstance(destination, dict):
+            msg = _("The parameter 'destination' must be a map.")
+            raise exc.HTTPBadRequest(explanation=msg)
         sys_clone = clone_body.get('sys_clone', False)
         copy_data = clone_body.get('copy_data', True)
         resources = clone_body.get('resources')
@@ -138,6 +162,16 @@ class CloneActionController(wsgi.Controller):
                     "can't export_template_and_clone") % {
                 'plan_id': id,
                 'state': plan_status,
+            }
+            raise exc.HTTPBadRequest(explanation=msg)
+
+        if not self._check_plan_resource_availability_zone(context,
+                                                           plan,
+                                                           destination):
+            msg = _("The destination %(destination)s does not contain all "
+                    "resource availability_zone of plan %{plan_id)s") % {
+                'destination': destination,
+                'plan_id': id
             }
             raise exc.HTTPBadRequest(explanation=msg)
         self.clone_api.export_template_and_clone(context, id, destination,

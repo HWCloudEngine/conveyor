@@ -301,3 +301,16 @@ class ResourceAPI(object):
 
         LOG.debug('Resouce api check template end. no spec type')
         return False
+
+    def list_plan_resource_availability_zones(self, context, plan):
+        if not isinstance(plan, dict):
+            plan = self.get_plan_by_id(context, plan)
+
+        res_azs = []
+        plan_res = plan.get('original_resources')
+        for key, res in plan_res.items():
+            if res['type'] in ('OS::Nova::Server', 'OS::Cinder::Volume'):
+                az = res['properties']['availability_zone']
+                if az not in res_azs:
+                    res_azs.append(az)
+        return res_azs
