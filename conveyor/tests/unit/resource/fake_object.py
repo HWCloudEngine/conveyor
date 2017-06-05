@@ -14,6 +14,9 @@
 
 import copy
 
+fake_user_id = '01329398-2050-4152-a034-c1b302e70619'
+fake_project_id = 'd23b65e027f9461ebe900916c0412ade'
+
 fake_plan_dict = {
     'plan_id': 'plan_id',
     'plan_name': 'plan_name',
@@ -447,4 +450,152 @@ fake_plan_template = {
             }
         }
     }
+}
+
+fake_net_dict = {
+    "status": "ACTIVE",
+    "subnets": [
+      "ecc01e23-ed69-4c4a-a93c-6ab3d76e59d8"
+    ],
+    "availability_zone_hints": [],
+    "availability_zones": [],
+    "name": "test02",
+    "provider:physical_network": None,
+    "admin_state_up": True,
+    "tenant_id": "d23b65e027f9461ebe900916c0412ade",
+    "created_at": "2017-03-27T01:54:49",
+    "tags": [],
+    "updated_at": "2017-03-27T01:54:49",
+    "ipv6_address_scope": None,
+    "description": "",
+    "router:external": False,
+    "provider:network_type": "vxlan",
+    "ipv4_address_scope": None,
+    "shared": False,
+    "mtu": 1450,
+    "id": "01329398-2050-4152-a034-c1b302e70619",
+    "provider:segmentation_id": 9957
+}
+
+fake_subnet_dict = {
+    "description": "",
+    "enable_dhcp": True,
+    "network_id": "2c9f925b-ad53-4cc0-8e16-6e555e01773a",
+    "tenant_id": "d23b65e027f9461ebe900916c0412ade",
+    "created_at": "2017-03-25T02:21:48",
+    "dns_nameservers": [],
+    "updated_at": "2017-03-25T02:21:48",
+    "gateway_ip": "192.168.0.1",
+    "ipv6_ra_mode": None,
+    "allocation_pools": [
+      {
+        "start": "192.168.0.2",
+        "end": "192.168.15.254"
+      }
+    ],
+    "host_routes": [],
+    "ip_version": 4,
+    "ipv6_address_mode": None,
+    "cidr": "192.168.0.0/20",
+    "id": "f49b5787-ef10-4769-8b72-340c04decc92",
+    "subnetpool_id": None,
+    "name": "subnet-test"
+}
+
+fake_port_dict = {
+    "status": "DOWN",
+    "created_at": "2017-03-25T02:21:49",
+    "binding:host_id": "",
+    "description": "",
+    "allowed_address_pairs": [],
+    "admin_state_up": True,
+    "network_id": "2c9f925b-ad53-4cc0-8e16-6e555e01773a",
+    "tenant_id": "d23b65e027f9461ebe900916c0412ade",
+    "extra_dhcp_opts": [],
+    "updated_at": "2017-03-25T02:21:49",
+    "name": "",
+    "binding:vif_type": "unbound",
+    "device_owner": "network:dhcp",
+    "mac_address": "fa:16:3e:39:a2:63",
+    "binding:vif_details": {},
+    "binding:profile": {},
+    "binding:vnic_type": "normal",
+    "fixed_ips": [{"subnet_id": "f49b5787-ef10-4769-8b72-340c04decc92",
+                   "ip_address": "192.168.0.2"}],
+    "id": "91d59727-23df-46cc-95d9-07cbb7d982f9",
+    "security_groups": [],
+    "device_id": ""
+}
+
+fake_secgroup_dict = {
+    "tenant_id": "d23b65e027f9461ebe900916c0412ade",
+    "description": "Default security group",
+    "id": "164c7126-ee4e-44e8-afb5-cc2f11225b30",
+    "security_group_rules": [
+        {
+            "direction": "egress",
+            "protocol": None,
+            "description": "",
+            "port_range_max": None,
+            "id": "061e23dd-78d8-47c3-bb6b-4a22f6e8de4e",
+            "remote_group_id": None,
+            "remote_ip_prefix": None,
+            "security_group_id": "164c7126-ee4e-44e8-afb5-cc2f11225b30",
+            "tenant_id": "d23b65e027f9461ebe900916c0412ade",
+            "port_range_min": None,
+            "ethertype": "IPv6"
+        },
+        {
+            "direction": "ingress",
+            "protocol": None,
+            "description": "",
+            "port_range_max": None,
+            "id": "8c44bf1e-c28f-483a-96ed-8c95a5269c3c",
+            "remote_group_id": "164c7126-ee4e-44e8-afb5-cc2f11225b30",
+            "remote_ip_prefix": None,
+            "security_group_id": "164c7126-ee4e-44e8-afb5-cc2f11225b30",
+            "tenant_id": "d23b65e027f9461ebe900916c0412ade",
+            "port_range_min": None,
+            "ethertype": "IPv4"
+        },
+        {
+            "direction": "egress",
+            "protocol": None,
+            "description": "",
+            "port_range_max": None,
+            "id": "df56261d-c9e0-48ea-88a9-b14ec67209a4",
+            "remote_group_id": None,
+            "remote_ip_prefix": None,
+            "security_group_id": "164c7126-ee4e-44e8-afb5-cc2f11225b30",
+            "tenant_id": "d23b65e027f9461ebe900916c0412ade",
+            "port_range_min": None,
+            "ethertype": "IPv4"
+        },
+        {
+            "direction": "ingress",
+            "protocol": None,
+            "description": "",
+            "port_range_max": None,
+            "id": "7957cff7-34e5-4a57-bb0c-cb299a145dd4",
+            "remote_group_id": "164c7126-ee4e-44e8-afb5-cc2f11225b30",
+            "remote_ip_prefix": None,
+            "security_group_id": "164c7126-ee4e-44e8-afb5-cc2f11225b30",
+            "tenant_id": "d23b65e027f9461ebe900916c0412ade",
+            "port_range_min": None,
+            "ethertype": "IPv6"
+        }
+    ],
+    "name": "default"
+}
+
+fake_fip_dict = {
+    "router_id": None,
+    "status": "DOWN",
+    "description": "",
+    "tenant_id": "d23b65e027f9461ebe900916c0412ade",
+    "floating_network_id": "01329398-2050-4152-a034-c1b302e70619",
+    "fixed_ip_address": None,
+    "floating_ip_address": "192.230.1.3",
+    "port_id": None,
+    "id": "da1efe8d-b91c-475e-a095-e21df9af1a0d"
 }

@@ -12,9 +12,14 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import __builtin__
 import copy
 import mock
+import sys
+
+if sys.version_info >= (3, 0):
+    import builtins as builtin
+else:
+    import __builtin__ as builtin
 
 from oslo_serialization import jsonutils
 
@@ -33,14 +38,14 @@ class ResourceTestCase(test.TestCase):
 
     @mock.patch.object(db_api, 'plan_create')
     @mock.patch.object(jsonutils, 'dump')
-    @mock.patch.object(__builtin__, 'open')
+    @mock.patch.object(builtin, 'open')
     def test_save_plan_to_db(self, mock_open, mock_dump, mock_plan_create):
         resource.save_plan_to_db(self.context, '/var/lib/conveyor',
                                  fake_object.fake_plan_dict)
         mock_plan_create.assert_called_once()
 
     @mock.patch.object(jsonutils, 'load')
-    @mock.patch.object(__builtin__, 'open')
+    @mock.patch.object(builtin, 'open')
     @mock.patch.object(db_api, 'plan_get')
     def test_read_plan_from_db(self, mock_plan_get, mock_open, mock_load):
         mock_plan_get.return_value = fake_object.fake_plan_dict
@@ -50,7 +55,7 @@ class ResourceTestCase(test.TestCase):
 
     @mock.patch.object(db_api, 'plan_update')
     @mock.patch.object(jsonutils, 'dump')
-    @mock.patch.object(__builtin__, 'open')
+    @mock.patch.object(builtin, 'open')
     def test_update_plan_to_db(self, mock_open, mock_dump, mock_plan_update):
         fake_plan_dict = copy.deepcopy(fake_object.fake_plan_dict)
         resource.update_plan_to_db(self.context, '/var/lib/conveyor',
