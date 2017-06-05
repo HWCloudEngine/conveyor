@@ -631,12 +631,12 @@ class ResourceManager(manager.Manager):
     def update_plan_resources(self, context, plan_id, resources):
         LOG.info("Update resources of plan <%s> with values: %s", plan_id,
                  resources)
-
         # Get plan object
         plan = _plans.get(plan_id)
         if not plan:
             self.get_plan_by_id(context, plan_id)
             plan = _plans[plan_id]
+
         updated_res = copy.deepcopy(plan.updated_resources)
         updated_dep = copy.deepcopy(plan.updated_dependencies)
         resources_list = copy.deepcopy(resources)
@@ -646,7 +646,7 @@ class ResourceManager(manager.Manager):
                 # Remind: dep delete and add
                 resource_id = res.pop('resource_id', None)
                 updated_res.pop(resource_id)
-                for key, value in updated_res.items():
+                for key, value in updated_dep.items():
                     if resource_id in value.dependencies:
                         msg = 'have resource denpend on the %s ' \
                               'resource ,delete failed' % resource_id
@@ -880,7 +880,6 @@ class ResourceManager(manager.Manager):
                                          updated_res)
 
     def _update_port_resource(self, context, updated_res, resource):
-
         LOG.debug("Update port %s resource with %s.",
                   resource['resource_id'], resource)
 
