@@ -903,8 +903,7 @@ class NetworkResource(base.resource):
             raise exception.ResourceNotFound(message=msg)
 
         if not net:
-            msg = "Network resource <%s> could not be found. %s" \
-                        % (net_id, unicode(e))
+            msg = "Network resource <%s> could not be found. " % net_id
             LOG.error(msg)
             raise exception.ResourceNotFound(message=msg)
 
