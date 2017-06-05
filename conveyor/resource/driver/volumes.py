@@ -36,6 +36,7 @@ class VolumeResource(base.resource):
         self._collected_dependencies = collected_dependencies or {}
 
     def extract_volumes(self, volume_ids):
+        # import pdb;pdb.set_trace()
 
         volume_dicts = []
         volumeResources = []
