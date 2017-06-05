@@ -12,8 +12,10 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import __builtin__
 import copy
 import mock
+import yaml
 
 from oslo_utils import fileutils
 from oslo_utils import uuidutils
@@ -22,10 +24,13 @@ from conveyor.compute import nova
 from conveyor import context
 from conveyor.conveyorheat.api import api as heat
 from conveyor import exception
+from conveyor import network
 from conveyor.network import neutron
 from conveyor.resource.driver import instances
+from conveyor.resource.driver import networks
 from conveyor.resource import manager
 from conveyor.resource import resource
+from conveyor.tests.unit.resource import fake_object
 from conveyor.tests import test
 from conveyor.volume import cinder
 
@@ -49,638 +54,6 @@ def mock_extract_instances(self, instance_ids=None):
 
         self._collected_resources[instance_id] = instance_resources
         self._collected_dependencies[instance_id] = instance_dependencies
-
-
-fake_plan_dict = {
-    'plan_id': 'plan_id',
-    'plan_name': 'plan_name',
-    'plan_type': 'clone',
-    'project_id': 'conveyor',
-    'user_id': 'conveyor',
-    'stack_id': '',
-    'created_at': '',
-    'updated_at': '',
-    'expire_at': '',
-    'deleted_at': '',
-    'deleted': False,
-    'task_status': '',
-    'plan_status': '',
-    'original_resources': {},
-    'updated_resources': {},
-    'original_dependencies': {},
-    'updated_dependencies': {},
-}
-
-ori_res = {
-    "subnet_0": {
-        "name": "subnet_0",
-        "parameters": {},
-        "extra_properties": {
-            "id": "991b9dc0-e82a-4d77-badc-1e1ed165f183"
-        },
-        "id": "991b9dc0-e82a-4d77-badc-1e1ed165f183",
-        "type": "OS::Neutron::Subnet",
-        "properties": {
-            "name": "sub-conveyor",
-            "enable_dhcp": True,
-            "network_id": {
-                "get_resource": "network_0"
-            },
-            "allocation_pools": [
-                {
-                    "start": "192.168.0.2",
-                    "end": "192.168.0.254"
-                }
-            ],
-            "gateway_ip": "192.168.0.1",
-            "ip_version": 4,
-            "cidr": "192.168.0.0/24"
-        }
-    },
-    "port_0": {
-        "name": "port_0",
-        "parameters": {},
-        "extra_properties": {
-            "id": "bd289057-2e26-41dd-a319-8afbf7b687e8"
-        },
-        "id": "bd289057-2e26-41dd-a319-8afbf7b687e8",
-        "type": "OS::Neutron::Port",
-        "properties": {
-            "name": "",
-            "admin_state_up": True,
-            "network_id": {
-                "get_resource": "network_0"
-            },
-            "mac_address": "fa:16:3e:9d:35:e4",
-            "fixed_ips": [
-                {
-                    "subnet_id": {
-                        "get_resource": "subnet_0"
-                    },
-                    "ip_address": "192.168.0.3"
-                }
-            ],
-            "security_groups": [
-                {
-                    "get_resource": "security_group_0"
-                }
-            ]
-        }
-    },
-    "network_0": {
-        "name": "network_0",
-        "parameters": {},
-        "extra_properties": {
-            "id": "899a541a-4500-4605-a416-eb739501dd95"
-        },
-        "id": "899a541a-4500-4605-a416-eb739501dd95",
-        "type": "OS::Neutron::Net",
-        "properties": {
-            "shared": False,
-            "admin_state_up": True,
-            "value_specs": {
-                "router:external": False,
-                "provider:network_type": "vxlan",
-                "provider:segmentation_id": 9888
-            },
-            "name": "net-conveyor"
-        }
-    },
-    "server_0": {
-        "name": "server_0",
-        "parameters": {
-            "image_0": {
-                "default": "be150fa9-84a9-4feb-a71c-7ba1a46dc544",
-                "type": "string",
-                "description": "Image to use to boot server or volume"
-            }
-        },
-        "extra_properties": {
-            "vm_state": "stopped",
-            "id": "03ff981e-f31f-4a6f-8b5d-4d08c9408e87",
-            "power_state": 4
-        },
-        "id": "03ff981e-f31f-4a6f-8b5d-4d08c9408e87",
-        "type": "OS::Nova::Server",
-        "properties": {
-            "flavor": {
-                "get_resource": "flavor_0"
-            },
-            "availability_zone": "az1.dc1",
-            "networks": [
-                {
-                    "port": {
-                        "get_resource": "port_0"
-                    }
-                }
-            ],
-            "image": {
-                "get_param": "image_0"
-            },
-            "key_name": {
-                "get_resource": "keypair_0"
-            },
-            "name": "ubuntu14.04"
-        }
-    },
-    "security_group_0": {
-        "name": "security_group_0",
-        "parameters": {},
-        "extra_properties": {
-            "id": "0aa21ff5-dadf-4869-bcca-55ebd63b8dd5"
-        },
-        "id": "0aa21ff5-dadf-4869-bcca-55ebd63b8dd5",
-        "type": "OS::Neutron::SecurityGroup",
-        "properties": {
-            "rules": [
-                {
-                    "ethertype": "IPv4",
-                    "direction": "ingress",
-                    "protocol": "icmp",
-                    "description": "",
-                    "remote_ip_prefix": "0.0.0.0/0"
-                },
-                {
-                    "direction": "ingress",
-                    "protocol": "tcp",
-                    "description": "",
-                    "ethertype": "IPv4",
-                    "port_range_max": 22,
-                    "port_range_min": 22,
-                    "remote_ip_prefix": "0.0.0.0/0"
-                },
-                {
-                    "ethertype": "IPv4",
-                    "direction": "ingress",
-                    "description": "",
-                    "remote_mode": "remote_group_id"
-                },
-                {
-                    "ethertype": "IPv4",
-                    "direction": "egress",
-                    "description": ""
-                },
-                {
-                    "ethertype": "IPv6",
-                    "direction": "ingress",
-                    "description": "",
-                    "remote_mode": "remote_group_id"
-                },
-                {
-                    "ethertype": "IPv6",
-                    "direction": "egress",
-                    "description": ""
-                }
-            ],
-            "description": "Default security group",
-            "name": "_default"
-        }
-    },
-    "flavor_0": {
-        "name": "flavor_0",
-        "parameters": {},
-        "extra_properties": {
-            "id": "6"
-        },
-        "id": "6",
-        "type": "OS::Nova::Flavor",
-        "properties": {
-            "ram": 1024,
-            "ephemeral": 0,
-            "vcpus": 1,
-            "rxtx_factor": 1,
-            "is_public": True,
-            "disk": 5
-        }
-    },
-    "volume_0": {
-        "name": "volume_0",
-        "extra_properties": {
-            "status": "available",
-            "boot_index": 0,
-            "id": "db06e9e7-8bd9-4139-835a-9276728b5dcd"
-        },
-        "id": "db06e9e7-8bd9-4139-835a-9276728b5dcd",
-        "parameters": {
-            "image_0": {
-                "default": "19a7e4c8-baa5-442a-859e-7e968dc8b189",
-                "type": "string",
-                "description": "Image to use to boot server or volume"
-            }
-        },
-        "type": "OS::Cinder::Volume",
-        "properties": {
-            "size": 20,
-            "image": {
-                "get_param": "image_0"
-            },
-            "availability_zone": "az01.dc1--fusionsphere",
-            "name": "",
-            "metadata": {
-                "__hc_vol_id": "0ff07950-1e38-43bb-a001-851f41c31457",
-                "readonly": "False",
-                "__openstack_region_name": "az01.dc1--fusionsphere",
-                "attached_mode": "rw"
-            }
-        }
-    },
-    "keypair_0": {
-        "name": "keypair_0",
-        "extra_properties": {
-            "id": "test-keypair"
-        },
-        "id": "test-keypair",
-        "parameters": {},
-        "type": "OS::Nova::KeyPair",
-        "properties": {
-            "public_key": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDhkkslPA0xkVLtF5bCAoum+EEg6Dd8apUoNoDveSrlDIUR1hByo8E0Ijfw2G4xNIz6eStJCqXhtBQS+1Opx6A8wvlZe6qCANIo4s84zpLnYX8s2K0TCo0CUK2EdltGsBq4Fw8uyvHeRnsdgJ1Shucj2Vzq3UK7Wv0MHsXtSzssXVQAqa2iM7KnAjSXQ6tx3acdhire3V9wFx3xlZKFOJ383RSw7H4tPvNPXUGbmw3JkIs5zORXWMrMlQZ0TbVpPK6HG3fGRWVoqtkLMhxGGq/2rp7E31vBW+AoinN+fK9no2vjm83qRD49tQtLuG1LUMLP5P04KDeTC/CKutNsYi03 Generated-by-Nova\n",
-            "name": "test-keypair"
-        }
-    }
-}
-
-ori_deps = {
-    "subnet_0": {
-        "name_in_template": "subnet_0",
-        "dependencies": [
-            "network_0"
-        ],
-        "type": "OS::Neutron::Subnet",
-        "id": "991b9dc0-e82a-4d77-badc-1e1ed165f183",
-        "name": "sub-conveyor"
-    },
-    "port_0": {
-        "name_in_template": "port_0",
-        "dependencies": [
-            "network_0",
-            "subnet_0",
-            "security_group_0"
-        ],
-        "type": "OS::Neutron::Port",
-        "id": "bd289057-2e26-41dd-a319-8afbf7b687e8",
-        "name": ""
-    },
-    "network_0": {
-        "name_in_template": "network_0",
-        "dependencies": [],
-        "type": "OS::Neutron::Net",
-        "id": "899a541a-4500-4605-a416-eb739501dd95",
-        "name": "net-conveyor"
-    },
-    "server_0": {
-        "name_in_template": "server_0",
-        "dependencies": [
-            "flavor_0",
-            "port_0",
-            "volume_0",
-            "keypair_0"
-        ],
-        "type": "OS::Nova::Server",
-        "id": "03ff981e-f31f-4a6f-8b5d-4d08c9408e87",
-        "name": "ubuntu14.04"
-    },
-    "security_group_0": {
-        "name_in_template": "security_group_0",
-        "dependencies": [],
-        "type": "OS::Neutron::SecurityGroup",
-        "id": "0aa21ff5-dadf-4869-bcca-55ebd63b8dd5",
-        "name": "_default"
-    },
-    "flavor_0": {
-        "name_in_template": "flavor_0",
-        "dependencies": [],
-        "type": "OS::Nova::Flavor",
-        "id": "6",
-        "name": "ubuntu"
-    },
-    "volume_0": {
-        "name_in_template": "volume_0",
-        "dependencies": [
-
-        ],
-        "type": "OS: : Cinder: : Volume",
-        "id": "846f7bd9-56ca-403f-b805-f239c869e7e0",
-        "name": "test2"
-    },
-    "keypair_0": {
-        "name_in_template": "keypair_0",
-        "dependencies": [],
-        "type": "OS::Nova::KeyPair",
-        "id": "test-keypair",
-        "name": "test-keypair"
-    }
-}
-
-updated_res = {
-    "subnet_0": {
-        "name": "subnet_0",
-        "parameters": {},
-        "extra_properties": {
-            "id": "991b9dc0-e82a-4d77-badc-1e1ed165f183"
-        },
-        "id": "991b9dc0-e82a-4d77-badc-1e1ed165f183",
-        "type": "OS::Neutron::Subnet",
-        "properties": {
-            "name": "sub-conveyor",
-            "enable_dhcp": True,
-            "network_id": {
-                "get_resource": "network_0"
-            },
-            "allocation_pools": [
-                {
-                    "start": "192.168.0.2",
-                    "end": "192.168.0.254"
-                }
-            ],
-            "gateway_ip": "192.168.0.1",
-            "ip_version": 4,
-            "cidr": "192.168.0.0/24"
-        }
-    },
-    "port_0": {
-        "name": "port_0",
-        "parameters": {},
-        "extra_properties": {
-            "id": "bd289057-2e26-41dd-a319-8afbf7b687e8"
-        },
-        "id": "bd289057-2e26-41dd-a319-8afbf7b687e8",
-        "type": "OS::Neutron::Port",
-        "properties": {
-            "name": "",
-            "admin_state_up": True,
-            "network_id": {
-                "get_resource": "network_0"
-            },
-            "mac_address": "fa:16:3e:9d:35:e4",
-            "fixed_ips": [
-                {
-                    "subnet_id": {
-                        "get_resource": "subnet_0"
-                    },
-                    "ip_address": "192.168.0.3"
-                }
-            ],
-            "security_groups": [
-                {
-                    "get_resource": "security_group_0"
-                }
-            ]
-        }
-    },
-    "network_0": {
-        "name": "network_0",
-        "parameters": {},
-        "extra_properties": {
-            "id": "899a541a-4500-4605-a416-eb739501dd95"
-        },
-        "id": "899a541a-4500-4605-a416-eb739501dd95",
-        "type": "OS::Neutron::Net",
-        "properties": {
-            "shared": False,
-            "value_specs": {
-                "router:external": False,
-                "provider:segmentation_id": 9888,
-                "provider:network_type": "vxlan"
-            },
-            "name": "net-conveyor",
-            "admin_state_up": True
-        }
-    },
-    "server_0": {
-        "name": "server_0",
-        "parameters": {
-            "image_0": {
-                "default": "be150fa9-84a9-4feb-a71c-7ba1a46dc544",
-                "type": "string",
-                "description": "Image to use to boot server or volume"
-            }
-        },
-        "extra_properties": {
-            "vm_state": "stopped",
-            "id": "03ff981e-f31f-4a6f-8b5d-4d08c9408e87",
-            "power_state": 4
-        },
-        "id": "03ff981e-f31f-4a6f-8b5d-4d08c9408e87",
-        "type": "OS::Nova::Server",
-        "properties": {
-            "name": "ubuntu14.04",
-            "flavor": {
-                "get_resource": "flavor_0"
-            },
-            "networks": [
-                {
-                    "port": {
-                        "get_resource": "port_0"
-                    }
-                }
-            ],
-            "image": {
-                "get_param": "image_0"
-            },
-            "key_name": {
-                "get_resource": "keypair_0"
-            },
-            "availability_zone": "az1.dc1"
-        }
-    },
-    "security_group_0": {
-        "name": "security_group_0",
-        "parameters": {},
-        "extra_properties": {
-            "id": "0aa21ff5-dadf-4869-bcca-55ebd63b8dd5"
-        },
-        "id": "0aa21ff5-dadf-4869-bcca-55ebd63b8dd5",
-        "type": "OS::Neutron::SecurityGroup",
-        "properties": {
-            "rules": [
-                {
-                    "ethertype": "IPv4",
-                    "direction": "ingress",
-                    "protocol": "icmp",
-                    "description": "",
-                    "remote_ip_prefix": "0.0.0.0/0"
-                },
-                {
-                    "direction": "ingress",
-                    "protocol": "tcp",
-                    "description": "",
-                    "ethertype": "IPv4",
-                    "port_range_max": 22,
-                    "port_range_min": 22,
-                    "remote_ip_prefix": "0.0.0.0/0"
-                },
-                {
-                    "ethertype": "IPv4",
-                    "direction": "ingress",
-                    "description": "",
-                    "remote_mode": "remote_group_id"
-                },
-                {
-                    "ethertype": "IPv4",
-                    "direction": "egress",
-                    "description": ""
-                },
-                {
-                    "ethertype": "IPv6",
-                    "direction": "ingress",
-                    "description": "",
-                    "remote_mode": "remote_group_id"
-                },
-                {
-                    "ethertype": "IPv6",
-                    "direction": "egress",
-                    "description": ""
-                }
-            ],
-            "description": "Default security group",
-            "name": "_default"
-        }
-    },
-    "flavor_0": {
-        "name": "flavor_0",
-        "parameters": {},
-        "extra_properties": {
-            "id": "6"
-        },
-        "id": "6",
-        "type": "OS::Nova::Flavor",
-        "properties": {
-            "ram": 1024,
-            "ephemeral": 0,
-            "vcpus": 1,
-            "rxtx_factor": 1,
-            "is_public": True,
-            "disk": 5
-        }
-    },
-    "volume_0": {
-        "name": "volume_0",
-        "extra_properties": {
-            "status": "available",
-            "boot_index": 0,
-            "id": "db06e9e7-8bd9-4139-835a-9276728b5dcd"
-        },
-        "id": "db06e9e7-8bd9-4139-835a-9276728b5dcd",
-        "parameters": {
-            "image_0": {
-                "default": "19a7e4c8-baa5-442a-859e-7e968dc8b189",
-                "type": "string",
-                "description": "Image to use to boot server or volume"
-            }
-        },
-        "type": "OS::Cinder::Volume",
-        "properties": {
-            "size": 20,
-            "image": {
-                "get_param": "image_0"
-            },
-            "availability_zone": "az01.dc1--fusionsphere",
-            "name": "",
-            "metadata": {
-                "__hc_vol_id": "0ff07950-1e38-43bb-a001-851f41c31457",
-                "readonly": "False",
-                "__openstack_region_name": "az01.dc1--fusionsphere",
-                "attached_mode": "rw"
-            }
-        },
-        "keypair_0": {
-            "name": "keypair_0",
-            "extra_properties": {
-                "id": "test-keypair"
-            },
-            "id": "test-keypair",
-            "parameters": {},
-            "type": "OS::Nova::KeyPair",
-            "properties": {
-                "public_key": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDhkkslPA0xkVLtF5bCAoum+EEg6Dd8apUoNoDveSrlDIUR1hByo8E0Ijfw2G4xNIz6eStJCqXhtBQS+1Opx6A8wvlZe6qCANIo4s84zpLnYX8s2K0TCo0CUK2EdltGsBq4Fw8uyvHeRnsdgJ1Shucj2Vzq3UK7Wv0MHsXtSzssXVQAqa2iM7KnAjSXQ6tx3acdhire3V9wFx3xlZKFOJ383RSw7H4tPvNPXUGbmw3JkIs5zORXWMrMlQZ0TbVpPK6HG3fGRWVoqtkLMhxGGq/2rp7E31vBW+AoinN+fK9no2vjm83qRD49tQtLuG1LUMLP5P04KDeTC/CKutNsYi03 Generated-by-Nova\n",
-                "name": "test-keypair"
-            }
-        }
-    }
-}
-
-updated_deps = {
-    "subnet_0": {
-        "name_in_template": "subnet_0",
-        "dependencies": [
-            "network_0"
-        ],
-        "type": "OS::Neutron::Subnet",
-        "id": "991b9dc0-e82a-4d77-badc-1e1ed165f183",
-        "name": "sub-conveyor"
-    },
-    "port_0": {
-        "name_in_template": "port_0",
-        "dependencies": [
-            "network_0",
-            "subnet_0",
-            "security_group_0"
-        ],
-        "type": "OS::Neutron::Port",
-        "id": "bd289057-2e26-41dd-a319-8afbf7b687e8",
-        "name": ""
-    },
-    "network_0": {
-        "name_in_template": "network_0",
-        "dependencies": [],
-        "type": "OS::Neutron::Net",
-        "id": "899a541a-4500-4605-a416-eb739501dd95",
-        "name": "net-conveyor"
-    },
-    "server_0": {
-        "name_in_template": "server_0",
-        "dependencies": [
-            "flavor_0",
-            "port_0",
-            "volume_0",
-            "keypair_0"
-        ],
-        "type": "OS::Nova::Server",
-        "id": "03ff981e-f31f-4a6f-8b5d-4d08c9408e87",
-        "name": "ubuntu14.04"
-    },
-    "security_group_0": {
-        "name_in_template": "security_group_0",
-        "dependencies": [],
-        "type": "OS::Neutron::SecurityGroup",
-        "id": "0aa21ff5-dadf-4869-bcca-55ebd63b8dd5",
-        "name": "_default"
-    },
-    "flavor_0": {
-        "name_in_template": "flavor_0",
-        "dependencies": [],
-        "type": "OS::Nova::Flavor",
-        "id": "6",
-        "name": "ubuntu"
-    },
-    "volume_0": {
-        "name_in_template": "volume_0",
-        "dependencies": [
-
-        ],
-        "type": "OS: : Cinder: : Volume",
-        "id": "846f7bd9-56ca-403f-b805-f239c869e7e0",
-        "name": "test2"
-    },
-    "keypair_0": {
-        "name_in_template": "keypair_0",
-        "dependencies": [],
-        "type": "OS::Nova::KeyPair",
-        "id": "test-keypair",
-        "name": "test-keypair"
-    }
-}
-
-
-def mock_fake_plan():
-    fake_plan = copy.deepcopy(fake_plan_dict)
-    fake_plan.update({
-        'original_resources': copy.deepcopy(ori_res),
-        'updated_resources': copy.deepcopy(ori_res),
-        'original_dependencies': copy.deepcopy(ori_deps),
-        'updated_dependencies': copy.deepcopy(ori_deps)
-    })
-    return fake_plan
 
 
 class ResourceManagerTestCase(test.TestCase):
@@ -758,20 +131,26 @@ class ResourceManagerTestCase(test.TestCase):
         result = self.resource_manager.create_plan(self.context,
                                                    fake_plan_type,
                                                    fake_resources)
-        print result
+        self.assertTrue(2 == len(result))
+        new_plan = manager._plans[result[0]]
+        self.assertEqual(result[0], new_plan.plan_name)
+        mock_save_plan.assert_called_with(self.context, manager.plan_file_dir,
+                                          new_plan.to_dict())
 
-    # @mock.patch.object(instances.InstanceResource, 'extract_instances',
-    #                        mock_extract_instances)
-    # @mock.patch.object(resource, 'save_plan_to_db')
-    # def test_create_plan_with_plan_name(self, mock_save_plan):
-    #     fake_plan_type = 'clone'
-    #     fake_plan_name = 'fake-mame'
-    #     fake_resources = [{'type': 'OS::Nova::Server', 'id': 'server0'}]
-    #     result = self.resource_manager.create_plan(self.context,
-    #                                                fake_plan_type,
-    #                                                fake_resources)
-    #     self.assertEqual('server0', result[0])
-    #     pass
+    @mock.patch.object(instances.InstanceResource, 'extract_instances',
+                       mock_extract_instances)
+    @mock.patch.object(resource, 'save_plan_to_db')
+    def test_create_plan_with_plan_name(self, mock_save_plan):
+        fake_plan_type = 'clone'
+        fake_plan_name = 'fake-mame'
+        fake_resources = [{'type': 'OS::Nova::Server', 'id': 'server0'}]
+        result = self.resource_manager.create_plan(self.context,
+                                                   fake_plan_type,
+                                                   fake_resources,
+                                                   fake_plan_name)
+        self.assertTrue(2 == len(result))
+        new_plan = manager._plans[result[0]]
+        self.assertEqual(fake_plan_name, new_plan.plan_name)
 
     def test_create_plan_without_valid_resource(self):
         fake_plan_type = 'clone'
@@ -795,12 +174,25 @@ class ResourceManagerTestCase(test.TestCase):
                           self.context, fake_plan_type, fake_resources)
         pass
 
-    def test_build_plan_by_template(self):
-        # TODO
-        pass
+    @mock.patch.object(yaml, 'safe_dump')
+    @mock.patch.object(__builtin__, 'open')
+    @mock.patch.object(resource, 'update_plan_to_db')
+    def test_build_plan_by_template(self, mock_plan_update, mock_open,
+                                    mock_yaml_dump):
+        fake_template = copy.deepcopy(fake_object.fake_plan_template)
+        fake_template = fake_template['template']
+        fake_plan_dict = copy.deepcopy(fake_object.fake_plan_dict)
+        fake_plan_dict.update({
+            'expire_time': fake_template['expire_time'],
+            'status': 'creating'
+        })
+        self.resource_manager.build_plan_by_template(self.context,
+                                                     fake_plan_dict,
+                                                     fake_template)
+        mock_plan_update.assert_called_once()
 
     def test_get_original_resource_detail_from_plan(self):
-        fake_plan = mock_fake_plan()
+        fake_plan = fake_object.mock_fake_plan()
         with mock.patch.object(
                 resource, 'read_plan_from_db',
                 return_value=(fake_plan, resource.Plan.from_dict(fake_plan))):
@@ -810,7 +202,7 @@ class ResourceManagerTestCase(test.TestCase):
             self.assertEqual('OS::Nova::Server', result['type'])
 
     def test_get_updated_resource_detail_from_plan(self):
-        fake_plan = mock_fake_plan()
+        fake_plan = fake_object.mock_fake_plan()
         with mock.patch.object(
                 resource, 'read_plan_from_db',
                 return_value=(fake_plan, resource.Plan.from_dict(fake_plan))):
@@ -821,7 +213,7 @@ class ResourceManagerTestCase(test.TestCase):
             self.assertEqual('OS::Nova::Server', result['type'])
 
     def test_get_not_exist_resource_detail_from_plan(self):
-        fake_plan = mock_fake_plan()
+        fake_plan = fake_object.mock_fake_plan()
         with mock.patch.object(
                 resource, 'read_plan_from_db',
                 return_value=(fake_plan, resource.Plan.from_dict(fake_plan))):
@@ -831,7 +223,7 @@ class ResourceManagerTestCase(test.TestCase):
                 self.context, fake_plan['plan_id'], 'server_fake')
 
     def test_get_plan_by_id(self):
-        fake_plan = mock_fake_plan()
+        fake_plan = fake_object.mock_fake_plan()
         # fake_plan = resource.Plan(plan_id=fake_plan_id, plan_type='clone',
         #                           project_id='conveyor', user_id='conveyor',
         #                           original_resources={},
@@ -856,20 +248,36 @@ class ResourceManagerTestCase(test.TestCase):
     def test_delete_plan(self, mock_plan_get, mock_plan_update,
                          mock_file_delete, mock_clear_table):
         # TODO
-        mock_plan_get.return_value = mock_fake_plan()
+        mock_plan_get.return_value = fake_object.mock_fake_plan()
         self.resource_manager.delete_plan(self.context, 'fake-id')
         pass
 
-    @mock.patch.object(manager.ResourceManager, 'get_plan_by_id')
-    @mock.patch.object(resource, 'update_plan_to_db')
     @mock.patch.object(fileutils, 'delete_if_exists', side_effect=OSError)
+    @mock.patch.object(resource, 'update_plan_to_db')
+    @mock.patch.object(manager.ResourceManager, 'get_plan_by_id')
     def test_delete_without_template_or_deps_file(self, mock_plan_get,
                                                   mock_plan_udpate,
                                                   mock_file_delete):
-        mock_plan_get.return_value = mock_fake_plan()
+        mock_plan_get.return_value = fake_object.mock_fake_plan()
         self.assertRaises(exception.PlanDeleteError,
                           self.resource_manager.delete_plan,
                           self.context, 'fake-id')
+
+    @mock.patch.object(resource, 'update_plan_to_db')
+    @mock.patch.object(fileutils, 'delete_if_exists')
+    def test_force_delete_plan(self, mock_file_delete, mock_plan_udpate):
+        self.resource_manager.force_delete_plan(self.context, 'fake-plan-id')
+        mock_file_delete.assert_called()
+        mock_plan_udpate.assert_called()
+
+    @mock.patch.object(resource, 'update_plan_to_db')
+    @mock.patch.object(fileutils, 'delete_if_exists', side_effect=OSError)
+    def test_force_delete_plan_without_template_or_deps_file(self,
+                                                             mock_file_delete,
+                                                             mock_plan_update):
+        self.assertRaises(exception.PlanDeleteError,
+                          self.resource_manager.force_delete_plan,
+                          self.context, 'fake-plan-id')
 
     def test_update_plan_with_not_allowed_prop(self):
         fake_plan_id = 'fake-id'
@@ -882,7 +290,7 @@ class ResourceManagerTestCase(test.TestCase):
                           fake_plan_id, fake_values)
 
     def test_update_plan_with_invalid_status(self):
-        fake_plan_id = fake_plan_dict['plan_id']
+        fake_plan_id = 'plan_id'
         fake_values = {
             'status': 'fake'
         }
@@ -891,59 +299,73 @@ class ResourceManagerTestCase(test.TestCase):
                           self.context,
                           fake_plan_id, fake_values)
 
-    @mock.patch.object(resource, 'read_plan_from_db',
-                       return_value=(fake_plan_dict,
-                                     resource.Plan.from_dict(fake_plan_dict)))
     @mock.patch.object(resource, 'update_plan_to_db')
-    def test_update_plan(self, mock_plan_get, mock_update_plan):
-        fake_plan_id = fake_plan_dict['plan_id']
+    def test_update_plan(self, mock_update_plan):
+        fake_plan = fake_object.mock_fake_plan()
         fake_values = {
             'task_status': 'finished',
             'plan_status': 'finished',
         }
-        self.resource_manager.update_plan(self.context, fake_plan_id,
-                                          fake_values)
+        with mock.patch.object(
+                resource, 'read_plan_from_db',
+                return_value=(fake_plan, resource.Plan.from_dict(fake_plan))):
+            self.resource_manager.update_plan(self.context,
+                                              fake_plan['plan_id'],
+                                              fake_values)
 
-    @mock.patch.object(resource, 'read_plan_from_db',
-                       return_value=(fake_plan_dict,
-                                     resource.Plan.from_dict(fake_plan_dict)))
     @mock.patch.object(resource, 'update_plan_to_db')
-    def test_update_plan_resource_add_volume_type(self, mock_plan_get,
-                                                  mock_update_plan):
-        fake_plan_id = fake_plan_dict['plan_id']
+    def test_update_plan_resource_by_adding_volume_type(self,
+                                                        mock_update_plan):
+        fake_plan = fake_object.mock_fake_plan()
         fake_resources = [{
             'action': 'add',
             'resource_id': 'vol-type-01',
             'resource_type': 'OS::Cinder::VolumeType'
         }]
-        self.resource_manager.update_plan_resources(
-            self.context, fake_plan_id, resources=fake_resources)
-        mock_update_plan.assert_called_once()
+        with mock.patch.object(
+                resource, 'read_plan_from_db',
+                return_value=(fake_plan, resource.Plan.from_dict(fake_plan))):
+            self.resource_manager.update_plan_resources(
+                self.context, fake_plan['plan_id'], resources=fake_resources)
+            mock_update_plan.assert_called_once()
 
-    @mock.patch.object(resource, 'read_plan_from_db',
-                       return_value=(fake_plan_dict,
-                                     resource.Plan.from_dict(
-                                         fake_plan_dict)))
     @mock.patch.object(resource, 'update_plan_to_db')
-    def test_update_plan_resource_add_qos(self, mock_plan_get,
-                                          mock_update_plan):
-        fake_plan_id = fake_plan_dict['plan_id']
+    def test_update_plan_resource_by_adding_qos(self, mock_update_plan):
+        fake_plan = fake_object.mock_fake_plan()
         fake_resources = [{
             'action': 'add',
             'resource_id': 'qos-01',
             'resource_type': 'OS::Cinder::Qos'
         }]
-        self.resource_manager.update_plan_resources(
-            self.context, fake_plan_id, resources=fake_resources)
-        mock_update_plan.assert_called_once()
+        with mock.patch.object(
+                resource, 'read_plan_from_db',
+                return_value=(fake_plan, resource.Plan.from_dict(fake_plan))):
+            self.resource_manager.update_plan_resources(
+                self.context, fake_plan['plan_id'], resources=fake_resources)
+            mock_update_plan.assert_called_once()
 
     @mock.patch.object(resource, 'update_plan_to_db')
-    def test_update_plan_resource_delete_res(self, mock_update_plan):
-        fake_plan = mock_fake_plan()
-
+    def test_update_plan_resource_by_deleting_res(self, mock_update_plan):
+        fake_plan = fake_object.mock_fake_plan()
+        fake_plan['updated_resources']['volume_fake'] = {
+            "name": "volume_fake",
+            "extra_properties": {},
+            "id": "fake-volume-id",
+            "parameters": {},
+            "type": "OS::Cinder::Volume",
+            "properties": {}
+        }
+        fake_plan['updated_dependencies']['volume_fake'] = {
+            "name_in_template": "volume_fake",
+            "dependencies": [
+            ],
+            "type": "OS::Cinder::Volume",
+            "id": "fake-volume-id",
+            "name": "volume_fake"
+        }
         fake_resources = [{
             'action': 'delete',
-            'resource_id': 'volume_0',
+            'resource_id': 'volume_fake',
             'resource_type': 'OS::Cinder::Volume'
         }]
 
@@ -954,11 +376,29 @@ class ResourceManagerTestCase(test.TestCase):
                 self.context, fake_plan['plan_id'], resources=fake_resources)
             mock_update_plan.assert_called_once()
 
-    @mock.patch.object(heat.API, 'get_resource_type')
     @mock.patch.object(resource, 'update_plan_to_db')
+    def test_update_plan_resource_by_deleting_failed(self, mock_update_plan):
+        fake_plan = fake_object.mock_fake_plan()
+        fake_resources = [{
+            'action': 'delete',
+            'resource_id': 'volume_0',
+            'resource_type': 'OS::Cinder::Volume'
+        }]
+
+        with mock.patch.object(
+                resource, 'read_plan_from_db',
+                return_value=(fake_plan, resource.Plan.from_dict(fake_plan))):
+            self.assertRaises(exception.PlanResourcesUpdateError,
+                              self.resource_manager.update_plan_resources,
+                              self.context,
+                              fake_plan['plan_id'],
+                              resources=fake_resources)
+
+    @mock.patch.object(resource, 'update_plan_to_db')
+    @mock.patch.object(heat.API, 'get_resource_type')
     def test_update_plan_resource_by_editing_server(self, mock_get_res_type,
                                                     mock_update_plan):
-        fake_plan = mock_fake_plan()
+        fake_plan = fake_object.mock_fake_plan()
         fake_resources = [{
             'action': 'edit',
             'user_data': 'L3Vzci9iaW4vYmFzaAplY2hv',
@@ -972,11 +412,11 @@ class ResourceManagerTestCase(test.TestCase):
                 self.context, fake_plan['plan_id'], fake_resources)
             mock_update_plan.assert_called_once()
 
-    @mock.patch.object(heat.API, 'get_resource_type')
     @mock.patch.object(resource, 'update_plan_to_db')
+    @mock.patch.object(heat.API, 'get_resource_type')
     def test_update_plan_resource_by_editing_keypair(
             self, mock_get_res_type, mock_update_plan):
-        fake_plan = mock_fake_plan()
+        fake_plan = fake_object.mock_fake_plan()
         fake_resources = [{
             'action': 'edit',
             'public_key': 'new_public_key',
@@ -990,9 +430,9 @@ class ResourceManagerTestCase(test.TestCase):
                 self.context, fake_plan['plan_id'], resources=fake_resources)
             mock_update_plan.assert_called_once()
 
-    @mock.patch.object(heat.API, 'get_resource_type')
-    @mock.patch.object(nova.API, 'get_keypair')
     @mock.patch.object(resource, 'update_plan_to_db')
+    @mock.patch.object(nova.API, 'get_keypair')
+    @mock.patch.object(heat.API, 'get_resource_type')
     def test_update_plan_resource_by_changing_keypair(
             self, mock_get_res_type, mock_keypair, mock_update_plan):
         mock_keypair.return_value = {
@@ -1000,7 +440,7 @@ class ResourceManagerTestCase(test.TestCase):
             'name': 'new-keypair',
             'public_key': '12312313'
         }
-        fake_plan = mock_fake_plan()
+        fake_plan = fake_object.mock_fake_plan()
         fake_resources = [{
             'action': 'edit',
             'id': 'fake-new-keypair-id',
@@ -1014,11 +454,11 @@ class ResourceManagerTestCase(test.TestCase):
                 self.context, fake_plan['plan_id'], resources=fake_resources)
             mock_update_plan.assert_called_once()
 
-    @mock.patch.object(heat.API, 'get_resource_type')
     @mock.patch.object(resource, 'update_plan_to_db')
+    @mock.patch.object(heat.API, 'get_resource_type')
     def test_update_plan_resource_by_editing_secgroup(
             self, mock_get_res_type, mock_update_plan):
-        fake_plan = mock_fake_plan()
+        fake_plan = fake_object.mock_fake_plan()
         fake_resources = [{
             u'rules': [{
                 u'direction': u'ingress', u'protocol': u'icmp',
@@ -1036,9 +476,9 @@ class ResourceManagerTestCase(test.TestCase):
                 self.context, fake_plan['plan_id'], resources=fake_resources)
             mock_update_plan.assert_called_once()
 
-    @mock.patch.object(heat.API, 'get_resource_type')
-    @mock.patch.object(neutron.API, 'get_security_group')
     @mock.patch.object(resource, 'update_plan_to_db')
+    @mock.patch.object(neutron.API, 'get_security_group')
+    @mock.patch.object(heat.API, 'get_resource_type')
     def test_update_plan_resource_by_changing_secgroup(
             self, mock_get_res_type, mock_get_secgroup, mock_update_plan):
         mock_get_secgroup.return_value = {
@@ -1066,7 +506,7 @@ class ResourceManagerTestCase(test.TestCase):
             }],
             "name": "test-secgroup"
         }
-        fake_plan = mock_fake_plan()
+        fake_plan = fake_object.mock_fake_plan()
         fake_resources = [{
             u'description': u'',
             u'resource_id': u'security_group_0',
@@ -1092,7 +532,7 @@ class ResourceManagerTestCase(test.TestCase):
     @mock.patch.object(heat.API, 'get_resource_type')
     def test_update_plan_resource_without_new_id_or_rules(
             self, mock_get_res_type):
-        fake_plan = mock_fake_plan()
+        fake_plan = fake_object.mock_fake_plan()
         fake_resources = [{
             'action': 'edit',
             u'resource_type': u'OS::Neutron::SecurityGroup',
@@ -1106,33 +546,45 @@ class ResourceManagerTestCase(test.TestCase):
                 self.resource_manager.update_plan_resources,
                 self.context, fake_plan['plan_id'], resources=fake_resources)
 
-    # @mock.patch.object(heat.API, 'get_resource_type')
-    # @mock.patch.object(networks.NetworkResource, 'extract_floatingips')
-    # @mock.patch.object(resource, 'update_plan_to_db')
-    # def test_update_plan_resource_by_editing_fip(
-    #         self, mock_get_res_type, mock_fip, mock_update_plan):
-    #     # NOTE: By changing the ori floating ip
-    #     mock_fip.return_value = resource.Resource(
-    #         'floatingip_1', 'OS::Neutron::FloatingIP', 'fake-new-fip-id')
-    #     fake_plan = mock_fake_plan()
-    #     fake_resources = [{
-    #         'action': 'edit',
-    #         'id': 'fake-new-fip-id',
-    #         'resource_type': 'OS::Neutron::FloatingIP',
-    #         'resource_id': 'floatingip_0'
-    #     }]
-    #     with mock.patch.object(
-    #             resource, 'read_plan_from_db',
-    #             return_value=(fake_plan, resource.Plan.from_dict(fake_plan))):
-    #         self.resource_manager.update_plan_resources(
-    #             self.context, fake_plan['plan_id'], resources=fake_resources)
-    #         mock_update_plan.assert_called_once()
-
-    @mock.patch.object(heat.API, 'get_resource_type')
     @mock.patch.object(resource, 'update_plan_to_db')
+    @mock.patch.object(networks.NetworkResource, 'extract_floatingips')
+    @mock.patch.object(neutron.API, 'get_floatingip')
+    @mock.patch.object(network, 'API')
+    @mock.patch.object(heat.API, 'get_resource_type')
+    def test_update_plan_resource_by_editing_fip(
+            self, mock_get_res_type, mock_network_api, mock_get_fip,
+            mock_extract_fip, mock_update_plan):
+        # NOTE: By changing the ori floating ip
+        mock_get_fip.return_value = {
+            'floatingip_network_id': "new-floating-network-id",
+            'router_id': None,
+            "fixed_ip_address": None,
+            'floating_ip_address': '192.230.1.37',
+            'status': 'DOWN',
+            'port_id': None,
+            'id': 'new-floatingip-id'
+        }
+        mock_extract_fip.return_value = [resource.Resource(
+            'floatingip_new', 'OS::Neutron::FloatingIP', 'fake-new-fip-id')]
+        fake_plan = fake_object.mock_fake_plan()
+        fake_resources = [{
+            'action': 'edit',
+            'id': 'fake-new-fip-id',
+            'resource_type': 'OS::Neutron::FloatingIP',
+            'resource_id': 'floatingip_1'
+        }]
+        with mock.patch.object(
+                resource, 'read_plan_from_db',
+                return_value=(fake_plan, resource.Plan.from_dict(fake_plan))):
+            self.resource_manager.update_plan_resources(
+                self.context, fake_plan['plan_id'], resources=fake_resources)
+            mock_update_plan.assert_called_once()
+
+    @mock.patch.object(resource, 'update_plan_to_db')
+    @mock.patch.object(heat.API, 'get_resource_type')
     def test_update_plan_resource_by_editing_port(
             self, mock_get_res_type, mock_update_plan):
-        fake_plan = mock_fake_plan()
+        fake_plan = fake_object.mock_fake_plan()
         fake_resources = [{
             'action': 'edit',
             'resource_type': 'OS::Neutron::Port',
@@ -1151,12 +603,12 @@ class ResourceManagerTestCase(test.TestCase):
                 self.context, fake_plan['plan_id'], resources=fake_resources)
             mock_update_plan.assert_called_once()
 
+    @mock.patch.object(resource, 'update_plan_to_db')
     @mock.patch.object(heat.API, 'get_resource_type')
-    @mock.patch.object(manager.ResourceManager, '_update_port_resource')
     def test_update_pan_resource_editing_port_with_error_fixedip(
-            self, mock_get_res_type, mock_update_port):
+            self, mock_get_res_type, mock_plan_update):
         # 1. without fix_ips
-        fake_plan = mock_fake_plan()
+        fake_plan = fake_object.mock_fake_plan()
         fake_resources = [{
             'action': 'edit',
             'resource_type': 'OS::Neutron::Port',
@@ -1174,14 +626,13 @@ class ResourceManagerTestCase(test.TestCase):
                               self.context,
                               fake_plan['plan_id'],
                               resources=fake_resources)
-            mock_update_port.assert_called_once()
 
+    @mock.patch.object(resource, 'update_plan_to_db')
     @mock.patch.object(heat.API, 'get_resource_type')
-    @mock.patch.object(manager.ResourceManager, '_update_port_resource')
     def test_update_pan_resource_editing_port_without_valid_fixedips(
-            self, mock_get_res_type, mock_update_port):
+            self, mock_get_res_type, mock_plan_update):
         # 1. without fix_ips
-        fake_plan = mock_fake_plan()
+        fake_plan = fake_object.mock_fake_plan()
         fake_resources = [{
             'action': 'edit',
             'resource_type': 'OS::Neutron::Port',
@@ -1196,14 +647,13 @@ class ResourceManagerTestCase(test.TestCase):
                               self.context,
                               fake_plan['plan_id'],
                               resources=fake_resources)
-            mock_update_port.assert_called_once()
 
+    @mock.patch.object(resource, 'update_plan_to_db')
     @mock.patch.object(heat.API, 'get_resource_type')
-    @mock.patch.object(manager.ResourceManager, '_update_port_resource')
     def test_update_pan_resource_editing_port_with_unequal_num(
-            self, mock_get_res_type, mock_update_port):
+            self, mock_get_res_type, mock_plan_update):
         # 2. the number of updated fixed_ips is not equal to the ori number
-        fake_plan = mock_fake_plan()
+        fake_plan = fake_object.mock_fake_plan()
         fake_resources = [{
             'action': 'edit',
             'resource_type': 'OS::Neutron::Port',
@@ -1227,13 +677,12 @@ class ResourceManagerTestCase(test.TestCase):
                               self.context,
                               fake_plan['plan_id'],
                               resources=fake_resources)
-            mock_update_port.assert_called_once()
 
-    @mock.patch.object(heat.API, 'get_resource_type')
     @mock.patch.object(resource, 'update_plan_to_db')
+    @mock.patch.object(heat.API, 'get_resource_type')
     def test_update_plan_resource_by_editing_net(
             self, mock_get_res_type, mock_update_plan):
-        fake_plan = mock_fake_plan()
+        fake_plan = fake_object.mock_fake_plan()
         fake_resources = [{
             'action': 'edit',
             'resource_type': 'OS::Neutron::Net',
@@ -1249,11 +698,15 @@ class ResourceManagerTestCase(test.TestCase):
                 self.context, fake_plan['plan_id'], resources=fake_resources)
             mock_update_plan.assert_called_once()
 
-    @mock.patch.object(heat.API, 'get_resource_type')
-    @mock.patch.object(neutron.API, 'get_network')
     @mock.patch.object(resource, 'update_plan_to_db')
-    def tset_update_plan_resource_by_changing_net(
-            self, mock_get_res_type, mock_get_network, mock_update_plan):
+    @mock.patch.object(networks.NetworkResource, 'extract_nets')
+    @mock.patch.object(neutron.API, 'get_network')
+    @mock.patch.object(network, 'API')
+    @mock.patch.object(heat.API, 'get_resource_type')
+    def test_update_plan_resource_by_changing_net(
+            self, mock_get_res_type, mock_network_api,
+            mock_get_network, mock_extract_nets, mock_update_plan):
+        return
         mock_get_network.return_value = {
             "status": "ACTIVE", "router:external": False,
             "availability_zone_hints": [], "availability_zones": ["nova"],
@@ -1268,7 +721,11 @@ class ResourceManagerTestCase(test.TestCase):
             "mtu": 1450, "admin_state_up": True, "ipv4_address_scope": None,
             "shared": False, "provider:segmentation_id": 9867,
             "id": "1f1cd824-98d9-4e57-a90f-c68fbbc68bfc", "description": ""}
-        fake_plan = mock_fake_plan()
+        mock_extract_nets.return_value = [
+            resource.Resource('network_new',
+                              'OS::Neutron::Net',
+                              '1f1cd824-98d9-4e57-a90f-c68fbbc68bfc')]
+        fake_plan = fake_object.mock_fake_plan()
         fake_resources = [
             {
                 u'name': u'net-conveyor2',
@@ -1317,14 +774,38 @@ class ResourceManagerTestCase(test.TestCase):
                 self.context, fake_plan['plan_id'], resources=fake_resources)
             mock_update_plan.assert_called_once()
 
-    def test_update_plan_resource_by_editing_subnet(self):
+    @mock.patch.object(resource, 'update_plan_to_db')
+    @mock.patch.object(heat.API, 'get_resource_type')
+    def test_update_plan_resource_by_editing_subnet(
+            self, mock_get_res_type, mock_update_plan):
+        fake_plan = fake_object.mock_fake_plan()
+        fake_resources = [{
+            "name": "sub-conveyor-change",
+            "gateway_ip": "192.168.0.2",
+            "no_gateway": True,
+            "enable_dhcp": False,
+            "resource_type": "OS::Neutron::Subnet",
+            "resource_id": "subnet_0"}]
+        with mock.patch.object(
+                resource, 'read_plan_from_db',
+                return_value=(fake_plan, resource.Plan.from_dict(fake_plan))):
+            self.resource_manager.update_plan_resources(
+                self.context, fake_plan['plan_id'], fake_resources)
+            mock_update_plan.assert_called_once()
+
+    def test_update_plan_resource_by_changing_subnet(self):
+        # NOTE: This test for update plan resource by select another subnet
+        # from the original network.
+        # The other if case: select another subnet from some other network
+        # covers test case: test_update_plan_resource_by_changing_net, so here
+        # ignore this case.
         pass
 
-    @mock.patch.object(heat.API, 'get_resource_type')
     @mock.patch.object(resource, 'update_plan_to_db')
+    @mock.patch.object(heat.API, 'get_resource_type')
     def test_update_plan_resource_by_editing_volume(
             self, mock_get_res_type, mock_update_plan):
-        fake_plan = mock_fake_plan()
+        fake_plan = fake_object.mock_fake_plan()
         fake_resources = [{
             'action': 'edit',
             'size': '30',
@@ -1346,7 +827,7 @@ class ResourceManagerTestCase(test.TestCase):
         pass
 
     def test_update_plan_resource_with_unsupported_res_type(self):
-        fake_plan = mock_fake_plan()
+        fake_plan = fake_object.mock_fake_plan()
         fake_plan['updated_resources']['network_fake'] = {
             "name": "network_0",
             "parameters": {},
@@ -1385,7 +866,7 @@ class ResourceManagerTestCase(test.TestCase):
         pass
 
     def test_update_plan_resource_with_unkown_resources(self):
-        fake_plan = mock_fake_plan()
+        fake_plan = fake_object.mock_fake_plan()
         fake_resources = [{
             'action': 'edit',
             'size': '30',
@@ -1401,7 +882,7 @@ class ResourceManagerTestCase(test.TestCase):
                               fake_resources)
 
     def test_update_plan_resource_with_unexisted_resource(self):
-        fake_plan = mock_fake_plan()
+        fake_plan = fake_object.mock_fake_plan()
         fake_resources = [{
             'action': 'edit',
             'size': '30',
