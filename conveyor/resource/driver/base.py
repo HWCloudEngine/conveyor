@@ -18,6 +18,7 @@
 class resource(object):
     def __init__(self, context):
         self.context = context
+        self._tenant_id = self.context.project_id
         self._collected_resources = {}
         self._collected_parameters = {}
         self._collected_dependencies = {}
@@ -48,3 +49,9 @@ class resource(object):
             if res.name == name:
                 return res
         return None
+
+    def _tenant_filter(self, res):
+        tenant_id = res.get('tenant_id')
+        if not tenant_id:
+            raise "%s object has no attribute 'tenant_id' " % res.__class__
+        return tenant_id == self._tenant_id
