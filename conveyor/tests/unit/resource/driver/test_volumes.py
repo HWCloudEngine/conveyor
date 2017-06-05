@@ -46,7 +46,7 @@ fake_volume_type_dict = {
     "qos_specs_id": None,
     "extra_specs": {"availability-zone": "az02.ap-southeast-2--aws"},
     "os-volume-type-access:is_public": True,
-    "is_public":True,
+    "is_public": True,
     "id": "f45c9720-c75a-4483-b0dd-a285d3e6734c",
     "description": None
 }

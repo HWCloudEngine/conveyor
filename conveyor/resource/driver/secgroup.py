@@ -28,6 +28,7 @@ class SecGroup(base.resource):
 
     def __init__(self, context, collected_resources=None,
                  collected_parameters=None, collected_dependencies=None):
+        super(SecGroup, self).__init__(context)
         self.context = context
         self.neutron_api = network.API()
         self._collected_resources = collected_resources or {}
