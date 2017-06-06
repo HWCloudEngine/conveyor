@@ -522,7 +522,7 @@ class CloneManager(manager.Manager):
         plan = self.resource_api.get_plan_by_id(context, id)
         clone_resources = plan.get('updated_resources', {})
         self.clone_driver.reset_resources(context, clone_resources)
-        LOG.error('liuling end time of clone is %s' %
+        LOG.debug('end time of clone is %s' %
                   (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())))
 
     def _clone_stack(self, context, key, stack_info, plan_id, des):
@@ -533,13 +533,14 @@ class CloneManager(manager.Manager):
         template = stack_in['properties'].get('template')
         template_dict = json.loads(template)
         origin_template_dict = copy.deepcopy(template_dict)
-        disable_rollback = stack_in['properties'].pop('disable_rollback')
-        stack_name = stack_in['properties'].pop('stack_name')
-        stack_in['properties'].pop('parameters')
-        stack_in.pop('extra_properties')
-        stack_in.pop('parameters')
-        stack_in.pop('id')
-        stack_in.pop('name')
+        disable_rollback = stack_in['properties'].pop('disable_rollback',
+                                                      None)
+        stack_name = stack_in['properties'].pop('stack_name', None)
+        stack_in['properties'].pop('parameters', None)
+        stack_in.pop('extra_properties', None)
+        stack_in.pop('parameters', None)
+        stack_in.pop('id', None)
+        stack_in.pop('name', None)
         stack_in['properties']['template'], son_file_template = \
             self._get_template_contents(template_dict, des)
         stack_in['properties']['template'] = \
@@ -814,6 +815,7 @@ class CloneManager(manager.Manager):
                 if not rs_maganger:
                     continue
                 rs_maganger.start_template_migrate(context, key, src_template)
+            LOG.debug("Migrate resources end in clone manager")
             return stack_info['id']
         except Exception as e:
             LOG.error(_LE("Migrate resource error: %s"), e)
@@ -823,7 +825,6 @@ class CloneManager(manager.Manager):
                 self.heat_api.delete_stack(context, stack_info['id'],
                                            template.get('plan_id'))
             return None
-        LOG.debug("Migrate resources end in clone manager")
 
     def _create_resource_by_heat(self, context, template, state_map):
         # 1. remove the self-defined keys in template to generate heat template

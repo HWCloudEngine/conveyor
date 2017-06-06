@@ -28,11 +28,12 @@ from conveyor import exception
 from conveyor.resource import resource
 
 CONF = config.CONF
+
+
 # resource_from_dict = resource.Resource.from_dict
 
 
 class CloneManagerTestCase(test.TestCase):
-
     def setUp(self):
         super(CloneManagerTestCase, self).setUp()
         self.context = context.RequestContext('fake', 'fake', is_admin=False)
@@ -53,9 +54,9 @@ class CloneManagerTestCase(test.TestCase):
         self.clone_manager.heat_api.get_resource = mock.MagicMock()
         self.clone_manager.heat_api.get_resource.return_value = \
             api.Resource(api.format_resource(fake_constants.FAKE_RESOURCE))
-        self.clone_manager.clone_managers.get('volume').\
+        self.clone_manager.clone_managers.get('volume'). \
             start_template_clone = mock.MagicMock()
-        self.clone_manager.clone_managers.get('volume').\
+        self.clone_manager.clone_managers.get('volume'). \
             start_template_clone.return_value = None
         with test.nested(
                 mock.patch.object(
@@ -114,15 +115,32 @@ class CloneManagerTestCase(test.TestCase):
 
     @mock.patch.object(resource_api.ResourceAPI, "update_plan")
     @mock.patch.object(resource_api.ResourceAPI, "get_plan_by_id")
-    def test_clone(self, mock_plan, mock_update):
+    def test_clone_with_stack(self, mock_plan, mock_update):
         mock_plan.return_value = fake_constants.FAKE_PLAN
         mock_update.return_value = None
-        res = resource.Resource('test', 'test', 'test')
+        stack = fake_constants.FAKE_PLAN['updated_resources']['stack_0']
+        res = resource.Resource(
+            stack['name'], stack['type'],
+            stack['id'], properties=stack['properties'],
+            extra_properties=stack['extra_properties'],
+            parameters=stack['parameters'])
         manager.resource_from_dict = mock.MagicMock()
         manager.resource_from_dict.return_value = res
-        self.clone_manager.start_template_clone = mock.MagicMock()
-        self.clone_manager.start_template_clone.return_value = '123'
+        self.clone_manager.heat_api.create_stack = mock.MagicMock()
+        self.clone_manager.heat_api.create_stack.return_value = \
+            fake_constants.FAKE_STACK
+        db_api.plan_stack_create = mock.MagicMock()
+        db_api.plan_stack_create.return_value = None
+        with test.nested(
+                mock.patch.object(
+                    self.clone_manager.heat_api, 'get_stack',
+                    return_value=api.Stack(
+                        api.format_stack(fake_constants.FAKE_STACK_STATUS)))):
+            ret = self.clone_manager.clone(self.context, '123', 'az01', False)
+            self.assertEqual(None, ret)
 
+    def test_clone_without_stack(self):
+        pass
 
     def test_clone_error(self):
         pass
