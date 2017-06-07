@@ -554,7 +554,8 @@ class CloneManager(manager.Manager):
         stack_kwargs = dict(
             stack_name=stack_name + '-' + uuidutils.generate_uuid(),
             disable_rollback=disable_rollback,
-            template=heat_template
+            template=heat_template,
+            files=son_file_template
         )
         stack = None
         try:

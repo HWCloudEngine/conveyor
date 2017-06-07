@@ -168,13 +168,13 @@ class StackTemplateCloneDriver(object):
             # don't add system volume to bdms
             if not sys_clone and boot_index in [0, '0']:
                 continue
-            if not ext_properties.get('copy_data'):
+            volume_ext_properties = \
+                resources.get(vol_res_name).get('extra_properties')
+            if not volume_ext_properties.get('copy_data'):
                 continue
             # 3.2 get volume id
             volume_id = self._get_resource_id(context, vol_res_name, stack_id)
             v_volume['id'] = volume_id
-            volume_ext_properties = \
-                resources.get(vol_res_name).get('extra_properties')
             if volume_ext_properties:
                 v_volume['guest_format'] = \
                     volume_ext_properties.get('guest_format')

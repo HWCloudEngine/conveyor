@@ -286,6 +286,7 @@ UPDATED_TEMPLATE = {
                 'extra_properties': {
                     'status': 'in-use',
                     'guest_format': 'ext3',
+                    'copy_data': True,
                     'mount_point':
                         '/opt/8e330083-d795-4cef-86de-f69a7dd9076a',
                     'gw_id': 'e1cd1e68-d250-4924-8ef2-fd34c72dc696',
@@ -293,6 +294,72 @@ UPDATED_TEMPLATE = {
                     'sys_dev_name': '/dev/vdc',
                     'gw_url': '162.3.140.236:9998',
                     'id': '8e330083-d795-4cef-86de-f69a7dd9076a'
+                },
+                'id': '8e330083-d795-4cef-86de-f69a7dd9076a'
+            }
+        }
+    }
+}
+
+FAKE_INSTANCE_TEMPLATE = {
+    'plan_id': '60908ea1-d04f-43e4-a85d-1c0c419ae5a2',
+    'template': {
+        'resources': {
+            'server_0': {
+                'type': 'OS::Nova::Server',
+                'properties': {
+                    'block_device_mapping_v2': [{
+                        'boot_index': 0,
+                        'volume_id': {
+                            'get_resource': 'volume_1'
+                        },
+                        'device_name': '/dev/vda'
+                    }],
+                    'flavor': {
+                        'get_param': 'flavor_0'
+                    },
+                    'availability_zone': 'az03.dc1--fusionsphere',
+                    'networks': [{
+                        'port': {
+                            'get_resource': 'port_0'
+                        }
+                    }],
+                    'name': 'az01-test-1'
+                },
+                'extra_properties': {
+                    'vm_state': 'stopped',
+                    'sys_clone': False,
+                    'gw_id': '482b01e8-6702-4add-831b-2b66350d2b4d',
+                    'gw_url': '162.3.140.94:9998',
+                    'is_deacidized': True,
+                    'power_state': 4,
+                    'id': '2086ee4b-d6eb-4249-9c34-e45725f34105'
+                }
+            },
+            'volume_1': {
+                'type': 'OS::Cinder::Volume',
+                'properties': {
+                    'size': 20,
+                    'image': {
+                        'get_param': 'image_0'
+                    },
+                    'availability_zone': 'az03.dc1--fusionsphere',
+                    'name': '',
+                    'metadata': {
+                        '__hc_vol_id': 'e1dbc46b-ea55-481d-86bf-869c7c8a96fb',
+                        'readonly': 'False',
+                        '__openstack_region_name': 'az01.dc1--fusionsphere',
+                        'attached_mode': 'rw'
+                    }
+                },
+                'extra_properties': {
+                    'status': 'in-use',
+                    'boot_index': 0,
+                    'sys_clone': False,
+                    'copy_data': True,
+                    'is_deacidized': True,
+                    'gw_url': '162.3.140.94:9998',
+                    'id': '41f0374d-630e-475f-af9e-3dc693e3347c'
                 }
             }
         }
