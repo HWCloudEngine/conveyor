@@ -12,6 +12,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import json
 import mock
 import yaml
 
@@ -39,8 +40,39 @@ class CloneManagerTestCase(test.TestCase):
         self.context = context.RequestContext('fake', 'fake', is_admin=False)
         self.clone_manager = manager.CloneManager()
 
-    def test_start_template_clone(self):
+    def test_start_template_clone_with_cold(self):
         CONF.set_default('clone_migrate_type', 'cold')
+        self.clone_manager.heat_api.create_stack = mock.MagicMock()
+        self.clone_manager.heat_api.create_stack.return_value = \
+            fake_constants.FAKE_STACK
+        db_api.plan_stack_create = mock.MagicMock()
+        db_api.plan_stack_create.return_value = None
+        self.clone_manager.resource_api.update_plan = mock.MagicMock()
+        self.clone_manager.resource_api.update_plan.return_value = None
+        self.clone_manager.heat_api.events_list = mock.MagicMock()
+        self.clone_manager.heat_api.events_list.return_value = \
+            [api.Event(api.format_event(fake_constants.FAKE_EVENT_LIST))]
+        self.clone_manager.heat_api.get_resource = mock.MagicMock()
+        self.clone_manager.heat_api.get_resource.return_value = \
+            api.Resource(api.format_resource(fake_constants.FAKE_RESOURCE))
+        self.clone_manager.clone_managers.get('volume'). \
+            start_template_clone = mock.MagicMock()
+        self.clone_manager.clone_managers.get('volume'). \
+            start_template_clone.return_value = None
+        with test.nested(
+                mock.patch.object(
+                    self.clone_manager.heat_api, 'get_stack',
+                    return_value=api.Stack(
+                        api.format_stack(fake_constants.FAKE_STACK_STATUS))),
+                mock.patch.object(resource_api.ResourceAPI,
+                                  "get_plan_by_id")):
+            ret = self.clone_manager.start_template_clone(
+                self.context,
+                fake_constants.UPDATED_TEMPLATE)
+            self.assertEqual(fake_constants.FAKE_STACK['stack']['id'], ret)
+
+    def test_start_template_clone_with_live(self):
+        CONF.set_default('clone_migrate_type', 'live')
         self.clone_manager.heat_api.create_stack = mock.MagicMock()
         self.clone_manager.heat_api.create_stack.return_value = \
             fake_constants.FAKE_STACK
@@ -139,11 +171,53 @@ class CloneManagerTestCase(test.TestCase):
             ret = self.clone_manager.clone(self.context, '123', 'az01', False)
             self.assertEqual(None, ret)
 
-    def test_clone_without_stack(self):
-        pass
+    @mock.patch.object(resource_api.ResourceAPI, "update_plan")
+    @mock.patch.object(resource_api.ResourceAPI, "get_plan_by_id")
+    def test_clone_with_volume(self, mock_plan, mock_update):
+        mock_plan.return_value = fake_constants.FAKE_PLAN_VOLUME
+        mock_update.return_value = None
+        vol = \
+            fake_constants.FAKE_PLAN_VOLUME['updated_resources']['volume_0']
+        res = resource.Resource(
+            vol['name'], vol['type'],
+            vol['id'], properties=vol['properties'],
+            extra_properties=vol['extra_properties'],
+            parameters=vol['parameters'])
+        manager.resource_from_dict = mock.MagicMock()
+        manager.resource_from_dict.return_value = res
+        self.clone_manager.start_template_clone = mock.MagicMock()
+        self.clone_manager.start_template_clone.return_value = '123'
+        self.clone_manager.clone_driver.reset_resources = mock.MagicMock()
+        self.clone_manager.clone_driver.reset_resources.return_value = None
+        ret = self.clone_manager.clone(self.context, '123', 'az01', False)
+        self.assertEqual(None, ret)
 
-    def test_clone_error(self):
-        pass
+    @mock.patch.object(resource_api.ResourceAPI, "update_plan")
+    @mock.patch.object(resource_api.ResourceAPI, "get_plan_by_id")
+    def test_clone_with_port(self, mock_plan, mock_update):
+        mock_plan.return_value = fake_constants.FAKE_PLAN_PORT
+        mock_update.return_value = None
+        self.clone_manager.neutron_api.get_security_group = mock.MagicMock()
+        self.clone_manager.neutron_api.get_security_group.return_value = {}
+        self.clone_manager.neutron_api.get_subnet = mock.MagicMock()
+        self.clone_manager.neutron_api.get_subnet.return_value = {}
+        self.clone_manager.neutron_api.get_network = mock.MagicMock()
+        self.clone_manager.neutron_api.get_network.return_value = None
+        self.clone_manager.start_template_clone = mock.MagicMock()
+        self.clone_manager.start_template_clone.return_value = '123'
+        self.clone_manager.clone_driver.reset_resources = mock.MagicMock()
+        self.clone_manager.clone_driver.reset_resources.return_value = None
+        ret = self.clone_manager.clone(self.context, '123', 'az01', False)
+        self.assertEqual(None, ret)
+
+    @mock.patch.object(resource_api.ResourceAPI, "update_plan")
+    def test_clone_without_plan(self, mock_update):
+        mock_update.return_value = None
+        resource_api.ResourceAPI.get_plan_by_id = mock.MagicMock()
+        resource_api.ResourceAPI.get_plan_by_id.return_value = None
+        self.assertRaises(exception.PlanNotFound,
+                          self.clone_manager.clone,
+                          self.context, '123', 'az01', False)
 
     def test_migrate(self):
         pass
@@ -152,7 +226,17 @@ class CloneManagerTestCase(test.TestCase):
         pass
 
     def test_download_template(self):
-        pass
+        template = json.dumps({'heat_template_version': '2013-05-23'})
+        with mock.patch("__builtin__.open", create=True) as mock_open:
+            mock_open.return_value = \
+                mock.mock_open(read_data=template).return_value
+            ret = self.clone_manager.download_template(self.context, '123')
+            self.assertEqual(
+                {'template': {'heat_template_version': '2013-05-23'}}, ret)
 
     def test_download_template_error(self):
-        pass
+        with mock.patch("__builtin__.open", create=True) as mock_open:
+            mock_open.side_effect = IOError
+            self.assertRaises(
+                exception.DownloadTemplateFailed,
+                self.clone_manager.download_template, self.context, '123')

@@ -88,9 +88,9 @@ class CloneActionController(wsgi.Controller):
     @wsgi.response(202)
     @wsgi.action('clone')
     def _clone(self, req, id, body):
-        LOG.error('liuling begin time of clone is %s'
+        LOG.error('begin time of clone is %s'
                   % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())))
-        LOG.debug(" start execute clone plan in API,the plan id is %s" % id)
+        LOG.debug("start execute clone plan in API,the plan id is %s" % id)
         context = req.environ['conveyor.context']
         if not self.is_valid_body(body, 'clone'):
             LOG.debug("clone request body has not key:clone")

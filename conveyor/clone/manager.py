@@ -175,11 +175,11 @@ class CloneManager(manager.Manager):
         # 1. remove the self-defined keys in template to generate heat template
         src_template = copy.deepcopy(template.get('template'))
         try:
-            LOG.error('liuling begin time of heat create resource is %s'
+            LOG.error('begin time of heat create resource is %s'
                       % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())))
             stack = self._create_resource_by_heat(context, template,
                                                   plan_status.STATE_MAP)
-            LOG.error('liuling end time of heat create resource is %s'
+            LOG.error('end time of heat create resource is %s'
                       % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())))
         except Exception as e:
             LOG.error("Heat create resource error: %s", e)
@@ -490,7 +490,7 @@ class CloneManager(manager.Manager):
                         neutronclient_exceptions.NotFound,
                         cinderclient_exceptions.NotFound):
                     pass
-        template = {
+        clone_template = {
             "template": {
                 "heat_template_version": '2013-05-23',
                 "description": "clone template",
@@ -499,8 +499,8 @@ class CloneManager(manager.Manager):
             },
             "plan_id": id
         }
-        LOG.debug("The template is  %s ", template)
-        stack_id = self.start_template_clone(context, template)
+        LOG.debug("The template is  %s ", clone_template)
+        stack_id = self.start_template_clone(context, clone_template)
         if not stack_id:
             LOG.error(_LE('Clone template error'))
             self.resource_api.update_plan(context, id,
@@ -782,13 +782,13 @@ class CloneManager(manager.Manager):
         LOG.debug("Migrate resources start in clone manager")
         src_template = copy.deepcopy(template.get('template'))
         try:
-            LOG.error(_LE('Liuling begin time of migrate'
+            LOG.error(_LE('begin time of migrate'
                           'create resource is %s')
                       % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())))
             stack = self._create_resource_by_heat(
                 context, template,
                 plan_status.MIGRATE_STATE_MAP)
-            LOG.error('Liuling end time of migrate create resource is %s' %
+            LOG.error('end time of migrate create resource is %s' %
                       (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())))
         except Exception as e:
             LOG.error(_LE("Heat create resource error: %s"), e)
@@ -1088,7 +1088,7 @@ class CloneManager(manager.Manager):
         self._clear(context, resource_map)
         self.resource_api.update_plan(context, id,
                                       {'plan_status': plan_status.FINISHED})
-        LOG.error('Liuling begin time of migrate is %s' %
+        LOG.error('begin time of migrate is %s' %
                   (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())))
 
     def _judge_resource_exist(self, context, cb, resource_id):
@@ -1404,8 +1404,7 @@ class CloneManager(manager.Manager):
                 stack_resources.pop(k)
                 parameter[k] = copy.deepcopy(default_parameter)
                 vol_res_name.append(k)
-            # if clone system volume, remove volume
-                # image info
+            # if clone system volume, remove volume image info
             if 'OS::Cinder::Volume' == res_type:
                     ext_properties = res.get('extra_properties')
                     sys_clone = ext_properties.get('sys_clone')
@@ -1421,6 +1420,7 @@ class CloneManager(manager.Manager):
                 res.pop('extra_properties')
 
         LOG.debug('Code clone volume for %s', volume_template)
+        stack_id = None
         if volume_resources:
             try:
                 # 3. deploy volumes template
@@ -1524,7 +1524,7 @@ class CloneManager(manager.Manager):
                         type_properties = type_res.get('properties')
                         qos_id = type_properties.get('qos_specs_id')
                         if qos_id and isinstance(qos_id, dict):
-                            for qos_key, qos_name in qos_id.items(qos_id):
+                            for qos_key, qos_name in qos_id.items():
                                 if 'get_resource' == qos_key:
                                     qos_res = volume_resources.get(qos_name)
                                     # add qos to new template
@@ -1543,6 +1543,7 @@ class CloneManager(manager.Manager):
         for key, res in volume_resources.items():
             if 'extra_properties' in res:
                 res.pop('extra_properties')
+        stack_id = None
         if sys_resources:
             try:
                 # 3. deploy new(volumes) template

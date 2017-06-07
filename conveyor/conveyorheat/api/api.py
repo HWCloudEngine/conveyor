@@ -38,17 +38,17 @@ from conveyor.db import api as db_api
 
 LOG = logging.getLogger(__name__)
 
-heat_opts = [
-    cfg.StrOpt('heat_url',
-               default='https://127.0.0.1:8700/v1',
-               help='Default heat URL',
-               deprecated_group='DEFAULT',
-               deprecated_name='heat_url')
-    ]
+# heat_opts = [
+#     cfg.StrOpt('heat_url',
+#                default='https://127.0.0.1:8700/v1',
+#                help='Default heat URL',
+#                deprecated_group='DEFAULT',
+#                deprecated_name='heat_url')
+#     ]
 
 CONF = cfg.CONF
 
-CONF.register_opts(heat_opts, 'heat')
+# CONF.register_opts(heat_opts, 'heat')
 # Mapping of V2 Catalog Endpoint_type to V3 Catalog Interfaces
 ENDPOINT_TYPE_TO_INTERFACE = {
     'publicURL': 'public',

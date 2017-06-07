@@ -53,9 +53,9 @@ class MigrateActionController(wsgi.Controller):
     @wsgi.response(202)
     @wsgi.action('migrate')
     def _migrate(self, req, id, body):
-        LOG.error('liuling begin time of migrate is %s'
+        LOG.error('begin time of migrate is %s'
                   % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())))
-        LOG.debug(" start execute migrate plan in API,the plan id is %s" % id)
+        LOG.debug("start execute migrate plan in API,the plan id is %s" % id)
         context = req.environ['conveyor.context']
         if not self.is_valid_body(body, 'migrate'):
             LOG.debug("migrate request body has not key:migrate")
