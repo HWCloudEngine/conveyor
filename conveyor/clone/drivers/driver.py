@@ -154,10 +154,10 @@ class BaseDriver(object):
         diff_disk = n_disks - disks
         resource.extra_properties['status'] = 'in-use'
         LOG.debug('Begin get info for volume,the vgw ip %s' % gw_ip)
-        client = birdiegatewayclient.get_birdiegateway_client(
-            gw_ip,
-            str(CONF.v2vgateway_api_listen_port)
-        )
+        # client = birdiegatewayclient.get_birdiegateway_client(
+        #     gw_ip,
+        #     str(CONF.v2vgateway_api_listen_port)
+        # )
         # sys_dev_name = client.vservices.get_disk_name(volume_id).get(
         #                 'dev_name')
         # sys_dev_name = device_name
