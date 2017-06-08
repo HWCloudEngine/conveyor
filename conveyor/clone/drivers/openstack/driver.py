@@ -206,6 +206,7 @@ class OpenstackDriver(driver.BaseDriver):
                 block_device_mapping = server_properties.get(
                     'block_device_mapping_v2')
                 if block_device_mapping:
+                    client = None
                     if gw_url:
                         gw_urls = gw_url.split(':')
                         client = birdiegatewayclient.get_birdiegateway_client(
@@ -229,6 +230,8 @@ class OpenstackDriver(driver.BaseDriver):
                             if not d_copy:
                                 continue
                         # need to check the vm disk name
+                        if not client:
+                            continue
                         src_dev_format = client.vservices.\
                             get_disk_format(device_name).get('disk_format')
                         src_mount_point = client.\

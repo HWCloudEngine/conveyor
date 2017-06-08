@@ -307,6 +307,8 @@ FAKE_INSTANCE_TEMPLATE = {
         'resources': {
             'server_0': {
                 'type': 'OS::Nova::Server',
+                'name': 'az01-test-1',
+                'id': '2086ee4b-d6eb-4249-9c34-e45725f34105',
                 'properties': {
                     'block_device_mapping_v2': [{
                         'boot_index': 0,
@@ -338,6 +340,7 @@ FAKE_INSTANCE_TEMPLATE = {
             },
             'volume_1': {
                 'type': 'OS::Cinder::Volume',
+                'name': '',
                 'properties': {
                     'size': 20,
                     'image': {
@@ -360,7 +363,8 @@ FAKE_INSTANCE_TEMPLATE = {
                     'is_deacidized': True,
                     'gw_url': '162.3.140.94:9998',
                     'id': '41f0374d-630e-475f-af9e-3dc693e3347c'
-                }
+                },
+                'id': '41f0374d-630e-475f-af9e-3dc693e3347c'
             }
         }
     }
