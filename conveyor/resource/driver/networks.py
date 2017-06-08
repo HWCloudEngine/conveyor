@@ -31,8 +31,8 @@ class NetworkResource(base.resource):
 
     def __init__(self, context, collected_resources=None,
                  collected_parameters=None, collected_dependencies=None):
+        super(NetworkResource, self).__init__(context)
         self.context = context
-        self._tenant_id = self.context.project_id
         self.neutron_api = network.API()
         self._collected_resources = collected_resources or {}
         self._collected_parameters = collected_parameters or {}
@@ -903,8 +903,7 @@ class NetworkResource(base.resource):
             raise exception.ResourceNotFound(message=msg)
 
         if not net:
-            msg = "Network resource <%s> could not be found. %s" \
-                        % (net_id, unicode(e))
+            msg = "Network resource <%s> could not be found. " % net_id
             LOG.error(msg)
             raise exception.ResourceNotFound(message=msg)
 
@@ -968,9 +967,3 @@ class NetworkResource(base.resource):
             rule = dict((k, v) for k, v in rule.items() if v is not None)
             brules.append(rule)
         return brules, dependencies
-
-    def _tenant_filter(self, res):
-        tenant_id = res.get('tenant_id')
-        if not tenant_id:
-            raise "%s object has no attribute 'tenant_id' " % res.__class__
-        return tenant_id == self._tenant_id

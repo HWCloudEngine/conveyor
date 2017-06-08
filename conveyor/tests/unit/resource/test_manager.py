@@ -12,10 +12,15 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import __builtin__
 import copy
 import mock
+import sys
 import yaml
+
+if sys.version_info >= (3, 0):
+    import builtins as builtin
+else:
+    import __builtin__ as builtin
 
 from oslo_utils import fileutils
 from oslo_utils import uuidutils
@@ -30,8 +35,8 @@ from conveyor.resource.driver import instances
 from conveyor.resource.driver import networks
 from conveyor.resource import manager
 from conveyor.resource import resource
-from conveyor.tests.unit.resource import fake_object
 from conveyor.tests import test
+from conveyor.tests.unit.resource import fake_object
 from conveyor.volume import cinder
 
 
@@ -175,7 +180,7 @@ class ResourceManagerTestCase(test.TestCase):
         pass
 
     @mock.patch.object(yaml, 'safe_dump')
-    @mock.patch.object(__builtin__, 'open')
+    @mock.patch.object(builtin, 'open')
     @mock.patch.object(resource, 'update_plan_to_db')
     def test_build_plan_by_template(self, mock_plan_update, mock_open,
                                     mock_yaml_dump):
@@ -247,7 +252,7 @@ class ResourceManagerTestCase(test.TestCase):
     @mock.patch.object(heat.API, 'clear_table')
     def test_delete_plan(self, mock_plan_get, mock_plan_update,
                          mock_file_delete, mock_clear_table):
-        # TODO
+        # TODO(drngsl)
         mock_plan_get.return_value = fake_object.mock_fake_plan()
         self.resource_manager.delete_plan(self.context, 'fake-id')
         pass
