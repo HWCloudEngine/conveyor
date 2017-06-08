@@ -33,6 +33,7 @@ from conveyor import network
 from conveyor.network import neutron
 from conveyor.resource.driver import instances
 from conveyor.resource.driver import networks
+from conveyor.resource.driver import volumes
 from conveyor.resource import manager
 from conveyor.resource import resource
 from conveyor.tests import test
@@ -59,6 +60,48 @@ def mock_extract_instances(self, instance_ids=None):
 
         self._collected_resources[instance_id] = instance_resources
         self._collected_dependencies[instance_id] = instance_dependencies
+
+
+def mock_extract_networks(self, network_ids=None):
+    for net_id in network_ids:
+        net_resource = self._collected_resources.get(net_id)
+        if net_resource:
+            continue
+
+        resource_type = "OS::Neutron::Net"
+        resource_name = "server_%d" % self._get_resource_num(resource_type)
+        net_resource = resource.Resource(resource_name,
+                                         resource_type,
+                                         net_id, properties={})
+        name = 'volume_%s' % net_id
+        net_dependency = resource.ResourceDependency(net_id,
+                                                     name,
+                                                     resource_name,
+                                                     resource_type)
+
+        self._collected_resources[net_id] = net_resource
+        self._collected_dependencies[net_id] = net_dependency
+
+
+def mock_extract_volumes(self, volume_ids=None):
+    for volume_id in volume_ids:
+        volume_resource = self._collected_resources.get(volume_id)
+        if volume_resource:
+            continue
+
+        resource_type = "OS::Cinder::Volume"
+        resource_name = "server_%d" % self._get_resource_num(resource_type)
+        volume_resource = resource.Resource(resource_name,
+                                            resource_type,
+                                            volume_id, properties={})
+        name = 'volume_%s' % volume_id
+        instance_dependency = resource.ResourceDependency(volume_id,
+                                                          name,
+                                                          resource_name,
+                                                          resource_type)
+
+        self._collected_resources[volume_id] = volume_resource
+        self._collected_dependencies[volume_id] = instance_dependency
 
 
 class ResourceManagerTestCase(test.TestCase):
@@ -142,6 +185,36 @@ class ResourceManagerTestCase(test.TestCase):
         mock_save_plan.assert_called_with(self.context, manager.plan_file_dir,
                                           new_plan.to_dict())
 
+    @mock.patch.object(networks.NetworkResource, 'extract_networks_resource',
+                       mock_extract_networks)
+    @mock.patch.object(resource, 'save_plan_to_db')
+    def test_create_plan_for_network(self, mock_save_plan):
+        fake_plan_type = 'clone'
+        fake_resources = [{'type': 'OS::Neutron::Net', 'id': 'net0'}]
+        result = self.resource_manager.create_plan(self.context,
+                                                   fake_plan_type,
+                                                   fake_resources)
+        self.assertTrue(2 == len(result))
+        new_plan = manager._plans[result[0]]
+        self.assertEqual(result[0], new_plan.plan_name)
+        mock_save_plan.assert_called_with(self.context, manager.plan_file_dir,
+                                          new_plan.to_dict())
+
+    @mock.patch.object(volumes.Volume, 'extract_volumes',
+                       mock_extract_volumes)
+    @mock.patch.object(resource, 'save_plan_to_db')
+    def test_create_plan_for_volume(self, mock_save_plan):
+        fake_plan_type = 'clone'
+        fake_resources = [{'type': 'OS::Cinder::Volume', 'id': 'volume0'}]
+        result = self.resource_manager.create_plan(self.context,
+                                                   fake_plan_type,
+                                                   fake_resources)
+        self.assertTrue(2 == len(result))
+        new_plan = manager._plans[result[0]]
+        self.assertEqual(result[0], new_plan.plan_name)
+        mock_save_plan.assert_called_with(self.context, manager.plan_file_dir,
+                                          new_plan.to_dict())
+
     @mock.patch.object(instances.InstanceResource, 'extract_instances',
                        mock_extract_instances)
     @mock.patch.object(resource, 'save_plan_to_db')
@@ -156,6 +229,24 @@ class ResourceManagerTestCase(test.TestCase):
         self.assertTrue(2 == len(result))
         new_plan = manager._plans[result[0]]
         self.assertEqual(fake_plan_name, new_plan.plan_name)
+
+    @mock.patch.object(instances.InstanceResource, 'extract_instances',
+                       mock_extract_instances)
+    @mock.patch.object(resource, 'save_plan_to_db')
+    def test_create_migrate_plan(self, mock_save_plan):
+        fake_plan_type = 'migrate'
+        fake_plan_name = 'fake-mame'
+        fake_resources = [{'type': 'OS::Nova::Server', 'id': 'server0'}]
+        result = self.resource_manager.create_plan(self.context,
+                                                   fake_plan_type,
+                                                   fake_resources,
+                                                   fake_plan_name)
+        self.assertTrue(2 == len(result))
+        new_plan = manager._plans[result[0]]
+        self.assertFalse(len(new_plan.updated_resources))
+        self.assertFalse(len(new_plan.updated_dependencies))
+        mock_save_plan.assert_called_with(self.context, manager.plan_file_dir,
+                                          new_plan.to_dict())
 
     def test_create_plan_without_valid_resource(self):
         fake_plan_type = 'clone'
@@ -229,12 +320,6 @@ class ResourceManagerTestCase(test.TestCase):
 
     def test_get_plan_by_id(self):
         fake_plan = fake_object.mock_fake_plan()
-        # fake_plan = resource.Plan(plan_id=fake_plan_id, plan_type='clone',
-        #                           project_id='conveyor', user_id='conveyor',
-        #                           original_resources={},
-        #                           updated_resources={},
-        #                           original_dependencies={},
-        #                           updated_dependencies={})
         fake_plan_id = fake_plan['plan_id']
         with mock.patch.object(
                 resource, 'read_plan_from_db',
@@ -246,15 +331,19 @@ class ResourceManagerTestCase(test.TestCase):
                 self.context, fake_plan_id, detail=False)
             self.assertTrue('original_resources' not in result2)
 
-    @mock.patch.object(manager.ResourceManager, 'get_plan_by_id')
-    @mock.patch.object(resource, 'update_plan_to_db')
-    @mock.patch.object(fileutils, 'delete_if_exists')
     @mock.patch.object(heat.API, 'clear_table')
+    @mock.patch.object(fileutils, 'delete_if_exists')
+    @mock.patch.object(resource, 'update_plan_to_db')
+    @mock.patch.object(manager.ResourceManager, 'get_plan_by_id')
     def test_delete_plan(self, mock_plan_get, mock_plan_update,
                          mock_file_delete, mock_clear_table):
-        # TODO(drngsl)
         mock_plan_get.return_value = fake_object.mock_fake_plan()
-        self.resource_manager.delete_plan(self.context, 'fake-id')
+        self.resource_manager.delete_plan(self.context, 'plan_id')
+        mock_clear_table.assert_called_with(self.context, '', 'plan_id')
+
+    def test_delete_unexisted_plan(self):
+        # TODO(drngsl)
+        # switch 'if not plan' is not reachable
         pass
 
     @mock.patch.object(fileutils, 'delete_if_exists', side_effect=OSError)
