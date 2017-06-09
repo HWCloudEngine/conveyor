@@ -98,7 +98,8 @@ class OpenstackDriverTestCase(test.TestCase):
         self.manager.compute_api.migrate_interface_detach = mock.MagicMock()
         self.manager.compute_api.migrate_interface_detach.return_value = None
         mock_client.return_value = birdiegatewayclient.Client()
-        mock_client.return_value.vservices._force_umount_disk = mock.MagicMock()
+        mock_client.return_value.vservices._force_umount_disk = \
+            mock.MagicMock()
         mock_client.return_value.vservices._force_umount_disk.return_value = \
             None
         self.manager.compute_api.stop_server = mock.MagicMock()
