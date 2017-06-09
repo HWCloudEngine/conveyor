@@ -16,15 +16,15 @@ import mock
 
 from conveyor.clone.drivers import driver as base_driver
 from conveyor.clone.drivers.openstack import driver
+from conveyor.clone.resources import common
 from conveyor.common import config
-from conveyor.common import plan_status
-from conveyor.conveyoragentclient.v1 import client as conveyorclient
+from conveyor.conveyoragentclient.v1 import client as birdiegatewayclient
+from conveyor.conveyorheat.api import api
 from conveyor.resource import resource
 from conveyor.tests import test
 from conveyor.tests.unit import fake_constants
 
 from conveyor import context
-from conveyor import exception
 from conveyor import utils
 
 CONF = config.CONF
@@ -74,10 +74,54 @@ class OpenstackDriverTestCase(test.TestCase):
                 False, True, undo_mgr))
 
     def test_add_extra_properties_for_stack(self):
-        pass
+        undo_mgr = utils.UndoManager()
+        template = fake_constants.FAKE_PLAN['updated_resources']
+        stack = resource.Resource.from_dict(template['stack_0'])
+        self.manager.heat_api.get_resource = mock.MagicMock()
+        self.manager.heat_api.get_resource.return_value = \
+            api.Resource(api.format_resource(fake_constants.FAKE_RESOURCE))
+        self.manager.compute_api.get_server = mock.MagicMock()
+        self.manager.compute_api.get_server.return_value = \
+            {'OS-EXT-STS:vm_state': 'active'}
+        self.assertEqual(
+            None,
+            self.manager.add_extra_properties_for_stack(
+                self.context, stack, undo_mgr
+            ))
 
-    def test_handle_server_after_clone(self):
-        pass
+    @mock.patch.object(base_driver.BaseDriver, '_wait_for_volume_status')
+    @mock.patch.object(birdiegatewayclient, 'get_birdiegateway_client')
+    def test_handle_server_after_clone(self, mock_client, mock_wait):
+        template = \
+            fake_constants.FAKE_INSTANCE_TEMPLATE['template']['resources']
+        template['volume_1']['extra_properties']['sys_clone'] = True
+        self.manager.compute_api.migrate_interface_detach = mock.MagicMock()
+        self.manager.compute_api.migrate_interface_detach.return_value = None
+        mock_client.return_value = birdiegatewayclient.Client()
+        mock_client.return_value.vservices._force_umount_disk = mock.MagicMock()
+        mock_client.return_value.vservices._force_umount_disk.return_value = \
+            None
+        self.manager.compute_api.stop_server = mock.MagicMock()
+        self.manager.compute_api.stop_server.return_value = None
+        self.manager.compute_api.detach_volume = mock.MagicMock()
+        self.manager.compute_api.detach_volume.return_value = None
+        common.ResourceCommon._await_instance_status = mock.MagicMock()
+        common.ResourceCommon._await_instance_status.return_value = None
+        self.manager.compute_api.attach_volume = mock.MagicMock()
+        self.manager.compute_api.attach_volume.return_value = None
+        self.manager.compute_api.start_server = mock.MagicMock()
+        self.manager.compute_api.start_server.return_value = None
+        self.assertEqual(
+            None,
+            self.manager.handle_server_after_clone(
+                self.context, template['server_0'], template
+            ))
 
     def test_handle_stack_after_clone(self):
-        pass
+        template = \
+            fake_constants.FAKE_PLAN['updated_resources']['stack_0']
+        self.assertEqual(
+            None,
+            self.manager.handle_stack_after_clone(
+                self.context, template, {}
+            ))

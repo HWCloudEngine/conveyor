@@ -57,8 +57,8 @@ class VolumeCloneDriverTestCase(test.TestCase):
             mock.MagicMock()
         mock_client.return_value.vservices._force_umount_disk.return_value = \
             None
-        common.ResourceCommon = mock.MagicMock()
-        common.ResourceCommon.return_value = common.ResourceCommon()
+        # common.ResourceCommon = mock.MagicMock()
+        # common.ResourceCommon.return_value = common.ResourceCommon()
         self.manager.compute_api.stop_server = mock.MagicMock()
         self.manager.compute_api.stop_server.return_value = None
         common.ResourceCommon._await_instance_status = mock.MagicMock()

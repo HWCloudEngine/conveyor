@@ -92,27 +92,27 @@ class BaseDriverTestCase(test.TestCase):
                 template['resources']['volume_1'], 'volume_1',
                 template['resources']))
 
-    # def test_handle_volume_after_clone(self):
-    #     template = fake_constants.FAKE_INSTANCE_TEMPLATE['template']
-    #     common.ResourceCommon = mock.MagicMock()
-    #     common.ResourceCommon.return_value = common.ResourceCommon()
-    #     common.ResourceCommon._await_instance_status = mock.MagicMock()
-    #     common.ResourceCommon._await_instance_status.return_value = None
-    #     self.manager.compute_api.stop_server = mock.MagicMock()
-    #     self.manager.compute_api.stop_server.return_value = None
-    #     self.manager.compute_api.detach_volume = mock.MagicMock()
-    #     self.manager.compute_api.detach_volume.return_value = None
-    #     self.manager.volume_api.get = mock.MagicMock()
-    #     self.manager.volume_api.get.return_value = \
-    #         {'status': 'available',
-    #          'shareable': True,
-    #          'attachments': []}
-    #     self.manager.compute_api.start_server = mock.MagicMock()
-    #     self.manager.compute_api.start_server.return_value = None
-    #
-    #     self.assertEqual(
-    #         None,
-    #         self.manager.handle_volume_after_clone(
-    #             self.context,
-    #             template['resources']['volume_1'], 'volume_1',
-    #             template['resources']))
+    def test_handle_volume_after_clone(self):
+        template = fake_constants.FAKE_INSTANCE_TEMPLATE['template']
+        # common.ResourceCommon = mock.MagicMock()
+        # common.ResourceCommon.return_value = common.ResourceCommon()
+        common.ResourceCommon._await_instance_status = mock.MagicMock()
+        common.ResourceCommon._await_instance_status.return_value = None
+        self.manager.compute_api.stop_server = mock.MagicMock()
+        self.manager.compute_api.stop_server.return_value = None
+        self.manager.compute_api.detach_volume = mock.MagicMock()
+        self.manager.compute_api.detach_volume.return_value = None
+        self.manager.volume_api.get = mock.MagicMock()
+        self.manager.volume_api.get.return_value = \
+            {'status': 'available',
+             'shareable': True,
+             'attachments': []}
+        self.manager.compute_api.start_server = mock.MagicMock()
+        self.manager.compute_api.start_server.return_value = None
+
+        self.assertEqual(
+            None,
+            self.manager.handle_volume_after_clone(
+                self.context,
+                template['resources']['volume_1'], 'volume_1',
+                template['resources']))
