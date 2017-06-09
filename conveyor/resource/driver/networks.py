@@ -22,6 +22,7 @@ from oslo_utils import uuidutils
 from conveyor import exception
 from conveyor import network
 from conveyor.resource.driver import base
+from conveyor.resource.driver import secgroup
 from conveyor.resource import resource
 
 LOG = logging.getLogger(__name__)
@@ -659,77 +660,13 @@ class NetworkResource(base.resource):
 
     def extract_secgroups(self, secgroup_ids):
 
-        secgroup_objs = []
-        secgroupResources = []
-
-        if not secgroup_ids:
-            LOG.debug('Extract resources of security groups')
-            secgroup_list = self.neutron_api.secgroup_list(self.context)
-            secgroup_objs = filter(self._tenant_filter, secgroup_list)
-        else:
-            LOG.debug('Extract resources of security groups: %s',
-                      secgroup_ids)
-            # remove duplicate secgroups
-            secgroup_ids = {}.fromkeys(secgroup_ids).keys()
-            for sec_id in secgroup_ids:
-                try:
-                    sec = self.neutron_api.get_security_group(self.context,
-                                                              sec_id)
-                    secgroup_objs.append(sec)
-                except Exception as e:
-                    msg = "SecurityGroup resource <%s> could " \
-                          "not be found. %s" % (sec_id, unicode(e))
-                    LOG.error(msg)
-                    raise exception.ResourceNotFound(message=msg)
-
-        for sec in secgroup_objs:
-            sec_id = sec.get('id')
-            sec_res = self._collected_resources.get(sec_id)
-            if sec_res:
-                secgroupResources.append(sec_res)
-                continue
-
-            if sec.get('name') == 'default':
-                sec['name'] = '_default'
-
-            properties = {
-                'description': sec.get('description'),
-                'name': sec.get('name'),
-            }
-
-            resource_type = "OS::Neutron::SecurityGroup"
-            resource_name = 'security_group_%d' % \
-                self._get_resource_num(resource_type)
-            sec_res = resource.Resource(resource_name, resource_type,
-                                        sec_id, properties=properties)
-
-            # Put secgroup into collected_resources first before
-            # extracting rules to avoid recycle dependencies.
-            self._collected_resources[sec_id] = sec_res
-
-            # Extract secgroup rules.
-            rules, dependencies = \
-                self._build_rules(sec.get('security_group_rules'))
-            self._collected_resources[sec_id].add_property('rules', rules)
-
-            # remove duplicate dependencies
-            dependencies = {}.fromkeys(dependencies).keys()
-            sec_dep = resource.ResourceDependency(sec_id, sec.get('name'),
-                                                  resource_name,
-                                                  resource_type,
-                                                  dependencies=dependencies)
-
-            self._collected_dependencies[sec_id] = sec_dep
-            secgroupResources.append(sec_res)
-
-        if secgroup_ids and not secgroupResources:
-            msg = "Security group resource extracted failed, \
-                   can't find the Security group with id of %s." % \
-                    secgroup_ids
-            LOG.error(msg)
-            raise exception.ResourceNotFound(message=msg)
-
-        return secgroupResources
+        collected_dependencies = self._collected_dependencies
+        nr = secgroup.SecGroup(
+                    self.context,
+                    collected_resources=self._collected_resources,
+                    collected_parameters=self._collected_parameters,
+                    collected_dependencies=collected_dependencies)
+        return nr.extract_secgroups(secgroup_ids)
 
     def extract_networks_resource(self, net_ids):
 
@@ -946,24 +883,3 @@ class NetworkResource(base.resource):
         self._collected_dependencies[net_id] = net_dep
 
         return net.get('subnets'), resource_name
-
-    def _build_rules(self, rules):
-        brules = []
-        dependencies = []
-        for rule in rules:
-            if rule.get('protocol') == 'any':
-                del rule['protocol']
-            # Only extract secgroups in first level,
-            # ignore the dependent secgroup.
-            rg_id = rule.get('remote_group_id')
-            if rg_id is not None:
-                rule['remote_mode'] = "remote_group_id"
-                if rg_id == rule.get('security_group_id'):
-                    del rule['remote_group_id']
-
-            del rule['tenant_id']
-            del rule['id']
-            del rule['security_group_id']
-            rule = dict((k, v) for k, v in rule.items() if v is not None)
-            brules.append(rule)
-        return brules, dependencies

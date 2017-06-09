@@ -26,7 +26,7 @@ from conveyor.api.wsgi import wsgi
 from conveyor.common import plan_status as p_status
 from conveyor.common import template_format
 from conveyor.i18n import _
-from conveyor.resource import api as resource_api
+from conveyor.plan import api as plan_api
 
 LOG = logging.getLogger(__name__)
 
@@ -36,7 +36,7 @@ class Controller(wsgi.Controller):
 
     def __init__(self, ext_mgr):
         self.ext_mgr = ext_mgr
-        self._resource_api = resource_api.ResourceAPI()
+        self._plan_api = plan_api.PlanAPI()
         super(Controller, self).__init__()
 
     def show(self, req, id):
@@ -49,7 +49,7 @@ class Controller(wsgi.Controller):
         context = req.environ['conveyor.context']
 
         try:
-            plan = self._resource_api.get_plan_by_id(context, id)
+            plan = self._plan_api.get_plan_by_id(context, id)
             return {"plan": plan}
         except Exception as e:
             LOG.error(unicode(e))
@@ -94,9 +94,9 @@ class Controller(wsgi.Controller):
 
         try:
             plan_id, dependencies = \
-                self._resource_api.create_plan(context, params.get('type'),
-                                               resources,
-                                               plan_name=plan_name)
+                self._plan_api.create_plan(context, params.get('type'),
+                                           resources,
+                                           plan_name=plan_name)
             return {'plan': {'plan_id': plan_id,
                              'original_dependencies': dependencies}}
         except Exception as e:
@@ -133,8 +133,8 @@ class Controller(wsgi.Controller):
             raise exc.HTTPBadRequest(explanation=msg)
 
         try:
-            plan = self._resource_api.create_plan_by_template(context,
-                                                              template)
+            plan = self._plan_api.create_plan_by_template(context,
+                                                          template)
             return {"plan": plan}
         except Exception as e:
             LOG.error(unicode(e))
@@ -160,7 +160,7 @@ class Controller(wsgi.Controller):
         context = req.environ['conveyor.context']
 
         try:
-            self._resource_api.delete_plan(context, id)
+            self._plan_api.delete_plan(context, id)
         except Exception as e:
             LOG.error(unicode(e))
             raise exc.HTTPInternalServerError(explanation=unicode(e))
@@ -185,9 +185,9 @@ class Controller(wsgi.Controller):
                   id, update_values)
 
         try:
-            self._resource_api.update_plan_resources(context,
-                                                     id,
-                                                     update_values)
+            self._plan_api.update_plan_resources(context,
+                                                 id,
+                                                 update_values)
         except Exception as e:
             LOG.error(unicode(e))
             raise exc.HTTPInternalServerError(explanation=unicode(e))
@@ -204,7 +204,7 @@ class Controller(wsgi.Controller):
         update_values = body['plan']
 
         try:
-            self._resource_api.update_plan(context, id, update_values)
+            self._plan_api.update_plan(context, id, update_values)
         except Exception as e:
             LOG.error(unicode(e))
             raise exc.HTTPInternalServerError(explanation=unicode(e))
@@ -231,11 +231,11 @@ class Controller(wsgi.Controller):
         filters = search_opts.copy()
         LOG.info("limit=%s, marker=%s, sort_keys=%s, sort_dirs=%s filter=%s",
                  limit, marker, sort_keys, sort_dirs, filters)
-        plans = self._resource_api.get_plans(context, marker=marker,
-                                             limit=limit,
-                                             sort_dirs=sort_dirs,
-                                             sort_keys=sort_keys,
-                                             filters=filters)
+        plans = self._plan_api.get_plans(context, marker=marker,
+                                         limit=limit,
+                                         sort_dirs=sort_dirs,
+                                         sort_keys=sort_keys,
+                                         filters=filters)
 
         return {"plans": plans}
 

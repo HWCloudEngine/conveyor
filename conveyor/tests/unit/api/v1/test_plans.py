@@ -23,7 +23,7 @@ from conveyor.api import extensions
 from conveyor.api.v1 import plans
 from conveyor import context
 from conveyor import exception
-from conveyor.resource import api as resource_api
+from conveyor.plan import api as plan_api
 from conveyor.tests import test
 from conveyor.tests.unit.api import fakes as fakes
 from conveyor.tests.unit.api.v1 import fakes as res_fakes
@@ -86,7 +86,7 @@ class PlanControllerTestCase(test.TestCase):
         }
         return plan
 
-    @mock.patch.object(resource_api.ResourceAPI, 'get_plan_by_id',
+    @mock.patch.object(plan_api.PlanAPI, 'get_plan_by_id',
                        res_fakes.fake_plan_api_get)
     def test_plan_show(self):
         req = fakes.HTTPRequest.blank('/v1/plans/%s' % fake.PLAN_ID)
@@ -94,14 +94,14 @@ class PlanControllerTestCase(test.TestCase):
         expected = self._expected_plan_from_controller(fake.PLAN_ID)
         self.assertEqual(expected, res_dict)
 
-    @mock.patch.object(resource_api.ResourceAPI, 'get_plan_by_id')
+    @mock.patch.object(plan_api.PlanAPI, 'get_plan_by_id')
     def test_plan_show_no_plan(self, get_plan_mock):
         get_plan_mock.side_effect = exception.PlanNotFound(fake.PLAN_ID)
         req = fakes.HTTPRequest.blank('/v1/plans/%s' % fake.PLAN_ID)
         self.assertRaises(exc.HTTPInternalServerError, self.controller.show,
                           req, fake.PLAN_ID)
 
-    @mock.patch.object(resource_api.ResourceAPI, 'create_plan')
+    @mock.patch.object(plan_api.PlanAPI, 'create_plan')
     def test_plan_create(self, create_plan_mock):
         resources = [{
             "name": "stack_0",
@@ -171,7 +171,7 @@ class PlanControllerTestCase(test.TestCase):
         self.assertRaises(exc.HTTPBadRequest, self.controller.create,
                           req, body)
 
-    @mock.patch.object(resource_api.ResourceAPI, 'create_plan_by_template')
+    @mock.patch.object(plan_api.PlanAPI, 'create_plan_by_template')
     def test_create_plan_by_template(self, mock_create_plan_by_template):
         template = res_fakes.fake_clone_template()
         body = {'plan': template}
@@ -180,7 +180,7 @@ class PlanControllerTestCase(test.TestCase):
         plan_dict = self.controller.create_plan_by_template(req, body)
         self.assertEqual(template, plan_dict['plan'])
 
-    @mock.patch.object(resource_api.ResourceAPI,
+    @mock.patch.object(plan_api.PlanAPI,
                        'delete_plan', return_value=None)
     def test_plan_delete(self, mock_delete_plan):
         plan_id = fake.PLAN_ID
@@ -189,7 +189,7 @@ class PlanControllerTestCase(test.TestCase):
         self.controller.delete(req, plan_id)
         mock_delete_plan.assert_called_once_with(ctx, plan_id)
 
-    @mock.patch.object(resource_api.ResourceAPI,
+    @mock.patch.object(plan_api.PlanAPI,
                        'update_plan', return_value=None)
     def test_update_pan(self, mock_update_plan):
         plan_id = fake.PLAN_ID
@@ -201,7 +201,7 @@ class PlanControllerTestCase(test.TestCase):
         mock_update_plan.assert_called_once_with(ctx, plan_id,
                                                  update_resource)
 
-    @mock.patch.object(resource_api.ResourceAPI,
+    @mock.patch.object(plan_api.PlanAPI,
                        'update_plan_resources', return_value=None)
     def test_update_plan_resources(self, mock_update_plan_resources):
         plan_id = fake.PLAN_ID
@@ -214,7 +214,7 @@ class PlanControllerTestCase(test.TestCase):
                                         ctx, plan_id,
                                         update_resource.get('resources'))
 
-    @mock.patch.object(resource_api.ResourceAPI, 'get_plans')
+    @mock.patch.object(plan_api.PlanAPI, 'get_plans')
     def test_plan_detail(self, mock_get_plans):
         req = fakes.HTTPRequest.blank('/v1/plans')
         plan = res_fakes.create_fake_plan(fake.PLAN_ID)

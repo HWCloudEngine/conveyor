@@ -100,12 +100,13 @@ global_opts = [
                help='The topic that clone resources listen on'),
     cfg.StrOpt('clone_manager',
                default="conveyor.clone.manager.CloneManager",
-               help='Number of workers for OpenStack Volume API service. '
-                    'The default is equal to the number of CPUs available.'),
+               help='Clone service manager.'),
     cfg.StrOpt('resource_manager',
                default="conveyor.resource.manager.ResourceManager",
-               help='Number of workers for OpenStack Volume API service. '
-                    'The default is equal to the number of CPUs available.'),
+               help='resource service manager.'),
+    cfg.StrOpt('plan_manager',
+               default="conveyor.plan.manager.PlanManager",
+               help='plan service manager.'),
     cfg.BoolOpt('enable_v1_api',
                 default=True,
                 help=_("DEPRECATED: Deploy v1 of the Cinder API.")),

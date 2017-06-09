@@ -26,7 +26,7 @@ from oslo_serialization import jsonutils
 
 from conveyor.clone import api
 from conveyor import context
-from conveyor.resource import api as resource_api
+from conveyor.plan import api as plan_api
 from conveyor.tests import test
 from conveyor.tests.unit.api import fakes as fakes
 from conveyor.tests.unit.api.v1 import fakes as res_fakes
@@ -61,7 +61,7 @@ class CloneActionControllerTestCase(test.TestCase):
         self.assertEqual(http_client.ACCEPTED, res.status_int)
 
     @mock.patch.object(api.API, "export_clone_template")
-    @mock.patch.object(resource_api.ResourceAPI, "get_plan_by_id")
+    @mock.patch.object(plan_api.PlanAPI, "get_plan_by_id")
     def test_export_clone_template(self, mock_get_plan_by_id,
                                    mock_export_clone_template):
         body = {'export_clone_template': {'sys_clone': False}}
@@ -79,7 +79,7 @@ class CloneActionControllerTestCase(test.TestCase):
         self.assertEqual(http_client.ACCEPTED, res.status_int)
 
     @mock.patch.object(api.API, "export_clone_template")
-    @mock.patch.object(resource_api.ResourceAPI, "get_plan_by_id")
+    @mock.patch.object(plan_api.PlanAPI, "get_plan_by_id")
     def test_export_clone_template_invalid_status(self, mock_get_plan_by_id,
                                                   mock_export_clone_template):
         body = {'export_clone_template': {'sys_clone': False}}
@@ -97,7 +97,7 @@ class CloneActionControllerTestCase(test.TestCase):
         self.assertEqual(http_client.BAD_REQUEST, res.status_int)
 
     @mock.patch.object(api.API, "clone")
-    @mock.patch.object(resource_api.ResourceAPI, "get_plan_by_id")
+    @mock.patch.object(plan_api.PlanAPI, "get_plan_by_id")
     def test_clone(self, mock_get_plan_by_id, mock_clone):
         body = {'clone': {'sys_clone': False,
                           'destination': 'fake-az'}}
@@ -113,7 +113,7 @@ class CloneActionControllerTestCase(test.TestCase):
         self.assertEqual(http_client.ACCEPTED, res.status_int)
 
     @mock.patch.object(api.API, "clone")
-    @mock.patch.object(resource_api.ResourceAPI, "get_plan_by_id")
+    @mock.patch.object(plan_api.PlanAPI, "get_plan_by_id")
     def test_clone_invalid_status(self, mock_get_plan_by_id, mock_clone):
         body = {'clone': {'sys_clone': False,
                           'destination': 'fake-az'}}
@@ -131,7 +131,7 @@ class CloneActionControllerTestCase(test.TestCase):
         self.assertEqual(http_client.BAD_REQUEST, res.status_int)
 
     @mock.patch.object(api.API, "export_template_and_clone")
-    @mock.patch.object(resource_api.ResourceAPI, "get_plan_by_id")
+    @mock.patch.object(plan_api.PlanAPI, "get_plan_by_id")
     def test_export_template_and_clone(self, mock_get_plan_by_id,
                                        mock_export_template_and_clone):
         body = {'export_template_and_clone': {'sys_clone': False,
@@ -152,7 +152,7 @@ class CloneActionControllerTestCase(test.TestCase):
         self.assertEqual(http_client.ACCEPTED, res.status_int)
 
     @mock.patch.object(api.API, "export_template_and_clone")
-    @mock.patch.object(resource_api.ResourceAPI, "get_plan_by_id")
+    @mock.patch.object(plan_api.PlanAPI, "get_plan_by_id")
     def test_export_template_and_clone_invalid_status(
                                         self, mock_get_plan_by_id,
                                         mock_export_template_and_clone):

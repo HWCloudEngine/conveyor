@@ -40,11 +40,11 @@ from conveyor import volume
 from conveyor.brick import base
 from conveyor.common import loopingcall
 from conveyor.common import plan_status
-from conveyor.common import template_format
 from conveyor.conveyorheat.api import api as heat
 from conveyor.db import api as db_api
 from conveyor.i18n import _LE
-from conveyor.resource import api as resource_api
+from conveyor.objects import plan as plan_cls
+from conveyor.plan import api as plan_api
 from conveyor.resource import resource
 
 
@@ -151,7 +151,7 @@ class CloneManager(manager.Manager):
 
         self._resource_tracker_dict = {}
         self._syncs_in_progress = {}
-        self.resource_api = resource_api.ResourceAPI()
+        self.plan_api = plan_api.PlanAPI()
         clone_driver_class = importutils.import_class(CONF.clone_driver)
         self.clone_driver = clone_driver_class()
 
@@ -190,7 +190,7 @@ class CloneManager(manager.Manager):
             return None
         # if plan status is error after create resources
         plan_id = template.get('plan_id')
-        plan = self.resource_api.get_plan_by_id(context, plan_id, detail=False)
+        plan = self.plan_api.get_plan_by_id(context, plan_id, detail=False)
         plan_state = plan.get('plan_status')
         if 'error' == plan_state:
             LOG.error("Plans deploy error in resources create.")
@@ -206,7 +206,7 @@ class CloneManager(manager.Manager):
         if not src_resources:
             values = {}
             values['plan_status'] = plan_status.STATE_MAP.get('FINISHED')
-            self.resource_api.update_plan(context, plan_id, values)
+            self.plan_api.update_plan(context, plan_id, values)
             LOG.warning("Clone resource warning: clone resource is empty.")
             return stack_info['id']
         LOG.debug("After pop self define info, resources: %s", src_resources)
@@ -217,7 +217,7 @@ class CloneManager(manager.Manager):
                     values = {}
                     values['plan_status'] = plan_status.STATE_MAP.get(
                         'DATA_TRANS_FINISHED')
-                    self.resource_api.update_plan(context, plan_id, values)
+                    self.plan_api.update_plan(context, plan_id, values)
                     continue
                 # 5.2 resource create successful, get resource ID,
                 # and add to resource
@@ -234,14 +234,14 @@ class CloneManager(manager.Manager):
                     values = {}
                     values['plan_status'] = plan_status.STATE_MAP.get(
                         'DATA_TRANS_FINISHED')
-                    self.resource_api.update_plan(context, plan_id, values)
+                    self.plan_api.update_plan(context, plan_id, values)
                     continue
                 rs_maganger = self.clone_managers.get(manager_type)
                 if not rs_maganger:
                     values = {}
                     values['plan_status'] = plan_status.STATE_MAP.get(
                         'DATA_TRANS_FINISHED')
-                    self.resource_api.update_plan(context, plan_id, values)
+                    self.plan_api.update_plan(context, plan_id, values)
                     continue
                 rs_maganger.start_template_clone(context, key, src_template)
         except Exception as e:
@@ -255,19 +255,19 @@ class CloneManager(manager.Manager):
             values = {}
             values['plan_status'] = plan_status.STATE_MAP.get(
                 'DATA_TRANS_FAILED')
-            self.resource_api.update_plan(context, plan_id, values)
+            self.plan_api.update_plan(context, plan_id, values)
             return None
 
         # all resources clone success, set plan status finished
         values = {}
         values['plan_status'] = plan_status.STATE_MAP.get('FINISHED')
-        self.resource_api.update_plan(context, plan_id, values)
+        self.plan_api.update_plan(context, plan_id, values)
         LOG.debug("Clone resources end in clone manager")
         return stack_info['id']
 
     def _export_template(self, context, id, sys_clone=False, copy_data=True):
         # get plan info
-        plan = self.resource_api.get_plan_by_id(context, id)
+        plan = self.plan_api.get_plan_by_id(context, id)
         if not plan:
             LOG.error(_LE('get plan %s failed') % id)
             raise exception.PlanNotFound(plan_id=id)
@@ -284,17 +284,18 @@ class CloneManager(manager.Manager):
                 undo_mgr = self.clone_driver.handle_resources(
                     context, id, resource_map, sys_clone, copy_data)
                 self._update_plan_resources(context, resource_map, id)
-                self._format_template(resource_map, id, expire_time, plan_type)
+                self._format_template(context, resource_map, id,
+                                      expire_time, plan_type)
             except Exception as e:
                 LOG.error('The generate template of plan %s failed, and rollback operations,\
                           the error is %s', id, str(e))
                 if undo_mgr:
                     undo_mgr._rollback()
                 raise exception.ExportTemplateFailed(id=id, msg=str(e))
-        self.resource_api.update_plan(context, id,
-                                      {'plan_status': plan_status.AVAILABLE,
-                                       'sys_clone': sys_clone,
-                                       'copy_data': copy_data})
+        self.plan_api.update_plan(context, id,
+                                  {'plan_status': plan_status.AVAILABLE,
+                                   'sys_clone': sys_clone,
+                                   'copy_data': copy_data})
         LOG.debug("Export template end in clone manager")
         return resource_map, expire_time
 
@@ -302,8 +303,8 @@ class CloneManager(manager.Manager):
         updated_resources = {}
         for k, v in resource_map.items():
             updated_resources[k] = v.to_dict()
-        self.resource_api.update_plan(context, plan_id,
-                                      {'updated_resources': updated_resources})
+        self.plan_api.update_plan(context, plan_id,
+                                  {'updated_resources': updated_resources})
 
     def export_clone_template(self, context, id, sys_clone, copy_data):
         LOG.debug("Export clone template start in clone manager")
@@ -314,24 +315,25 @@ class CloneManager(manager.Manager):
                                   copy_data=True):
         LOG.debug('Export template and clone start in clone manager')
         if update_resources:
-            self.resource_api.update_plan_resources(context, id,
-                                                    update_resources)
+            self.plan_api.update_plan_resources(context, id,
+                                                update_resources)
         self._export_template(context, id, sys_clone, copy_data)
         self.clone(context, id, destination, sys_clone)
 
-    def _format_template(self, resource_map, id, expire_time, plan_type):
-        with open(CONF.plan_file_path + id + '.template', 'w+') as f:
-            resources = resource_map.values()
-            template = yaml.load(template_skeleton)
-            template['resources'] = {}
-            template['parameters'] = {}
-            template['expire_time'] = expire_time
-            template['plan_type'] = plan_type
-            # add expire_time
-            for r_resource in resources:
-                template['resources'].update(r_resource.template_resource)
-                template['parameters'].update(r_resource.template_parameter)
-            yaml.safe_dump(template, f, default_flow_style=False)
+    def _format_template(self, context, resource_map, plan_id,
+                         expire_time, plan_type):
+
+        resources = resource_map.values()
+        template = yaml.load(template_skeleton)
+        template['resources'] = {}
+        template['parameters'] = {}
+        template['expire_time'] = expire_time
+        template['plan_type'] = plan_type
+        for r_resource in resources:
+            template['resources'].update(r_resource.template_resource)
+            template['parameters'].update(r_resource.template_parameter)
+        plan_template = plan_cls.PlanTemplate(plan_id, template)
+        db_api.plan_template_create(context, plan_template.to_dict())
 
     def _build_rules(self, rules):
         brules = []
@@ -355,10 +357,10 @@ class CloneManager(manager.Manager):
 
     def clone(self, context, id, destination, sys_clone):
         LOG.debug("Execute clone plan in clone manager")
-        self.resource_api.update_plan(context, id,
-                                      {'plan_status': plan_status.CLONING})
+        self.plan_api.update_plan(context, id,
+                                  {'plan_status': plan_status.CLONING})
         # get plan info
-        plan = self.resource_api.get_plan_by_id(context, id)
+        plan = self.plan_api.get_plan_by_id(context, id)
         if not plan:
             LOG.error(_LE('Get plan %s failed') % id)
             raise exception.PlanNotFound(plan_id=id)
@@ -404,7 +406,7 @@ class CloneManager(manager.Manager):
                 self._clone_stack(context, key, value, id, destination)
 
         if not resource_map:
-            self.resource_api.update_plan(
+            self.plan_api.update_plan(
                 context, id, {'plan_status': plan_status.FINISHED})
             return
         for r_resource in resources:
@@ -456,7 +458,7 @@ class CloneManager(manager.Manager):
                     # special treatment for floatingip
                     if resource['type'] == 'OS::Neutron::FloatingIP':
                         if resource_result.get('fixed_ip_address'):
-                            self.resource_api.update_plan(
+                            self.plan_api.update_plan(
                                 context, id,
                                 {'plan_status': plan_status.ERROR})
                             error_message = 'the floatingip %s exist and be used' \
@@ -490,7 +492,7 @@ class CloneManager(manager.Manager):
                         neutronclient_exceptions.NotFound,
                         cinderclient_exceptions.NotFound):
                     pass
-        clone_template = {
+        template = {
             "template": {
                 "heat_template_version": '2013-05-23',
                 "description": "clone template",
@@ -499,16 +501,16 @@ class CloneManager(manager.Manager):
             },
             "plan_id": id
         }
-        LOG.debug("The template is  %s ", clone_template)
-        stack_id = self.start_template_clone(context, clone_template)
+        LOG.debug("The template is  %s ", template)
+        stack_id = self.start_template_clone(context, template)
         if not stack_id:
             LOG.error(_LE('Clone template error'))
-            self.resource_api.update_plan(context, id,
+            self.plan_api.update_plan(context, id,
                                           {'plan_status': plan_status.ERROR})
 
         def _wait_for_plan_finished(context):
             """Called at an interval until the plan status finished"""
-            plan = self.resource_api.get_plan_by_id(context, id)
+            plan = self.plan_api.get_plan_by_id(context, id)
             LOG.debug("Get plan info: %s", plan)
             status = plan.get('plan_status')
             if status in [plan_status.FINISHED, plan_status.ERROR]:
@@ -519,7 +521,7 @@ class CloneManager(manager.Manager):
         timer.start(interval=0.5).wait()
 
         # add reback resource status after clone finished (wanggang)
-        plan = self.resource_api.get_plan_by_id(context, id)
+        plan = self.plan_api.get_plan_by_id(context, id)
         clone_resources = plan.get('updated_resources', {})
         self.clone_driver.reset_resources(context, clone_resources)
         LOG.debug('end time of clone is %s' %
@@ -527,8 +529,8 @@ class CloneManager(manager.Manager):
 
     def _clone_stack(self, context, key, stack_info, plan_id, des):
         LOG.debug('begin clone stack')
-        self.resource_api.update_plan(context, plan_id,
-                                      {'plan_status': plan_status.CLONING})
+        self.plan_api.update_plan(context, plan_id,
+                                  {'plan_status': plan_status.CLONING})
         stack_in = stack_info.to_dict()
         template = stack_in['properties'].get('template')
         template_dict = json.loads(template)
@@ -568,8 +570,8 @@ class CloneManager(manager.Manager):
         except Exception as e:
             LOG.debug(("Deploy plan %(plan_id)s, with stack error %(error)s."),
                       {'plan_id': plan_id, 'error': e})
-            self.resource_api.update_plan(context, plan_id,
-                                          {'plan_status': plan_status.ERROR})
+            self.plan_api.update_plan(context, plan_id,
+                                      {'plan_status': plan_status.ERROR})
             if stack:
                 stack_id = stack.get('stack').get('id')
                 self.heat_api.delete_stack(context, stack_id, plan_id)
@@ -590,8 +592,8 @@ class CloneManager(manager.Manager):
         state = stack.stack_status
         if state == 'CREATE_FAILED':
             self.heat_api.delete_stack(context, stack_id, plan_id)
-            self.resource_api.update_plan(context, plan_id,
-                                          {'plan_status': plan_status.ERROR})
+            self.plan_api.update_plan(context, plan_id,
+                                      {'plan_status': plan_status.ERROR})
             raise exception.PlanDeployError(plan_id=plan_id)
         self._copy_data_for_stack(context, origin_template_dict,
                                   stack_id, plan_id)
@@ -632,7 +634,7 @@ class CloneManager(manager.Manager):
             template['template'] = copy.deepcopy(volume_template)
             template['plan_id'] = plan_id
             self._afther_resource_created_handler(context, template, stack_id)
-            plan = self.resource_api.get_plan_by_id(context, plan_id)
+            plan = self.plan_api.get_plan_by_id(context, plan_id)
             if plan.get('plan_status') == plan_status.ERROR:
                 raise exception.PlanCloneFailed(id=id, msg='')
 
@@ -769,7 +771,7 @@ class CloneManager(manager.Manager):
         values = {}
         values['task_status'] = res_event
         try:
-            self.resource_api.update_plan(context, plan_id, values)
+            self.plan_api.update_plan(context, plan_id, values)
         except Exception as e:
             LOG.debug("Update plan %(plan_id) task status error:%(error)s",
                       {'plan_id': plan_id, 'error': e})
@@ -859,7 +861,7 @@ class CloneManager(manager.Manager):
         values = {}
         stack_info = stack.get('stack')
         values['stack_id'] = stack_info['id']
-        self.resource_api.update_plan(context, plan_id, values)
+        self.plan_api.update_plan(context, plan_id, values)
         # 4. check stack status and update plan status
 
         def _wait_for_boot():
@@ -869,7 +871,7 @@ class CloneManager(manager.Manager):
             state = stack.stack_status
             values['plan_status'] = state_map.get(state)
             # update plan status
-            self.resource_api.update_plan(context, plan_id, values)
+            self.plan_api.update_plan(context, plan_id, values)
             # update plan task status
             self._update_plan_task_status(context, plan_id, stack_info['id'])
             if state in ["CREATE_COMPLETE", "CREATE_FAILED"]:
@@ -881,8 +883,8 @@ class CloneManager(manager.Manager):
 
     def migrate(self, context, id, destination):
         LOG.debug("execute migrate plan in clone manager")
-        self.resource_api.update_plan(context, id,
-                                      {'plan_status': plan_status.MIGRATING})
+        self.plan_api.update_plan(context, id,
+                                  {'plan_status': plan_status.MIGRATING})
         # call export_migrate_template
         resource_map = None
         expire_time = None
@@ -890,8 +892,8 @@ class CloneManager(manager.Manager):
             resource_map, expire_time = self.export_migrate_template(context,
                                                                      id)
         except (exception.ExportTemplateFailed, exception.PlanNotFound):
-            self.resource_api.update_plan(context, id,
-                                          {'plan_status': plan_status.ERROR})
+            self.plan_api.update_plan(context, id,
+                                      {'plan_status': plan_status.ERROR})
             return
         resource_cb_map = {
             'OS::Nova::Flavor': self.compute_api.get_flavor,
@@ -1073,13 +1075,13 @@ class CloneManager(manager.Manager):
         stack_id = self.start_template_migrate(context, template)
         if not stack_id:
             LOG.error('clone template error')
-            self.resource_api.update_plan(context, id,
-                                          {'plan_status': plan_status.ERROR})
+            self.plan_api.update_plan(context, id,
+                                      {'plan_status': plan_status.ERROR})
             raise exception.PlanCloneFailed(id=id, msg='')
         # after finish the clone plan ,detach migrate port
         if CONF.migrate_net_map:
             self._clear_migrate_port(context, resource_map)
-        plan = self.resource_api.get_plan_by_id(context, id)
+        plan = self.plan_api.get_plan_by_id(context, id)
         if plan.get('plan_status') == plan_status.ERROR:
             raise exception.PlanMigrateFailed(id=id)
         self._realloc_port_floating_ip(context, id, original_server_port_map,
@@ -1087,8 +1089,8 @@ class CloneManager(manager.Manager):
                                        unassociate_floationgip,
                                        resource_map, stack_id)
         self._clear(context, resource_map)
-        self.resource_api.update_plan(context, id,
-                                      {'plan_status': plan_status.FINISHED})
+        self.plan_api.update_plan(context, id,
+                                  {'plan_status': plan_status.FINISHED})
         LOG.error('begin time of migrate is %s' %
                   (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())))
 
@@ -1240,7 +1242,7 @@ class CloneManager(manager.Manager):
                               server_id, str(e.msg))
                 LOG.error("START rollback for %s ......", server_id)
                 undo_mgr._rollback()
-                self.resource_api.update_plan(
+                self.plan_api.update_plan(
                     context, id, {'plan_status': plan_status.ERROR})
                 try:
                     self.heat_api.delete_stack(context, stack_id, id)
@@ -1270,16 +1272,16 @@ class CloneManager(manager.Manager):
                 for v_id in volume_ids:
                     self.volume_api.delete(context, v_id)
 
-    def download_template(self, context, id):
+    def download_template(self, context, plan_id):
         try:
-            with open(CONF.plan_file_path + id + '.template') as f:
-                # content = yaml.load(f)
-                content = f.read()
-                content = template_format.parse(content)
-                return {'template': content}
-        except IOError:
-            LOG.error('the file %s not exist ' % (CONF.plan_file_path + id))
-            raise exception.DownloadTemplateFailed(id=id, msg=IOError.message)
+            plan_template = db_api.plan_template_get(context, plan_id)
+            content = plan_template.get('template', {})
+            return {'template': content}
+        except Exception as e:
+            LOG.error(_LE('Download template for %(id)s failed: %(err)s '),
+                      {'id': plan_id, 'err': e})
+            raise exception.DownloadTemplateFailed(id=plan_id,
+                                                   msg=IOError.message)
 
     def _wait_for_server_termination(self, context, server_id):
         while True:
@@ -1592,7 +1594,7 @@ class CloneManager(manager.Manager):
                     values = {}
                     values['plan_status'] = plan_status.STATE_MAP.get(
                         'DATA_TRANS_FINISHED')
-                    self.resource_api.update_plan(context, plan_id, values)
+                    self.plan_api.update_plan(context, plan_id, values)
                     continue
                 # 5.2 resource create successful, get resource ID,
                 # and add to resource
@@ -1609,14 +1611,14 @@ class CloneManager(manager.Manager):
                     values['plan_status'] = plan_status.STATE_MAP.get(
                         'DATA_TRANS_FINISHED'
                     )
-                    self.resource_api.update_plan(context, plan_id, values)
+                    self.plan_api.update_plan(context, plan_id, values)
                     continue
                 rs_maganger = self.clone_managers.get(manager_type)
                 if not rs_maganger:
                     values = {}
                     values['plan_status'] = plan_status.STATE_MAP.get(
                         'DATA_TRANS_FINISHED')
-                    self.resource_api.update_plan(context, plan_id, values)
+                    self.plan_api.update_plan(context, plan_id, values)
                     continue
                 rs_maganger.start_template_clone(context, key, src_template)
         except Exception as e:
@@ -1630,7 +1632,7 @@ class CloneManager(manager.Manager):
             values = {}
             values['plan_status'] = plan_status.STATE_MAP.get(
                 'DATA_TRANS_FAILED')
-            self.resource_api.update_plan(context, plan_id, values)
+            self.plan_api.update_plan(context, plan_id, values)
             return None
 
     def _system_volumes_to_clone(self, resources):

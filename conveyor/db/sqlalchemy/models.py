@@ -176,11 +176,20 @@ class Plan(BASE, ConveyorBase):
     task_status = Column(String(length=255))
     plan_status = Column(String(length=255))
     plan_type = Column(String(length=255))
-    original_resources = Column(String(length=1023))
-    updated_resources = Column(String(length=1023))
+    original_resources = Column(types.Json)
+    updated_resources = Column(types.Json)
     stack_id = Column(String(length=36))
     sys_clone = Column('sys_clone', Boolean)
     copy_data = Column('copy_data', Boolean)
+
+
+class PlanTemplate(BASE, ConveyorBase):
+    """Represents an unparsed template which should be in JSON format."""
+
+    __tablename__ = 'plan_template'
+    id = Column(Integer, primary_key=True)
+    plan_id = Column(String(length=36), nullable=False)
+    template = Column(types.Json)
 
 
 def get_session():

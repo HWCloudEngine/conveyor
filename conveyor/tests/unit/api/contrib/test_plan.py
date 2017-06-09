@@ -22,7 +22,7 @@ from six.moves import http_client
 from conveyor.api.contrib import plan
 from conveyor.clone import api as clone_api
 from conveyor import context
-from conveyor.resource import api as resource_api
+from conveyor.plan import api as plan_api
 from conveyor.tests import test
 from conveyor.tests.unit.api import fakes as fakes
 from conveyor.tests.unit.api.v1 import fakes as res_fakes
@@ -38,7 +38,7 @@ class PlanActionControllerTestCase(test.TestCase):
         self.controller = plan.PlansActionController()
 
     @mock.patch.object(clone_api.API, 'download_template')
-    @mock.patch.object(resource_api.ResourceAPI, 'get_plan_by_id')
+    @mock.patch.object(plan_api.PlanAPI, 'get_plan_by_id')
     def test_download_template(self, mock_get_plan_by_id,
                                mock_download_template):
         plan_id = fake.PLAN_ID
@@ -50,7 +50,7 @@ class PlanActionControllerTestCase(test.TestCase):
         rsp = self.controller._download_template(req, plan_id, body)
         self.assertEqual('fake-content', rsp)
 
-    @mock.patch.object(resource_api.ResourceAPI,
+    @mock.patch.object(plan_api.PlanAPI,
                        'update_plan', return_value=None)
     def test_reset_state(self, mock_update_plan):
         plan_id = fake.PLAN_ID
@@ -59,7 +59,7 @@ class PlanActionControllerTestCase(test.TestCase):
         rsp = self.controller._reset_state(req, plan_id, body)
         self.assertEqual('cloning', rsp['plan_status'])
 
-    @mock.patch.object(resource_api.ResourceAPI,
+    @mock.patch.object(plan_api.PlanAPI,
                        'force_delete_plan', return_value=None)
     def _force_delete_plan(self, mock_force_delete_plan):
         plan_id = fake.PLAN_ID
@@ -68,7 +68,7 @@ class PlanActionControllerTestCase(test.TestCase):
         res = self.controller._force_delete_plan(req, plan_id, body)
         self.assertEqual(http_client.ACCEPTED, res.status_int)
 
-    @mock.patch.object(resource_api.ResourceAPI,
+    @mock.patch.object(plan_api.PlanAPI,
                        'plan_delete_resource', return_value=None)
     def test_plan_delete_resource(self, mock_plan_delete_resource):
         plan_id = fake.PLAN_ID
@@ -77,3 +77,27 @@ class PlanActionControllerTestCase(test.TestCase):
         self.controller._plan_delete_resource(req, plan_id, body)
         ctx = req.environ['conveyor.context']
         mock_plan_delete_resource.assert_called_once_with(ctx, plan_id)
+
+    @mock.patch.object(plan_api.PlanAPI,
+                       'get_resource_detail_from_plan')
+    def test_resource_detail(self, mock_get_resources_detail_from_plan):
+
+        res_id = "e76f3947-d76f-4dca-a5f4-5af9b57becfe"
+        resource = {
+            "name": "stack_0",
+            "parameters": {},
+            "id": res_id,
+            "type": "OS::Heat::Stack",
+            "properties": {
+                "stack_name": "test-stack",
+                "disable_rollback": True,
+                "parameters": {
+                    "OS::project_id": "d23b65e027f9461ebe900916c0412ade",
+                    "image": "19a7e4c8-baa5-442a-859e-7e968dc8b189",
+                    "flavor": "2",
+                    "OS::stack_name": "test-stack"}}}
+        req = fakes.HTTPRequest.blank('/v1/plans/%s/action' + res_id)
+        body = {'get_resource_detail_from_plan': {'plan_id': fake.PLAN_ID}}
+        mock_get_resources_detail_from_plan.return_value = resource
+        rsp = self.controller._get_resource_detail_from_plan(req, res_id, body)
+        self.assertEqual(resource['id'], rsp['resource']['id'])

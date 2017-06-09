@@ -27,7 +27,7 @@ from conveyor.brick import base
 from conveyor.conveyoragentclient.v1 import client as conveyorclient
 from conveyor.i18n import _
 from conveyor.i18n import _LW
-from conveyor.resource import api as resource_api
+from conveyor.plan import api as plan_api
 
 from eventlet import greenthread
 import time
@@ -73,7 +73,7 @@ class ResourceCommon(object):
         self.nova_api = compute.API()
         self.volume_api = volume.API()
         self.network_api = network.API()
-        self.resource_api = resource_api.ResourceAPI()
+        self.plan_api = plan_api.PlanAPI()
 
     def _await_volume_status(self, context, vol_id, status):
         # TODO(yamahata): creating volume simultaneously
@@ -137,7 +137,7 @@ class ResourceCommon(object):
             values = {}
             values['plan_status'] = plan_state
             values['task_status'] = 'DATA_TRANS_FINISHED'
-            self.resource_api.update_plan(context, plan_id, values)
+            self.plan_api.update_plan(context, plan_id, values)
             return 0
 
         attempts = 1
@@ -156,7 +156,7 @@ class ResourceCommon(object):
                     values = {}
                     values['plan_status'] = plan_state
                     values['task_status'] = task_status
-                    self.resource_api.update_plan(context, plan_id, values)
+                    self.plan_api.update_plan(context, plan_id, values)
                     return attempt
                 task_states.append(task_status)
             # as long as one volume data does not transformer finished,
@@ -166,7 +166,7 @@ class ResourceCommon(object):
                     values = {}
                     values['plan_status'] = plan_state
                     values['task_status'] = 'DATA_TRANSFORMING'
-                    self.resource_api.update_plan(context, plan_id, values)
+                    self.plan_api.update_plan(context, plan_id, values)
             # otherwise, plan state is finished
             else:
                 LOG.debug(_("Data transformer finished!"))
@@ -174,7 +174,7 @@ class ResourceCommon(object):
                 values = {}
                 values['plan_status'] = plan_state
                 values['task_status'] = 'DATA_TRANS_FINISHED'
-                self.resource_api.update_plan(context, plan_id, values)
+                self.plan_api.update_plan(context, plan_id, values)
                 return attempt
 
             greenthread.sleep(CONF.data_transformer_state_retries_interval)

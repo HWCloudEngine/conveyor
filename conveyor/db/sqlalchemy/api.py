@@ -229,8 +229,21 @@ def _plan_get(context, id, session=None, read_deleted='no'):
         context,
         models.Plan,
         session=session,
-        read_deleted='no'). filter_by(
-        plan_id=id). first()
+        read_deleted='no').filter_by(
+        plan_id=id).first()
+    if not result:
+        raise conveyor_exception.PlanNotFoundInDb(id=id)
+    return result
+
+
+def _plan_template_get(context, plan_id,
+                       session=None, read_deleted='no'):
+    result = model_query(
+        context,
+        models.PlanTemplate,
+        session=session,
+        read_deleted='no').filter_by(
+        plan_id=plan_id).first()
     if not result:
         raise conveyor_exception.PlanNotFoundInDb(id=id)
     return result
@@ -492,6 +505,56 @@ def plan_delete(context, id):
         plan_ref = _plan_get(context, id, session=session)
         # if not plan_ref: raise conveyor_exception.planNotFound(id=id)
         # plan_ref.soft_delete(session=session)
+        session.delete(plan_ref)
+
+
+@require_context
+def plan_template_create(context, values):
+    template_ref = models.PlanTemplate()
+    template_ref.update(values)
+    try:
+        template_ref.save()
+    except db_exc.DBDuplicateEntry as e:
+        raise conveyor_exception.PlanExists(id=values.get('id'))
+    except db_exc.DBReferenceError as e:
+        raise conveyor_exception.IntegrityException(msg=str(e))
+    except db_exc.DBError as e:
+        LOG.exception('DB error:%s', e)
+        raise conveyor_exception.PlanCreateFailed()
+    return dict(template_ref)
+
+
+@require_context
+def get_plan_template(context, plan_id):
+    try:
+        result = _plan_template_get(context, plan_id)
+    except db_exc.DBError:
+        msg = _("Invalid plan id %s for query template request") % plan_id
+        LOG.warn(msg)
+        raise conveyor_exception.InvalidID(id=plan_id)
+    return dict(result)
+
+
+@require_context
+def plan_template_update(context, plan_id, values):
+    session = get_session()
+    with session.begin():
+        template_ref = _plan_template_get(context, plan_id, session=session)
+        if not template_ref:
+            raise conveyor_exception.PlanNotFoundInDb(id=plan_id)
+        template_ref.update(values)
+        try:
+            template_ref.save(session=session)
+        except db_exc.DBDuplicateEntry:
+            raise conveyor_exception.PlanExists()
+
+    return dict(template_ref)
+
+
+def plan_template_delete(context, plan_id):
+    session = get_session()
+    with session.begin():
+        plan_ref = _plan_template_get(context, plan_id, session=session)
         session.delete(plan_ref)
 
 

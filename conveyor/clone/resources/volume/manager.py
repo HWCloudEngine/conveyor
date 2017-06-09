@@ -22,7 +22,7 @@ from oslo_utils import importutils
 
 from conveyor.clone.resources import common
 from conveyor.i18n import _LW
-from conveyor.resource import api as resource_api
+from conveyor.plan import api as plan_api
 
 from conveyor import exception
 
@@ -50,14 +50,14 @@ class CloneManager(object):
         """Load configuration options and connect to the hypervisor."""
         self.clone_driver = importutils.import_object(CONF.volume_clone_driver)
         self.resource_common = common.ResourceCommon()
-        self.resource_api = resource_api.ResourceAPI()
+        self.plan_api = plan_api.PlanAPI()
 
     def _set_plan_statu(self, context, plan_id, status, state_map):
         plan_state = state_map.get(status)
         values = {}
         values['plan_status'] = plan_state
         values['task_status'] = status
-        self.resource_api.update_plan(context, plan_id, values)
+        self.plan_api.update_plan(context, plan_id, values)
 
     def start_template_clone(self, context, resource_name, template):
 

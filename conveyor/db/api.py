@@ -94,6 +94,22 @@ def plan_stack_update(context, plan_id, stack_id, values):
     return IMPL.plan_stack_update(context, plan_id, stack_id, values)
 
 
+def plan_template_create(context, values):
+    return IMPL.plan_template_create(context, values)
+
+
+def plan_template_get(context, plan_id):
+    return IMPL.get_plan_template(context, plan_id)
+
+
+def plan_template_update(context, plan_id, values):
+    return IMPL.plan_template_update(context, plan_id, values)
+
+
+def plan_template_delete(context, plan_id):
+    return IMPL.plan_template_delete(context, plan_id)
+
+
 # add from heat
 def get_engine():
     return IMPL.get_engine()

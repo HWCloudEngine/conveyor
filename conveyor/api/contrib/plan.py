@@ -18,12 +18,14 @@
 from webob import exc
 
 from oslo_log import log as logging
+from oslo_utils import strutils
+from oslo_utils import uuidutils
 
 from conveyor.api import extensions
 from conveyor.api.wsgi import wsgi
 from conveyor.clone import api
 from conveyor.common import plan_status as p_status
-from conveyor.resource import api as resource_api
+from conveyor.plan import api as plan_api
 
 from conveyor.i18n import _
 
@@ -35,7 +37,7 @@ class PlansActionController(wsgi.Controller):
     def __init__(self, ext_mgr=None, *args, **kwargs):
         super(PlansActionController, self).__init__(*args, **kwargs)
         self.clone_api = api.API()
-        self.resource_api = resource_api.ResourceAPI()
+        self.plan_api = plan_api.PlanAPI()
         self.ext_mgr = ext_mgr
 
     @wsgi.response(202)
@@ -44,7 +46,7 @@ class PlansActionController(wsgi.Controller):
         LOG.debug("download template of plan %s start in API from template",
                   id)
         context = req.environ['conveyor.context']
-        plan = self.resource_api.get_plan_by_id(context, id)
+        plan = self.plan_api.get_plan_by_id(context, id)
         plan_status = plan['plan_status']
         if plan_status not in (p_status.AVAILABLE, p_status.CLONING,
                                p_status.MIGRATING, p_status.FINISHED):
@@ -69,7 +71,7 @@ class PlansActionController(wsgi.Controller):
             raise exc.HTTPUnprocessableEntity()
         context = req.environ['conveyor.context']
         update = body.get('os-reset_state')
-        self.resource_api.update_plan(context, id, update)
+        self.plan_api.update_plan(context, id, update)
         LOG.debug("End reset plan state in API for plan: %s", id)
         return {'plan_id': id, 'plan_status': update.get('plan_status')}
 
@@ -82,7 +84,7 @@ class PlansActionController(wsgi.Controller):
             raise exc.HTTPUnprocessableEntity()
         context = req.environ['conveyor.context']
         plan_id = body.get('force_delete-plan', {}).get('plan_id', None)
-        self.resource_api.force_delete_plan(context, plan_id)
+        self.plan_api.force_delete_plan(context, plan_id)
 
     @wsgi.response(202)
     @wsgi.action('plan-delete-resource')
@@ -93,7 +95,54 @@ class PlansActionController(wsgi.Controller):
             raise exc.HTTPUnprocessableEntity()
         context = req.environ['conveyor.context']
         plan_id = body.get('plan-delete-resource', {}).get('plan_id', None)
-        self.resource_api.plan_delete_resource(context, plan_id)
+        self.plan_api.plan_delete_resource(context, plan_id)
+
+    @wsgi.response(202)
+    @wsgi.action("get_resource_detail_from_plan")
+    def _get_resource_detail_from_plan(self, req, id, body):
+        LOG.debug("Get resource detail from a plan")
+
+        if not self.is_valid_body(body, 'get_resource_detail_from_plan'):
+            msg = _("Request body hasn't key 'get_resource_detail_from_plan' \
+                                    or the format is incorrect")
+            raise exc.HTTPBadRequest(explanation=msg)
+
+        params = body['get_resource_detail_from_plan']
+
+        plan_id = params.get('plan_id')
+
+        if not plan_id:
+            msg = _("The body should contain parameter plan_id.")
+            raise exc.HTTPBadRequest(explanation=msg)
+
+        if not uuidutils.is_uuid_like(plan_id):
+            msg = _("Invalid plan_id provided, plan_id must be uuid.")
+            raise exc.HTTPBadRequest(explanation=msg)
+
+        is_original = params.get('is_original')
+        if is_original:
+            try:
+                if strutils.bool_from_string(is_original, True):
+                    is_original = True
+                else:
+                    is_original = False
+            except ValueError as e:
+                raise exc.HTTPBadRequest(explanation=unicode(e))
+        else:
+            is_original = False
+
+        try:
+            context = req.environ['conveyor.context']
+            resource = \
+                self.plan_api.get_resource_detail_from_plan(
+                    context,
+                    plan_id,
+                    id,
+                    is_original=is_original)
+            return {"resource": resource}
+        except Exception as e:
+            LOG.error(unicode(e))
+            raise exc.HTTPInternalServerError(explanation=unicode(e))
 
 
 class Plan(extensions.ExtensionDescriptor):

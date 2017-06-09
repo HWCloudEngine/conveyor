@@ -22,7 +22,7 @@ from oslo_serialization import jsonutils
 
 from conveyor.clone import api
 from conveyor import context
-from conveyor.resource import api as resource_api
+from conveyor.plan import api as plan_api
 from conveyor.tests import test
 from conveyor.tests.unit.api import fakes as fakes
 from conveyor.tests.unit.api.v1 import fakes as res_fakes
@@ -37,7 +37,7 @@ class MigrateActionControllerTestCase(test.TestCase):
                                               is_admin=False)
 
     @mock.patch.object(api.API, "migrate")
-    @mock.patch.object(resource_api.ResourceAPI, "get_plan_by_id")
+    @mock.patch.object(plan_api.PlanAPI, "get_plan_by_id")
     def test_migrate(self, mock_get_plan_by_id, mock_migrate):
         body = {'migrate': {'destination': 'fake-az'}}
         req = webob.Request.blank('/v1/%s/migrates/%s/action' %
@@ -52,7 +52,7 @@ class MigrateActionControllerTestCase(test.TestCase):
         self.assertEqual(http_client.ACCEPTED, res.status_int)
 
     @mock.patch.object(api.API, "export_migrate_template")
-    @mock.patch.object(resource_api.ResourceAPI, "get_plan_by_id")
+    @mock.patch.object(plan_api.PlanAPI, "get_plan_by_id")
     def test_export_migrate_template(self, mock_get_plan_by_id,
                                      mock_export_migrate_template):
         body = {'export_migrate_template': {'destination': 'fake-az'}}

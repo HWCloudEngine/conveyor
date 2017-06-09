@@ -70,27 +70,3 @@ class ResourceActionControllerTestCase(test.TestCase):
         mock_get_resource_detail.return_value = resource
         rsp = self.controller._get_resource_detail(req, plan_id, body)
         self.assertEqual(resource['id'], rsp['resource']['id'])
-
-    @mock.patch.object(resource_api.ResourceAPI,
-                       'get_resource_detail_from_plan')
-    def test_resource_detail(self, mock_get_resources_detail_from_plan):
-
-        res_id = "e76f3947-d76f-4dca-a5f4-5af9b57becfe"
-        resource = {
-            "name": "stack_0",
-            "parameters": {},
-            "id": res_id,
-            "type": "OS::Heat::Stack",
-            "properties": {
-                "stack_name": "test-stack",
-                "disable_rollback": True,
-                "parameters": {
-                    "OS::project_id": "d23b65e027f9461ebe900916c0412ade",
-                    "image": "19a7e4c8-baa5-442a-859e-7e968dc8b189",
-                    "flavor": "2",
-                    "OS::stack_name": "test-stack"}}}
-        req = fakes.HTTPRequest.blank('/v1/resources/%s/action' + res_id)
-        body = {'get_resource_detail_from_plan': {'plan_id': fake.PLAN_ID}}
-        mock_get_resources_detail_from_plan.return_value = resource
-        rsp = self.controller._get_resource_detail_from_plan(req, res_id, body)
-        self.assertEqual(resource['id'], rsp['resource']['id'])

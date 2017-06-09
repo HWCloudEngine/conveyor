@@ -18,8 +18,6 @@ from webob import exc
 
 
 from oslo_log import log as logging
-from oslo_utils import strutils
-from oslo_utils import uuidutils
 
 from conveyor.api.wsgi import wsgi
 
@@ -61,53 +59,6 @@ class ResourceActionController(wsgi.Controller):
             resource = self._resource_api.get_resource_detail(context,
                                                               resource_type,
                                                               id)
-            return {"resource": resource}
-        except Exception as e:
-            LOG.error(unicode(e))
-            raise exc.HTTPInternalServerError(explanation=unicode(e))
-
-    @wsgi.response(202)
-    @wsgi.action("get_resource_detail_from_plan")
-    def _get_resource_detail_from_plan(self, req, id, body):
-        LOG.debug("Get resource detail from a plan")
-
-        if not self.is_valid_body(body, 'get_resource_detail_from_plan'):
-            msg = _("Request body hasn't key 'get_resource_detail_from_plan' \
-                                    or the format is incorrect")
-            raise exc.HTTPBadRequest(explanation=msg)
-
-        params = body['get_resource_detail_from_plan']
-
-        plan_id = params.get('plan_id')
-
-        if not plan_id:
-            msg = _("The body should contain parameter plan_id.")
-            raise exc.HTTPBadRequest(explanation=msg)
-
-        if not uuidutils.is_uuid_like(plan_id):
-            msg = _("Invalid plan_id provided, plan_id must be uuid.")
-            raise exc.HTTPBadRequest(explanation=msg)
-
-        is_original = params.get('is_original')
-        if is_original:
-            try:
-                if strutils.bool_from_string(is_original, True):
-                    is_original = True
-                else:
-                    is_original = False
-            except ValueError as e:
-                raise exc.HTTPBadRequest(explanation=unicode(e))
-        else:
-            is_original = False
-
-        try:
-            context = req.environ['conveyor.context']
-            resource = \
-                self._resource_api.get_resource_detail_from_plan(
-                    context,
-                    plan_id,
-                    id,
-                    is_original=is_original)
             return {"resource": resource}
         except Exception as e:
             LOG.error(unicode(e))

@@ -22,6 +22,7 @@ from conveyor.i18n import _LE
 from conveyor import network
 from conveyor.resource.driver import base
 from conveyor.resource.driver.networks import NetworkResource
+from conveyor.resource.driver.secgroup import SecGroup
 from conveyor.resource.driver.volumes import VolumeResource
 from conveyor.resource import resource
 from conveyor.resource import resource_state
@@ -337,10 +338,10 @@ class InstanceResource(base.resource):
             secgroup_id_list.append(sec.get('id'))
 
         collected_dependencies = self._collected_dependencies
-        nr = NetworkResource(self.context,
-                             collected_resources=self._collected_resources,
-                             collected_parameters=self._collected_parameters,
-                             collected_dependencies=collected_dependencies)
+        nr = SecGroup(self.context,
+                      collected_resources=self._collected_resources,
+                      collected_parameters=self._collected_parameters,
+                      collected_dependencies=collected_dependencies)
 
         try:
             secgroups__res = nr.extract_secgroups(secgroup_id_list)

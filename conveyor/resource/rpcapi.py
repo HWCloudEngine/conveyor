@@ -60,64 +60,13 @@ class ResourceAPI(object):
                           search_opts=search_opts,
                           marker=marker, limit=limit)
 
-    def create_plan(self, context, plan_type, resources, plan_name=None):
+    def build_reources_topo(self, context, resources):
         cctxt = self.client.prepare(version='1.18')
-        return cctxt.call(context, 'create_plan',
-                          plan_type=plan_type, resources=resources,
-                          plan_name=plan_name)
-
-    # has been abolished
-    def create_plan_by_template(self, context, template):
-        cctxt = self.client.prepare(version='1.18')
-        return cctxt.call(context, 'create_plan_by_template',
-                          template=template)
-
-    def build_plan_by_template(self, context, plan_dict, template):
-        cctxt = self.client.prepare(version='1.18')
-        return cctxt.cast(context, 'build_plan_by_template',
-                          plan_dict=plan_dict, template=template)
+        return cctxt.call(context, 'build_reources_topo',
+                          resources=resources)
 
     def get_resource_detail(self, context, resource_type, resource_id):
         cctxt = self.client.prepare(version='1.18')
         return cctxt.call(context, 'get_resource_detail',
                           resource_type=resource_type,
                           resource_id=resource_id)
-
-    def get_resource_detail_from_plan(self, context, plan_id,
-                                      resource_id, is_original=True):
-        cctxt = self.client.prepare(version='1.18')
-        return cctxt.call(context, 'get_resource_detail_from_plan',
-                          plan_id=plan_id,
-                          resource_id=resource_id,
-                          is_original=is_original)
-
-    def update_plan(self, context, plan_id, values):
-        cctxt = self.client.prepare(version='1.18')
-        return cctxt.call(context, 'update_plan',
-                          plan_id=plan_id, values=values)
-
-    def update_plan_resources(self, context, plan_id, resources):
-        cctxt = self.client.prepare(version='1.18')
-        return cctxt.call(context, 'update_plan_resources',
-                          plan_id=plan_id, resources=resources)
-
-    def get_plan_by_id(self, context, plan_id, detail=True):
-        cctxt = self.client.prepare(version='1.18')
-        return cctxt.call(context, 'get_plan_by_id',
-                          plan_id=plan_id, detail=detail)
-
-#     def get_plans(self, context, search_opts=None):
-#         cctxt = self.client.prepare(version='1.18')
-#         return cctxt.call(context, 'get_plans', search_opts=search_opts)
-
-    def delete_plan(self, context, plan_id):
-        cctxt = self.client.prepare(version='1.18')
-        return cctxt.cast(context, 'delete_plan', plan_id=plan_id)
-
-    def force_delete_plan(self, context, plan_id):
-        cctxt = self.client.prepare(version='1.18')
-        return cctxt.cast(context, 'force_delete_plan', plan_id=plan_id)
-
-    def plan_delete_resource(self, context, plan_id):
-        cctxt = self.client.prepare(version='1.18')
-        return cctxt.cast(context, 'plan_delete_resource', plan_id=plan_id)
