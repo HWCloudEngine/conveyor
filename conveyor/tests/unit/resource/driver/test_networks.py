@@ -15,10 +15,13 @@
 import copy
 import mock
 
+from oslo_utils import uuidutils
+
 from conveyor import context
 from conveyor import exception
 from conveyor.network import neutron
 from conveyor.resource.driver import networks
+from conveyor.resource.driver import secgroup
 from conveyor.resource import resource
 from conveyor.tests import test
 from conveyor.tests.unit.resource import fake_object
@@ -64,6 +67,25 @@ def mock_new_subnet(cls, context, subnet_id, **_params):
     elif subnet_id == ext_subnet_id:
         fake_subnet['network_id'] = ext_net_id
     return fake_subnet
+
+
+def mock_extract_secgroups(cls, secgroups_ids):
+    secgroup_res = []
+    for secgroup_id in secgroups_ids:
+        fake_secgroup = copy.deepcopy(fake_object.fake_secgroup_dict)
+        fake_secgroup['id'] = secgroup_id
+        name_in_tmpl = uuidutils.generate_uuid()
+        sg_res = resource.Resource(name_in_tmpl,
+                                   'OS::Neutron::SecurityGroup',
+                                   secgroup_id)
+        sg_dep = resource.ResourceDependency(secgroup_id,
+                                             fake_secgroup['name'],
+                                             name_in_tmpl,
+                                             'OS::Neutron::SecurityGroup')
+        cls._collected_resources[secgroup_id] = sg_res
+        cls._collected_dependencies[secgroup_id] = sg_dep
+        secgroup_res.append(sg_res)
+    return secgroup_res
 
 
 class NetworkResourceTestCase(test.TestCase):
@@ -305,19 +327,19 @@ class NetworkResourceTestCase(test.TestCase):
         self.assertTrue(1 == len(result))
         self.assertTrue(1 == len(self.net_resource.get_collected_resources()))
 
-    @mock.patch.object(neutron.API, 'get_security_group')
+    @mock.patch.object(secgroup.SecGroup, 'extract_secgroups',
+                       mock_extract_secgroups)
     @mock.patch.object(neutron.API, 'get_port')
-    def test_extract_ports_with_secgroups(self, mock_port, mock_secgroup):
+    def test_extract_ports_with_secgroups(self, mock_port):
         # NOTE: this test will open the switch case
         # `if port.get('security_groups')`
         fake_port = copy.deepcopy(fake_port_dict)
         fake_port['security_groups'] = ['164c7126-ee4e-44e8-afb5-cc2f11225b30']
         fake_port['fixed_ips'] = []
         mock_port.return_value = fake_port
-        mock_secgroup.return_value = copy.deepcopy((fake_secgroup_dict))
         result = self.net_resource.extract_ports([fake_port['id']])
-        self.assertTrue(1 == len(result))
-        self.assertTrue(2 == len(self.net_resource.get_collected_resources()))
+        self.assertEqual(1, len(result))
+        self.assertEqual(fake_port['id'], result[0].id)
 
     @mock.patch.object(neutron.API, 'get_port')
     def test_extract_ports_with_invalid_ips(self, mock_port):
@@ -328,61 +350,13 @@ class NetworkResourceTestCase(test.TestCase):
                           self.net_resource.extract_ports,
                           [fake_port['id']])
 
-    @mock.patch.object(neutron.API, 'get_port')
-    def test_extract_ports_without_subnet(self, mock_port):
-        # NOTE: for switch case: self.extract_subnets, the returned subnets
-        # would not be None, so this case is not reachable
-        # TODO(drngsl)
-        pass
-
-    @mock.patch.object(neutron.API, 'secgroup_list')
-    def test_extract_all_secgroups(self, mock_secgroup_list):
+    @mock.patch.object(secgroup.SecGroup, 'extract_secgroups',
+                       mock_extract_secgroups)
+    def test_extract_secgroups(self):
         fake_secgroup = copy.deepcopy(fake_secgroup_dict)
-        mock_secgroup_list.return_value = [fake_secgroup]
-        result = self.net_resource.extract_secgroups([])
-        self.assertTrue(1 == len(result))
+        result = self.net_resource.extract_secgroups([fake_secgroup['id']])
+        self.assertEqual(1, len(result))
         self.assertEqual(fake_secgroup['id'], result[0].id)
-        self.assertTrue(
-            1 == len(self.net_resource.get_collected_resources()))
-
-    @mock.patch.object(neutron.API, 'get_security_group')
-    def test_extract_secgroups_with_ids(self, mock_secgroup):
-        fake_secgroup = copy.deepcopy(fake_secgroup_dict)
-        mock_secgroup.return_value = fake_secgroup
-        fake_sg_id = fake_secgroup['id']
-        result = self.net_resource.extract_secgroups([fake_sg_id])
-        self.assertTrue(1 == len(result))
-        self.assertEqual(fake_sg_id, result[0].id)
-        self.assertTrue(
-            1 == len(self.net_resource.get_collected_resources()))
-
-    @mock.patch.object(neutron.API, 'secgroup_list')
-    def test_extract_secgroups_from_cache(self, mock_secgroup_list):
-        fake_secgroup = copy.deepcopy(fake_secgroup_dict)
-        mock_secgroup_list.return_value = [fake_secgroup]
-        fake_sg_id = fake_secgroup['id']
-        fake_sg_name = fake_secgroup['name']
-
-        fake_sg_res = resource.Resource(fake_sg_name,
-                                         'OS::Neutron::SecurityGroup',
-                                         fake_sg_id)
-        fake_sg_dep = resource.ResourceDependency(
-            fake_sg_id, fake_sg_name, 'securitygroup_0',
-            'OS::Neutron::SecurityGroup')
-        self.net_resource = networks.NetworkResource(
-            self.context,
-            collected_resources={fake_sg_id: fake_sg_res},
-            collected_dependencies={fake_sg_id: fake_sg_dep})
-        result = self.net_resource.extract_secgroups([])
-        self.assertTrue(1 == len(result))
-        self.assertEqual(fake_sg_id, result[0].id)
-
-    @mock.patch.object(neutron.API, 'get_security_group',
-                       side_effect=Exception)
-    def test_extract_secgroups_failed(self, mock_secgroup):
-        self.assertRaises(exception.ResourceNotFound,
-                          self.net_resource.extract_secgroups,
-                          ['sg_123'])
 
     @mock.patch.object(neutron.API, 'get_subnet')
     @mock.patch.object(neutron.API, 'get_network')

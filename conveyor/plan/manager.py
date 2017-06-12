@@ -32,6 +32,7 @@ from conveyor.conveyorheat.api import api as heat
 from conveyor.db import api as db_api
 from conveyor import exception
 from conveyor import manager
+from conveyor import network
 from conveyor.objects import plan as plan_cls
 from conveyor.resource import api as resource_api
 from conveyor.resource.driver import instances
@@ -62,7 +63,7 @@ class PlanManager(manager.Manager):
         self.nova_api = compute.API()
         self.cinder_api = volume.API()
         self.resource_api = resource_api.ResourceAPI()
-#         self.neutron_api = network.API()
+        self.neutron_api = network.API()
         self.heat_api = heat.API()
         self.db_api = db_api
         super(PlanManager, self).__init__(service_name=
@@ -324,7 +325,7 @@ class PlanManager(manager.Manager):
                 # Remind: dep delete and add
                 resource_id = res.pop('resource_id', None)
                 updated_res.pop(resource_id)
-                for key, value in updated_res.items():
+                for key, value in updated_dep.items():
                     if resource_id in value.dependencies:
                         msg = 'have resource denpend on the %s ' \
                               'resource ,delete failed' % resource_id
