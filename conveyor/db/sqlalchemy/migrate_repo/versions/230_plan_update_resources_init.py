@@ -27,7 +27,7 @@ LOG = logging.getLogger(__name__)
 def upgrade(migrate_engine):
     meta = MetaData()
     meta.bind = migrate_engine
-    template = Table('plan_update_resource', meta,
+    p_update = Table('plan_update_resource', meta,
                      Column('created_at', DateTime(timezone=False)),
                      Column('updated_at', DateTime(timezone=False)),
                      Column('deleted_at', DateTime(timezone=False)),
@@ -39,9 +39,9 @@ def upgrade(migrate_engine):
                      mysql_charset='utf8')
 
     try:
-        template.create()
+        p_update.create()
     except Exception:
-        meta.drop_all(tables=[template])
+        meta.drop_all(tables=[p_update])
         raise
 
     if migrate_engine.name == "mysql":
@@ -60,7 +60,7 @@ def downgrade(migrate_engine):
     meta = MetaData()
     meta.bind = migrate_engine
 
-    for table in ('plan_template', ):
+    for table in ('plan_update_resource', ):
         for prefix in ('', 'shadow_'):
             table_name = prefix + table
             if migrate_engine.has_table(table_name):

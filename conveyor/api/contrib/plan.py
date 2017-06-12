@@ -25,6 +25,7 @@ from conveyor.api import extensions
 from conveyor.api.wsgi import wsgi
 from conveyor.clone import api
 from conveyor.common import plan_status as p_status
+from conveyor.db import api as db_api
 from conveyor.plan import api as plan_api
 
 from conveyor.i18n import _
@@ -46,7 +47,7 @@ class PlansActionController(wsgi.Controller):
         LOG.debug("download template of plan %s start in API from template",
                   id)
         context = req.environ['conveyor.context']
-        plan = self.plan_api.get_plan_by_id(context, id)
+        plan = db_api.plan_get(context, id)
         plan_status = plan['plan_status']
         if plan_status not in (p_status.AVAILABLE, p_status.CLONING,
                                p_status.MIGRATING, p_status.FINISHED):

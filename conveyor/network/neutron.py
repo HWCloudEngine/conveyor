@@ -111,9 +111,13 @@ class API(object):
             list_security_groups(**_params)['security_groups']
 
     def get_security_group(self, context, security_group_id, **_params):
-        return neutronclient(context).\
+        security_group = neutronclient(context).\
             show_security_group(security_group_id,
                                 **_params)['security_group']
+        rules = security_group.get('security_group_rules', [])
+        for rule in rules:
+            rule.pop('description', None)
+        return security_group
 
     def floatingip_list(self, context, **_params):
         return neutronclient(context).\

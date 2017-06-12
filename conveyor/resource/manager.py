@@ -292,10 +292,8 @@ class ResourceManager(manager.Manager):
             new_resources = stack.get_collected_resources()
             new_dependencies = stack.get_collected_dependencies()
 
-        LOG.error('Resource build topo info end %s', resources)
         ori_res = self._actual_id_to_resource_id(new_resources)
         ori_dep = self._actual_id_to_resource_id(new_dependencies)
-        LOG.error('Resource build topo sucessful %s', resources)
         return ori_res, ori_dep
 
     def _actual_id_to_resource_id(self, res_or_dep):

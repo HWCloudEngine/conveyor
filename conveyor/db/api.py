@@ -110,6 +110,38 @@ def plan_template_delete(context, plan_id):
     return IMPL.plan_template_delete(context, plan_id)
 
 
+def plan_original_resource_create(context, values):
+    return IMPL.plan_original_resource_create(context, values)
+
+
+def plan_original_resource_get(context, plan_id):
+    return IMPL.plan_original_resource_get(context, plan_id)
+
+
+def plan_original_resource_update(context, plan_id, values):
+    return IMPL.plan_original_resource_update(context, plan_id, values)
+
+
+def plan_original_resource_delete(context, plan_id):
+    return IMPL.plan_original_resource_delete(context, plan_id)
+
+
+def plan_update_resource_create(context, values):
+    return IMPL.plan_update_resource_create(context, values)
+
+
+def plan_update_resource_get(context, plan_id):
+    return IMPL.plan_update_resource_get(context, plan_id)
+
+
+def plan_update_resource_update(context, plan_id, values):
+    return IMPL.plan_update_resource_update(context, plan_id, values)
+
+
+def plan_update_resource_delete(context, plan_id):
+    return IMPL.plan_update_resource_delete(context, plan_id)
+
+
 # add from heat
 def get_engine():
     return IMPL.get_engine()

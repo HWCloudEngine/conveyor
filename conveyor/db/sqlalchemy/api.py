@@ -245,7 +245,33 @@ def _plan_template_get(context, plan_id,
         read_deleted='no').filter_by(
         plan_id=plan_id).first()
     if not result:
-        raise conveyor_exception.PlanNotFoundInDb(id=id)
+        raise conveyor_exception.PlanNotFoundInDb(id=plan_id)
+    return result
+
+
+def _plan_original_resource_get(context, plan_id,
+                                session=None, read_deleted='no'):
+    result = model_query(
+        context,
+        models.PlanOriginalResource,
+        session=session,
+        read_deleted='no').filter_by(
+        plan_id=plan_id).first()
+    if not result:
+        raise conveyor_exception.PlanNotFoundInDb(id=plan_id)
+    return result
+
+
+def _plan_update_resource_get(context, plan_id,
+                              session=None, read_deleted='no'):
+    result = model_query(
+        context,
+        models.PlanUpdateResource,
+        session=session,
+        read_deleted='no').filter_by(
+        plan_id=plan_id).first()
+    if not result:
+        raise conveyor_exception.PlanNotFoundInDb(id=plan_id)
     return result
 
 
@@ -556,6 +582,110 @@ def plan_template_delete(context, plan_id):
     with session.begin():
         plan_ref = _plan_template_get(context, plan_id, session=session)
         session.delete(plan_ref)
+
+
+@require_context
+def plan_original_resource_get(context, plan_id):
+    try:
+        result = _plan_original_resource_get(context, plan_id)
+    except db_exc.DBError:
+        msg = _("Invalid plan id %s for query original resource") % plan_id
+        LOG.warn(msg)
+        raise conveyor_exception.InvalidID(id=plan_id)
+    return dict(result)
+
+
+@require_context
+def plan_original_resource_create(context, values):
+    ori_resource_ref = models.PlanOriginalResource()
+    ori_resource_ref.update(values)
+    try:
+        ori_resource_ref.save()
+    except db_exc.DBDuplicateEntry as e:
+        raise conveyor_exception.PlanExists(id=values.get('id'))
+    except db_exc.DBReferenceError as e:
+        raise conveyor_exception.IntegrityException(msg=str(e))
+    except db_exc.DBError as e:
+        LOG.exception('DB error:%s', e)
+        raise conveyor_exception.PlanCreateFailed()
+    return dict(ori_resource_ref)
+
+
+@require_context
+def plan_original_resource_update(context, plan_id, values):
+    session = get_session()
+    with session.begin():
+        ori_resource_ref = _plan_original_resource_get(context, plan_id,
+                                                       session=session)
+        if not ori_resource_ref:
+            raise conveyor_exception.PlanNotFoundInDb(id=plan_id)
+        ori_resource_ref.update(values)
+        try:
+            ori_resource_ref.save(session=session)
+        except db_exc.DBDuplicateEntry:
+            raise conveyor_exception.PlanExists()
+
+    return dict(ori_resource_ref)
+
+
+def plan_original_resource_delete(context, plan_id):
+    session = get_session()
+    with session.begin():
+        ori_resource_ref = _plan_original_resource_get(context, plan_id,
+                                                       session=session)
+        session.delete(ori_resource_ref)
+
+
+@require_context
+def plan_update_resource_get(context, plan_id):
+    try:
+        result = _plan_update_resource_get(context, plan_id)
+    except db_exc.DBError:
+        msg = _("Invalid plan id %s for query update resource") % plan_id
+        LOG.warn(msg)
+        raise conveyor_exception.InvalidID(id=plan_id)
+    return dict(result)
+
+
+@require_context
+def plan_update_resource_create(context, values):
+    update_resource_ref = models.PlanUpdateResource()
+    update_resource_ref.update(values)
+    try:
+        update_resource_ref.save()
+    except db_exc.DBDuplicateEntry as e:
+        raise conveyor_exception.PlanExists(id=values.get('id'))
+    except db_exc.DBReferenceError as e:
+        raise conveyor_exception.IntegrityException(msg=str(e))
+    except db_exc.DBError as e:
+        LOG.exception('DB error:%s', e)
+        raise conveyor_exception.PlanCreateFailed()
+    return dict(update_resource_ref)
+
+
+@require_context
+def plan_update_resource_update(context, plan_id, values):
+    session = get_session()
+    with session.begin():
+        update_resource_ref = _plan_update_resource_get(context, plan_id,
+                                                        session=session)
+        if not update_resource_ref:
+            raise conveyor_exception.PlanNotFoundInDb(id=plan_id)
+        update_resource_ref.update(values)
+        try:
+            update_resource_ref.save(session=session)
+        except db_exc.DBDuplicateEntry:
+            raise conveyor_exception.PlanExists()
+
+    return dict(update_resource_ref)
+
+
+def plan_update_resource_delete(context, plan_id):
+    session = get_session()
+    with session.begin():
+        update_resource_ref = _plan_update_resource_get(context, plan_id,
+                                                        session=session)
+        session.delete(update_resource_ref)
 
 
 @require_context

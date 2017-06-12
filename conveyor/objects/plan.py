@@ -273,16 +273,49 @@ def save_plan_to_db(context, new_plan):
     else:
         plan = copy.deepcopy(new_plan)
 
+    ori_resource = plan.pop('original_resources', {})
+    update_resource = plan.pop('updated_resources', {})
+    plan_id = plan.get('plan_id', None)
+
     LOG.debug('Save plan <%s> to database.', plan['plan_id'])
     try:
+        # 1. save plan base info to db
         db_api.plan_create(context, plan)
     except Exception as e:
         LOG.error(unicode(e))
         raise exception.PlanCreateFailed(message=unicode(e))
 
+    # 2. save original resource to db
+    ori_values = {'plan_id': plan_id, 'resource': ori_resource}
+    try:
+        db_api.plan_original_resource_create(context, ori_values)
+    except Exception as e:
+        LOG.error(unicode(e))
+        db_api.plan_delete(context, plan_id)
+        raise exception.PlanCreateFailed(message=unicode(e))
+
+    # 3. save update resource to db
+    update_values = {'plan_id': plan_id, 'resource': update_resource}
+    try:
+        db_api.plan_update_resource_create(context, update_values)
+    except Exception as e:
+        LOG.error(unicode(e))
+        db_api.plan_delete(context, plan_id)
+        db_api.plan_original_resource_delete(context, plan_id)
+        raise exception.PlanCreateFailed(message=unicode(e))
+
 
 def read_plan_from_db(context, plan_id):
+
+    # 1. query plan base info to db
     plan_dict = db_api.plan_get(context, plan_id)
+    # 2. query original resource to db
+    ori_resource = db_api.plan_original_resource_get(context, plan_id)
+    # 3. query update resource to db
+    update_resource = db_api.plan_update_resource_get(context, plan_id)
+    # 4. add resource to plan info
+    plan_dict['original_resources'] = ori_resource.pop('resource', {})
+    plan_dict['updated_resources'] = update_resource.pop('resource', {})
     plan_obj = Plan.from_dict(plan_dict)
     # rebuild dependencies
     plan_obj.rebuild_dependencies(is_original=True)
@@ -293,4 +326,18 @@ def read_plan_from_db(context, plan_id):
 
 def update_plan_to_db(context, plan_id, values):
 
-    db_api.plan_update(context, plan_id, values)
+    ori_resource = values.pop('original_resources', {})
+    update_resource = values.pop('updated_resources', {})
+    # 1. update plan base info to db
+    if values:
+        db_api.plan_update(context, plan_id, values)
+
+    # 2. update original resource to db
+    if ori_resource:
+        ori_values = {'resource': ori_resource}
+        db_api.plan_original_resource_update(context, plan_id, ori_values)
+
+    # 3. update update resource to db
+    if update_resource:
+        update_values = {'resource': update_resource}
+        db_api.plan_update_resource_update(context, plan_id, update_values)

@@ -208,7 +208,7 @@ class PlanManager(manager.Manager):
     def _delete_plan(self, context, plan_id):
         LOG.info("Begin to delete plan with id of %s", plan_id)
 
-        plan = self.get_plan_by_id(context, plan_id)
+        plan = db_api.plan_get(context, plan_id)
         if not plan:
             LOG.error('Delete plan %s failed' % plan_id)
             raise exception.PlanNotFound(plan_id=plan_id)
@@ -227,13 +227,15 @@ class PlanManager(manager.Manager):
                       {'id': plan_id, 'err': e})
             raise
         # delete plan info
+        db_api.plan_original_resource_delete(context, plan_id)
+        db_api.plan_update_resource_delete(context, plan_id)
         db_api.plan_delete(context, plan_id)
 
         LOG.info("Delete plan with id of %s succeed!", plan_id)
 
     def force_delete_plan(self, context, plan_id):
 
-        plan = self.get_plan_by_id(context, plan_id)
+        plan = db_api.plan_get(context, plan_id)
         stack_id = plan.get('stack_id', None) if plan else None
         self.heat_api.clear_table(context, stack_id, plan_id)
         try:
@@ -244,11 +246,13 @@ class PlanManager(manager.Manager):
             LOG.error('Delete plan %(id)s template info failed: %(err)s',
                       {'id': plan_id, 'err': e})
             raise
+        db_api.plan_original_resource_delete(context, plan_id)
+        db_api.plan_update_resource_delete(context, plan_id)
         db_api.plan_delete(context, plan_id)
 
     def plan_delete_resource(self, context, plan_id):
         try:
-            plan = self.get_plan_by_id(context, plan_id)
+            plan = db_api.plan_get(context, plan_id)
             self.heat_api.clear_resource(context, plan['stack_id'], plan_id)
         except Exception as e:
             msg = "Delete plan resource <%s> failed. %s" % \
@@ -325,7 +329,7 @@ class PlanManager(manager.Manager):
                 # Remind: dep delete and add
                 resource_id = res.pop('resource_id', None)
                 updated_res.pop(resource_id)
-                for key, value in updated_dep.items():
+                for key, value in updated_res.items():
                     if resource_id in value.dependencies:
                         msg = 'have resource denpend on the %s ' \
                               'resource ,delete failed' % resource_id

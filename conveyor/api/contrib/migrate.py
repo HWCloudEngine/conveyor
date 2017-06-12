@@ -23,8 +23,8 @@ from oslo_utils import timeutils
 from conveyor.api import extensions
 from conveyor.api.wsgi import wsgi
 from conveyor.clone import api
+from conveyor.db import api as db_api
 from conveyor.i18n import _
-from conveyor.plan import api as plan_api
 
 LOG = logging.getLogger(__name__)
 
@@ -34,7 +34,6 @@ class MigrateActionController(wsgi.Controller):
     def __init__(self, ext_mgr=None, *args, **kwargs):
         super(MigrateActionController, self).__init__(*args, **kwargs)
         self.clone_api = api.API()
-        self.plan_api = plan_api.PlanAPI()
         self.ext_mgr = ext_mgr
 
     @wsgi.response(202)
@@ -42,7 +41,7 @@ class MigrateActionController(wsgi.Controller):
     def _export_migrate_template(self, req, id, body):
         LOG.debug(" start exporting migrate template in API")
         context = req.environ['conveyor.context']
-        plan = self.plan_api.get_plan_by_id(context, id)
+        plan = db_api.plan_get(context, id)
         expire_at = plan['expire_at']
         expire_time = timeutils.parse_isotime(str(expire_at))
         if timeutils.is_older_than(expire_time, 0):
@@ -60,7 +59,7 @@ class MigrateActionController(wsgi.Controller):
         if not self.is_valid_body(body, 'migrate'):
             LOG.debug("migrate request body has not key:migrate")
             raise exc.HTTPUnprocessableEntity()
-        plan = self.plan_api.get_plan_by_id(context, id)
+        plan = db_api.plan_get(context, id)
         expire_at = plan['expire_at']
         expire_time = timeutils.parse_isotime(str(expire_at))
         if timeutils.is_older_than(expire_time, 0):

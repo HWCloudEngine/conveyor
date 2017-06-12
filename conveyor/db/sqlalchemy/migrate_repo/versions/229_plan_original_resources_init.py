@@ -62,7 +62,7 @@ def downgrade(migrate_engine):
     meta = MetaData()
     meta.bind = migrate_engine
 
-    for table in ('plan_template', ):
+    for table in ('plan_original_resource', ):
         for prefix in ('', 'shadow_'):
             table_name = prefix + table
             if migrate_engine.has_table(table_name):

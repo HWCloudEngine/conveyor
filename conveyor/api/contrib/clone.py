@@ -24,8 +24,8 @@ from conveyor.api import extensions
 from conveyor.api.wsgi import wsgi
 from conveyor.clone import api
 from conveyor.common import plan_status as p_status
+from conveyor.db import api as db_api
 from conveyor.i18n import _
-from conveyor.plan import api as plan_api
 
 LOG = logging.getLogger(__name__)
 
@@ -34,7 +34,6 @@ class CloneActionController(wsgi.Controller):
     def __init__(self, ext_mgr=None, *args, **kwargs):
         super(CloneActionController, self).__init__(*args, **kwargs)
         self.clone_api = api.API()
-        self.plan_api = plan_api.PlanAPI()
         self.ext_mgr = ext_mgr
 
     @wsgi.response(202)
@@ -68,7 +67,7 @@ class CloneActionController(wsgi.Controller):
     def _export_clone_template(self, req, id, body):
         LOG.debug(" start exporting template in API")
         context = req.environ['conveyor.context']
-        plan = self.plan_api.get_plan_by_id(context, id)
+        plan = db_api.plan_get(context, id)
         expire_at = plan['expire_at']
         expire_time = timeutils.parse_isotime(str(expire_at))
         if timeutils.is_older_than(expire_time, 0):
@@ -95,7 +94,7 @@ class CloneActionController(wsgi.Controller):
         if not self.is_valid_body(body, 'clone'):
             LOG.debug("clone request body has not key:clone")
             raise exc.HTTPUnprocessableEntity()
-        plan = self.plan_api.get_plan_by_id(context, id)
+        plan = db_api.plan_get(context, id)
         expire_at = plan['expire_at']
         expire_time = timeutils.parse_isotime(str(expire_at))
         if timeutils.is_older_than(expire_time, 0):
@@ -130,7 +129,7 @@ class CloneActionController(wsgi.Controller):
         sys_clone = clone_body.get('sys_clone', False)
         copy_data = clone_body.get('copy_data', True)
         resources = clone_body.get('resources')
-        plan = self.plan_api.get_plan_by_id(context, id)
+        plan = db_api.plan_get(context, id)
         plan_status = plan['plan_status']
         if plan_status not in (p_status.INITIATING, p_status.AVAILABLE,
                                p_status.FINISHED, p_status.CREATING):

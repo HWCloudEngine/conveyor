@@ -192,6 +192,24 @@ class PlanTemplate(BASE, ConveyorBase):
     template = Column(types.Json)
 
 
+class PlanOriginalResource(BASE, ConveyorBase):
+    """Represents an unparsed template which should be in JSON format."""
+
+    __tablename__ = 'plan_original_resource'
+    id = Column(Integer, primary_key=True)
+    plan_id = Column(String(length=36), nullable=False)
+    resource = Column(types.Json)
+
+
+class PlanUpdateResource(BASE, ConveyorBase):
+    """Represents an unparsed template which should be in JSON format."""
+
+    __tablename__ = 'plan_update_resource'
+    id = Column(Integer, primary_key=True)
+    plan_id = Column(String(length=36), nullable=False)
+    resource = Column(types.Json)
+
+
 def get_session():
     from conveyor.db.sqlalchemy import api as db_api
     return db_api.get_session()

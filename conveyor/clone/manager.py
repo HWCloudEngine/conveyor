@@ -190,7 +190,7 @@ class CloneManager(manager.Manager):
             return None
         # if plan status is error after create resources
         plan_id = template.get('plan_id')
-        plan = self.plan_api.get_plan_by_id(context, plan_id, detail=False)
+        plan = db_api.plan_get(context, plan_id)
         plan_state = plan.get('plan_status')
         if 'error' == plan_state:
             LOG.error("Plans deploy error in resources create.")
@@ -510,7 +510,7 @@ class CloneManager(manager.Manager):
 
         def _wait_for_plan_finished(context):
             """Called at an interval until the plan status finished"""
-            plan = self.plan_api.get_plan_by_id(context, id)
+            plan = db_api.plan_get(context, id)
             LOG.debug("Get plan info: %s", plan)
             status = plan.get('plan_status')
             if status in [plan_status.FINISHED, plan_status.ERROR]:
@@ -634,7 +634,7 @@ class CloneManager(manager.Manager):
             template['template'] = copy.deepcopy(volume_template)
             template['plan_id'] = plan_id
             self._afther_resource_created_handler(context, template, stack_id)
-            plan = self.plan_api.get_plan_by_id(context, plan_id)
+            plan = db_api.plan_get(context, plan_id)
             if plan.get('plan_status') == plan_status.ERROR:
                 raise exception.PlanCloneFailed(id=id, msg='')
 
@@ -1081,7 +1081,7 @@ class CloneManager(manager.Manager):
         # after finish the clone plan ,detach migrate port
         if CONF.migrate_net_map:
             self._clear_migrate_port(context, resource_map)
-        plan = self.plan_api.get_plan_by_id(context, id)
+        plan = db_api.plan_get(context, id)
         if plan.get('plan_status') == plan_status.ERROR:
             raise exception.PlanMigrateFailed(id=id)
         self._realloc_port_floating_ip(context, id, original_server_port_map,

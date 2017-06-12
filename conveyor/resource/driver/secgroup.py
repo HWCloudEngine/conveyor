@@ -126,7 +126,6 @@ class SecGroup(base.resource):
             del rule['tenant_id']
             del rule['id']
             del rule['security_group_id']
-            del rule['description']
             rule = dict((k, v) for k, v in rule.items() if v is not None)
             brules.append(rule)
         return brules, dependencies
