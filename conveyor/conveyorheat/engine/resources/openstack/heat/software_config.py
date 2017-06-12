@@ -12,13 +12,13 @@
 #    under the License.
 
 
-from conveyor.conveyorheat.common.i18n import _
 from conveyor.conveyorheat.engine import attributes
 from conveyor.conveyorheat.engine import constraints
 from conveyor.conveyorheat.engine import properties
 from conveyor.conveyorheat.engine import resource
 from conveyor.conveyorheat.engine import support
 from conveyor.conveyorheat.rpc import api as rpc_api
+from conveyor.i18n import _
 
 
 class SoftwareConfig(resource.Resource):

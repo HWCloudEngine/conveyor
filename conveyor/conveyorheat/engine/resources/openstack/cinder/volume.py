@@ -16,8 +16,6 @@ from oslo_serialization import jsonutils
 import six
 
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _
-from conveyor.conveyorheat.common.i18n import _LI
 from conveyor.conveyorheat.engine import attributes
 from conveyor.conveyorheat.engine.clients import progress
 from conveyor.conveyorheat.engine import constraints
@@ -26,6 +24,8 @@ from conveyor.conveyorheat.engine.resources import scheduler_hints as sh
 from conveyor.conveyorheat.engine.resources import volume_base as vb
 from conveyor.conveyorheat.engine import support
 from conveyor.conveyorheat.engine import translation
+from conveyor.i18n import _
+from conveyor.i18n import _LI
 
 LOG = logging.getLogger(__name__)
 

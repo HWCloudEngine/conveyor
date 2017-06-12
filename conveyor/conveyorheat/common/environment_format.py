@@ -12,8 +12,8 @@
 #    under the License.
 import yaml
 
-from conveyor.conveyorheat.common.i18n import _
 from conveyor.conveyorheat.common import template_format
+from conveyor.i18n import _
 
 
 SECTIONS = (

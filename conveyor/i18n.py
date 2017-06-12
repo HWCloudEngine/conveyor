@@ -18,7 +18,10 @@ See http://docs.openstack.org/developer/oslo_i18n/usage.html .
 
 """
 
+import six
+
 import oslo_i18n as i18n
+from oslo_utils import encodeutils
 
 from conveyor.common import gettextutils
 
@@ -68,3 +71,19 @@ gettextutils._LI = _LI
 gettextutils._LW = _LW
 gettextutils._LE = _LE
 gettextutils._LC = _LC
+
+
+def repr_wrapper(klass):
+    """A decorator that defines __repr__ method under Python 2.
+
+    Under Python 2 it will encode repr return value to str type.
+    Under Python 3 it does nothing.
+    """
+    if six.PY2:
+        if '__repr__' not in klass.__dict__:
+            raise ValueError("@repr_wrapper cannot be applied "
+                             "to %s because it doesn't define __repr__()." %
+                             klass.__name__)
+        klass._repr = klass.__repr__
+        klass.__repr__ = lambda self: encodeutils.safe_encode(self._repr())
+    return klass

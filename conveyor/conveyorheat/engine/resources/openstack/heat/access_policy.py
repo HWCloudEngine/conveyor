@@ -12,9 +12,9 @@
 #    under the License.
 
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _
 from conveyor.conveyorheat.engine import properties
 from conveyor.conveyorheat.engine import resource
+from conveyor.i18n import _
 
 
 class AccessPolicy(resource.Resource):

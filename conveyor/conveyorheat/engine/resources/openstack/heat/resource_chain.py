@@ -15,13 +15,13 @@ import six
 
 from conveyor.conveyorheat.common import exception
 from conveyor.conveyorheat.common import grouputils
-from conveyor.conveyorheat.common.i18n import _
 from conveyor.conveyorheat.engine import attributes
 from conveyor.conveyorheat.engine.hot import template
 from conveyor.conveyorheat.engine import properties
 from conveyor.conveyorheat.engine.resources import stack_resource
 from conveyor.conveyorheat.engine import support
 from conveyor.conveyorheat.scaling import template as scl_template
+from conveyor.i18n import _
 
 
 class ResourceChain(stack_resource.StackResource):

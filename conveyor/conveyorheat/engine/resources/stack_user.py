@@ -15,9 +15,9 @@ import keystoneclient.exceptions as kc_exception
 from oslo_log import log as logging
 
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _
-from conveyor.conveyorheat.common.i18n import _LW
 from conveyor.conveyorheat.engine import resource
+from conveyor.i18n import _
+from conveyor.i18n import _LW
 
 LOG = logging.getLogger(__name__)
 

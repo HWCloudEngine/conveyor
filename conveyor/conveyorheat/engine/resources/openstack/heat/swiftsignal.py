@@ -18,14 +18,14 @@ import six
 from six.moves.urllib import parse
 
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _
-from conveyor.conveyorheat.common.i18n import _LI
 from conveyor.conveyorheat.engine import attributes
 from conveyor.conveyorheat.engine.clients.os import swift
 from conveyor.conveyorheat.engine import constraints
 from conveyor.conveyorheat.engine import properties
 from conveyor.conveyorheat.engine import resource
 from conveyor.conveyorheat.engine import support
+from conveyor.i18n import _
+from conveyor.i18n import _LI
 
 LOG = logging.getLogger(__name__)
 

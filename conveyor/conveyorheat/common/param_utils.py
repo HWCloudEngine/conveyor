@@ -13,7 +13,7 @@
 
 from oslo_utils import strutils
 
-from conveyor.conveyorheat.common.i18n import _
+from conveyor.i18n import _
 
 
 def extract_bool(name, value):

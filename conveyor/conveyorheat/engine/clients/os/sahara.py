@@ -19,9 +19,9 @@ from saharaclient import client as sahara_client
 import six
 
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _
 from conveyor.conveyorheat.engine.clients import client_plugin
 from conveyor.conveyorheat.engine import constraints
+from conveyor.i18n import _
 
 CLIENT_NAME = 'sahara'
 

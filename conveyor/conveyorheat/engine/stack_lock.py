@@ -18,11 +18,10 @@ from oslo_log import log as logging
 from oslo_utils import excutils
 
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _LI
-from conveyor.conveyorheat.common.i18n import _LW
 from conveyor.conveyorheat.objects import stack as stack_object
 from conveyor.conveyorheat.objects import stack_lock as stack_lock_object
-# from conveyor.conveyorheat.rpc import listener_client
+from conveyor.i18n import _LI
+from conveyor.i18n import _LW
 
 LOG = logging.getLogger(__name__)
 

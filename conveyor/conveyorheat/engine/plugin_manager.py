@@ -19,9 +19,8 @@ import sys
 from oslo_config import cfg
 from oslo_log import log
 
-
-from conveyor.conveyorheat.common.i18n import _LE
 from conveyor.conveyorheat.common import plugin_loader
+from conveyor.i18n import _LE
 
 LOG = log.getLogger(__name__)
 

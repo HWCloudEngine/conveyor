@@ -17,7 +17,7 @@ import re
 from oslo_utils import encodeutils
 from six.moves.urllib import parse as urlparse
 
-from conveyor.conveyorheat.common.i18n import _
+from conveyor.i18n import _
 
 
 class HeatIdentifier(collections.Mapping):

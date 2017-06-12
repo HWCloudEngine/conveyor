@@ -18,7 +18,7 @@ import random
 import re
 import time
 
-from conveyor.conveyorheat.common.i18n import _
+from conveyor.i18n import _
 
 
 iso_duration_re = re.compile('PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$')

@@ -13,7 +13,6 @@
 
 from conveyor.conveyorheat.common import environment_format
 from conveyor.conveyorheat.common import grouputils
-from conveyor.conveyorheat.common.i18n import _
 from conveyor.conveyorheat.common import short_id
 from conveyor.conveyorheat.common import timeutils as iso8601utils
 from conveyor.conveyorheat.engine import attributes
@@ -26,6 +25,7 @@ from conveyor.conveyorheat.engine import scheduler
 from conveyor.conveyorheat.scaling import lbutils
 from conveyor.conveyorheat.scaling import rolling_update
 from conveyor.conveyorheat.scaling import template
+from conveyor.i18n import _
 
 
 (SCALED_RESOURCE_TYPE,) = ('OS::Heat::ScaledResource',)

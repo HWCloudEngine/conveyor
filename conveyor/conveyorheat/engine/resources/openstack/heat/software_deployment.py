@@ -20,7 +20,6 @@ from oslo_log import log as logging
 from oslo_utils import timeutils
 
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _
 from conveyor.conveyorheat.engine import attributes
 from conveyor.conveyorheat.engine import constraints
 from conveyor.conveyorheat.engine import properties
@@ -33,6 +32,7 @@ from conveyor.conveyorheat.engine.resources import signal_responder
 from conveyor.conveyorheat.engine import rsrc_defn
 from conveyor.conveyorheat.engine import support
 from conveyor.conveyorheat.rpc import api as rpc_api
+from conveyor.i18n import _
 
 cfg.CONF.import_opt('default_deployment_signal_transport',
                     'conveyor.conveyorheat.common.config')

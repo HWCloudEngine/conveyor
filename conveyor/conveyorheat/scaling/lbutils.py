@@ -17,9 +17,9 @@ import six
 
 from conveyor.conveyorheat.common import exception
 from conveyor.conveyorheat.common import grouputils
-from conveyor.conveyorheat.common.i18n import _
 from conveyor.conveyorheat.engine import rsrc_defn
 from conveyor.conveyorheat.engine import scheduler
+from conveyor.i18n import _
 
 
 def reload_loadbalancers(group, load_balancers, exclude=None):

@@ -12,12 +12,12 @@
 #    under the License.
 
 
-from conveyor.conveyorheat.common.i18n import _
 from conveyor.conveyorheat.engine import attributes
 from conveyor.conveyorheat.engine import constraints
 from conveyor.conveyorheat.engine import properties
 from conveyor.conveyorheat.engine.resources.openstack.neutron import neutron
 from conveyor.conveyorheat.engine import support
+from conveyor.i18n import _
 
 
 class QoSPolicy(neutron.NeutronResource):

@@ -18,9 +18,6 @@ import six
 
 from conveyor.conveyorheat.common import exception
 from conveyor.conveyorheat.common import grouputils
-from conveyor.conveyorheat.common.i18n import _
-from conveyor.conveyorheat.common.i18n import _LE
-from conveyor.conveyorheat.common.i18n import _LI
 from conveyor.conveyorheat.engine import attributes
 from conveyor.conveyorheat.engine import constraints
 from conveyor.conveyorheat.engine import function
@@ -34,6 +31,9 @@ from conveyor.conveyorheat.engine import rsrc_defn
 from conveyor.conveyorheat.engine import support
 from conveyor.conveyorheat.scaling import cooldown
 from conveyor.conveyorheat.scaling import scalingutil as sc_util
+from conveyor.i18n import _
+from conveyor.i18n import _LE
+from conveyor.i18n import _LI
 
 LOG = logging.getLogger(__name__)
 

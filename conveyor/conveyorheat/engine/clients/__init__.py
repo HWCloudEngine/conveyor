@@ -20,8 +20,8 @@ import six
 from stevedore import enabled
 
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _
-from conveyor.conveyorheat.common.i18n import _LW
+from conveyor.i18n import _
+from conveyor.i18n import _LW
 
 LOG = logging.getLogger(__name__)
 

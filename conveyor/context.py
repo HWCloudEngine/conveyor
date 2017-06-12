@@ -30,10 +30,12 @@ from keystoneclient.auth.identity import v3
 from keystoneclient.auth import token_endpoint
 from oslo_config import cfg
 from oslo_log import log as logging
+import oslo_messaging
 from oslo_utils import timeutils
 
 from conveyor.common import local
 from conveyor.conveyorheat.common import endpoint_utils
+from conveyor.conveyorheat.common import exception as heat_exc
 from conveyor.conveyorheat.engine import clients
 from conveyor.db import api as db_api
 from conveyor import exception
@@ -44,6 +46,7 @@ from conveyor.i18n import _LW
 LOG = logging.getLogger(__name__)
 
 TRUSTEE_CONF_GROUP = 'trustee'
+auth.register_conf_options(cfg.CONF, TRUSTEE_CONF_GROUP)
 
 
 def generate_request_id():
@@ -64,8 +67,9 @@ class RequestContext(object):
                  service_catalog=None, instance_lock_checked=False,
                  auth_token_info=None, auth_url=None, tenant_id=None,
                  show_deleted=False, region_name=None, auth_plugin=None,
-                 trust_id=None, trusts_auth_plugin=None, password=None,
-                 user_domain_id=None, iam_assume_token=None, **kwargs):
+                 trust_id=None, trustor_user_id=None, trusts_auth_plugin=None,
+                 password=None, user_domain_id=None, iam_assume_token=None,
+                 project_domain_id=None, **kwargs):
         """:param read_deleted: 'no' indicates deleted records are hidden,
                 'yes' indicates deleted records are visible,
                 'only' indicates that *only* deleted records are visible.
@@ -104,10 +108,12 @@ class RequestContext(object):
         self.region_name = region_name
         self._auth_plugin = auth_plugin
         self.trust_id = trust_id
+        self.trustor_user_id = trustor_user_id
         self._trusts_auth_plugin = trusts_auth_plugin
         self.password = password
         self.user_domain = user_domain_id
         self.iam_assume_token = iam_assume_token
+        self.project_domain = project_domain_id
 
         if service_catalog:
             # Only include required parts of service_catalog
@@ -250,6 +256,8 @@ class RequestContext(object):
         local.store.context = self
 
     def to_dict(self):
+        user_idt = '{user} {tenant}'.format(user=self.user_id or '-',
+                                            tenant=self.tenant_id or '-')
         return {'user_id': self.user_id,
                 'project_id': self.project_id,
                 'is_admin': self.is_admin,
@@ -261,16 +269,24 @@ class RequestContext(object):
                 'auth_token': self.auth_token,
                 'quota_class': self.quota_class,
                 'user_name': self.user_name,
+                'username': self.username,
+                'password': self.password,
                 'service_catalog': self.service_catalog,
                 'project_name': self.project_name,
                 'instance_lock_checked': self.instance_lock_checked,
                 'tenant': self.tenant,
+                'tenant_id': self.tenant_id,
+                'trust_id': self.trust_id,
+                'trustor_user_id': self.trustor_user_id,
+                'region_name': self.region_name,
+                'user_identity': user_idt,
                 'user': self.user,
                 'auth_token_info': self.auth_token_info,
                 'auth_url': self.auth_url,
-                'tenant_id': self.tenant_id,
                 'show_deleted': self.show_deleted,
-                'iam_assume_token': self.iam_assume_token}
+                'iam_assume_token': self.iam_assume_token,
+                'user_domain_id': self.user_domain,
+                'project_domain_id': self.project_domain}
 
     @classmethod
     def from_dict(cls, values):
@@ -363,3 +379,14 @@ def authorize_quota_class_context(context, class_name):
             raise exception.Forbidden()
         elif context.quota_class != class_name:
             raise exception.Forbidden()
+
+
+def request_context(func):
+    @six.wraps(func)
+    def wrapped(self, ctx, *args, **kwargs):
+        try:
+            return func(self, ctx, *args, **kwargs)
+        except heat_exc.HeatException:
+            raise oslo_messaging.rpc.dispatcher.ExpectedException()
+
+    return wrapped

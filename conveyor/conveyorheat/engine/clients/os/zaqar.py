@@ -13,7 +13,7 @@
 
 from oslo_log import log as logging
 
-from conveyor.conveyorheat.common.i18n import _LE
+from conveyor.i18n import _LE
 
 LOG = logging.getLogger(__name__)
 

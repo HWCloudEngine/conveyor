@@ -21,8 +21,6 @@ from oslo_utils import uuidutils
 import six
 
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _
-from conveyor.conveyorheat.common.i18n import _LE
 from conveyor.conveyorheat.engine import attributes
 from conveyor.conveyorheat.engine.clients import progress
 from conveyor.conveyorheat.engine import constraints
@@ -38,6 +36,8 @@ from conveyor.conveyorheat.engine.resources import stack_user
 from conveyor.conveyorheat.engine import support
 from conveyor.conveyorheat.engine import translation
 from conveyor.conveyorheat.rpc import api as rpc_api
+from conveyor.i18n import _
+from conveyor.i18n import _LE
 
 cfg.CONF.import_opt('default_software_config_transport',
                     'conveyor.conveyorheat.common.config')

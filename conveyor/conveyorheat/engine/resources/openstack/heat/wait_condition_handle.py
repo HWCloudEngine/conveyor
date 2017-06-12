@@ -18,7 +18,6 @@ from oslo_serialization import jsonutils
 
 from conveyor.conveyorheat.common import crypt
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _
 from conveyor.conveyorheat.engine import attributes
 from conveyor.conveyorheat.engine import constraints
 from conveyor.conveyorheat.engine import properties
@@ -27,6 +26,7 @@ from conveyor.conveyorheat.engine.resources.aws.cfn import \
 from conveyor.conveyorheat.engine.resources import signal_responder
 from conveyor.conveyorheat.engine.resources import wait_condition as wc_base
 from conveyor.conveyorheat.engine import support
+from conveyor.i18n import _
 
 
 class HeatWaitConditionHandle(wc_base.BaseWaitConditionHandle):

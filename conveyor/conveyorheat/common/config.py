@@ -20,9 +20,8 @@ from oslo_middleware import cors
 from osprofiler import opts as profiler
 
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _
-from conveyor.conveyorheat.common.i18n import _LW
-from conveyor.conveyorheat.common import wsgi
+from conveyor.i18n import _
+from conveyor.i18n import _LW
 
 
 LOG = logging.getLogger(__name__)
@@ -35,9 +34,6 @@ paste_deploy_opts = [
 
 
 service_opts = [
-    # cfg.IntOpt('periodic_interval',
-    #            default=60,
-    #            help=_('Seconds between running periodic tasks.')),
     cfg.StrOpt('heat_metadata_server_url',
                help=_('URL of the Heat metadata server. '
                       'NOTE: Setting this is only needed if you require '
@@ -249,14 +245,6 @@ engine_opts = [
     cfg.StrOpt('support_resources_conf',
                default='/etc/heat/support_resources.conf',
                help=_('Supported resources in heat.'))]
-
-# rpc_opts = [
-#     cfg.StrOpt('host',
-#                default=utils.get_hostid(),
-#                help=_('Name of the engine node. '
-#                       'This can be an opaque identifier. '
-#                       'It is not necessarily a hostname, FQDN, '
-#                       'or IP address.'))]
 
 auth_password_group = cfg.OptGroup('auth_password')
 auth_password_opts = [
@@ -480,46 +468,6 @@ def _get_deployment_config_file():
         return None
 
     return os.path.abspath(config_path)
-
-
-def load_paste_app(app_name=None):
-    """Builds and returns a WSGI app from a paste config file.
-
-    We assume the last config file specified in the supplied ConfigOpts
-    object is the paste config file.
-
-    :param app_name: name of the application to load
-
-    :raises RuntimeError when config file cannot be located or application
-            cannot be loaded from config file
-    """
-    if app_name is None:
-        app_name = cfg.CONF.prog
-
-    # append the deployment flavor to the application name,
-    # in order to identify the appropriate paste pipeline
-    app_name += _get_deployment_flavor()
-
-    conf_file = _get_deployment_config_file()
-    if conf_file is None:
-        raise RuntimeError(_("Unable to locate config file [%s]") %
-                           cfg.CONF.paste_deploy['api_paste_config'])
-
-    try:
-        app = wsgi.paste_deploy_app(conf_file, app_name, cfg.CONF)
-
-        # Log the options used when starting if we're in debug mode...
-        if cfg.CONF.debug:
-            cfg.CONF.log_opt_values(logging.getLogger(app_name),
-                                    logging.DEBUG)
-
-        return app
-    except (LookupError, ImportError) as e:
-        raise RuntimeError(_("Unable to load %(app_name)s from "
-                             "configuration file %(conf_file)s."
-                             "\nGot: %(e)r") % {'app_name': app_name,
-                                                'conf_file': conf_file,
-                                                'e': e})
 
 
 def get_client_option(client, option):

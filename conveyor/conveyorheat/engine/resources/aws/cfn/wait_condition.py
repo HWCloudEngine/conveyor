@@ -11,7 +11,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from conveyor.conveyorheat.common.i18n import _
 from conveyor.conveyorheat.common import identifier
 from conveyor.conveyorheat.engine import attributes
 from conveyor.conveyorheat.engine import constraints
@@ -21,6 +20,7 @@ from conveyor.conveyorheat.engine.resources.aws.cfn import \
 from conveyor.conveyorheat.engine.resources.openstack.heat import \
     wait_condition as heat_wc
 from conveyor.conveyorheat.engine import support
+from conveyor.i18n import _
 
 
 class WaitCondition(heat_wc.HeatWaitCondition):

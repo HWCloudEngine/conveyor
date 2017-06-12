@@ -17,13 +17,13 @@ from email.mime import text
 import os
 from oslo_utils import uuidutils
 
-from conveyor.conveyorheat.common.i18n import _
 from conveyor.conveyorheat.engine import constraints
 from conveyor.conveyorheat.engine import properties
 from conveyor.conveyorheat.engine.resources.openstack.heat import \
     software_config
 from conveyor.conveyorheat.engine import support
 from conveyor.conveyorheat.rpc import api as rpc_api
+from conveyor.i18n import _
 
 
 class MultipartMime(software_config.SoftwareConfig):

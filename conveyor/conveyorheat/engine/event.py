@@ -18,9 +18,9 @@ import oslo_db.exception
 from oslo_log import log as logging
 
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _
 from conveyor.conveyorheat.common import identifier
 from conveyor.conveyorheat.objects import event as event_object
+from conveyor.i18n import _
 
 LOG = logging.getLogger(__name__)
 

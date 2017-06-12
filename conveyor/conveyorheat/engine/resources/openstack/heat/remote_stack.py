@@ -15,10 +15,8 @@ from oslo_log import log as logging
 from oslo_serialization import jsonutils
 import six
 
-from conveyor.conveyorheat.common import context
+from conveyor import context
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _
-from conveyor.conveyorheat.common.i18n import _LE
 from conveyor.conveyorheat.common import template_format
 from conveyor.conveyorheat.engine import attributes
 from conveyor.conveyorheat.engine import environment
@@ -26,6 +24,8 @@ from conveyor.conveyorheat.engine import function
 from conveyor.conveyorheat.engine import properties
 from conveyor.conveyorheat.engine import resource
 from conveyor.conveyorheat.engine import template
+from conveyor.i18n import _
+from conveyor.i18n import _LE
 
 LOG = logging.getLogger(__name__)
 

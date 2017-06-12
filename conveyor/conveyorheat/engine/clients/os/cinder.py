@@ -19,10 +19,10 @@ from oslo_log import log as logging
 
 
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _
-from conveyor.conveyorheat.common.i18n import _LI
 from conveyor.conveyorheat.engine.clients import client_plugin
 from conveyor.conveyorheat.engine import constraints
+from conveyor.i18n import _
+from conveyor.i18n import _LI
 
 
 LOG = logging.getLogger(__name__)

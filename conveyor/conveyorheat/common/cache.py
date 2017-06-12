@@ -19,7 +19,7 @@
 from oslo_cache import core
 from oslo_config import cfg
 
-from conveyor.conveyorheat.common.i18n import _
+from conveyor.i18n import _
 
 
 def register_cache_configurations(conf):

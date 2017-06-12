@@ -301,7 +301,8 @@ class OpenstackDriver(driver.BaseDriver):
             vol_res.extra_properties['mount_point'] = mount_point.get(
                 'mount_disk')
 
-    def add_extra_properties_for_stack(self, context, resource, undo_mgr):
+    def add_extra_properties_for_stack(self, context, resource, sys_clone,
+                                       copy_data, undo_mgr):
         res_prop = resource.properties
         stack_id = resource.id
         template = json.loads(res_prop.get('template'))
@@ -334,6 +335,7 @@ class OpenstackDriver(driver.BaseDriver):
                         v_exra_prop['id'] = phy_id
                         volume_status = res_info['status']
                         v_exra_prop['status'] = volume_status
+                        v_exra_prop['copy_data'] = copy_data
                         value['extra_properties'] = v_exra_prop
                         value['id'] = phy_id
                         self._handle_volume_for_stack(context, value, gw_id,
@@ -420,7 +422,7 @@ class OpenstackDriver(driver.BaseDriver):
                 'mount_disk')
 
     def reset_resources(self, context, resources):
-        self._reset_resources_state(context, resources)
+        # self._reset_resources_state(context, resources)
         self._handle_resources_after_clone(context, resources)
 
     def _reset_resources_state(self, context, resources):
@@ -490,6 +492,10 @@ class OpenstackDriver(driver.BaseDriver):
                     try:
                         if res.get('extra_properties', {}).get(
                                 'is_deacidized'):
+                            copy_data = res.get('extra_properties', {}).\
+                                get('set_shareable')
+                            if not copy_data:
+                                continue
                             set_shareable = res.get('extra_properties', {}) \
                                                .get('set_shareable')
                             volume_id = res.get('extra_properties', {}) \
@@ -530,7 +536,10 @@ class OpenstackDriver(driver.BaseDriver):
                                         .get('gw_url')
                     sys_clone = volume_res.get('extra_properties', {}) \
                                           .get('sys_clone')
-                    if boot_index in ['0', 0] and not sys_clone:
+                    copy_data = volume_res.get('extra_properties', {}).\
+                        get('copy_data')
+                    if (boot_index in ['0', 0] and not sys_clone) or \
+                            not copy_data:
                         continue
                     vgw_ip = vgw_url.split(':')[0]
                     client = birdiegatewayclient.get_birdiegateway_client(

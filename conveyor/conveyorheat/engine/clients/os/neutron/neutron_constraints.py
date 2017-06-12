@@ -16,9 +16,9 @@
 from neutronclient.common import exceptions as qe
 
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _
 from conveyor.conveyorheat.engine.clients.os import nova
 from conveyor.conveyorheat.engine import constraints
+from conveyor.i18n import _
 
 CLIENT_NAME = 'neutron'
 

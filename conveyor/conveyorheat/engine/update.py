@@ -16,11 +16,11 @@ from oslo_log import log as logging
 import six
 
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _LI
-from conveyor.conveyorheat.common.i18n import repr_wrapper
 from conveyor.conveyorheat.engine import dependencies
 from conveyor.conveyorheat.engine import scheduler
 from conveyor.conveyorheat.objects import resource as resource_objects
+from conveyor.i18n import _LI
+from conveyor.i18n import repr_wrapper
 
 LOG = logging.getLogger(__name__)
 

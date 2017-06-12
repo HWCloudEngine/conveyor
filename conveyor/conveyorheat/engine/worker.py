@@ -19,18 +19,15 @@ from oslo_service import service
 from osprofiler import profiler
 import six
 
-from conveyor.conveyorheat.common import context
+from conveyor import context
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _LE
-from conveyor.conveyorheat.common.i18n import _LI
-from conveyor.conveyorheat.common import messaging as rpc_messaging
 from conveyor.conveyorheat.engine import resource
 from conveyor.conveyorheat.engine import scheduler
 from conveyor.conveyorheat.engine import stack as parser
 from conveyor.conveyorheat.engine import sync_point
 from conveyor.conveyorheat.objects import resource as resource_objects
-# from conveyor.conveyorheat.rpc import listener_client
-# from conveyor.conveyorheat.rpc import worker_client as rpc_client
+from conveyor.i18n import _LE
+from conveyor.i18n import _LI
 
 LOG = logging.getLogger(__name__)
 
@@ -74,8 +71,8 @@ class WorkerService(service.Service):
                   'version': self.RPC_API_VERSION,
                   'engine': self.engine_id})
 
-        self._rpc_server = rpc_messaging.get_rpc_server(target, self)
-        self._rpc_server.start()
+        # self._rpc_server = rpc_messaging.get_rpc_server(target, self)
+        # self._rpc_server.start()
 
         super(WorkerService, self).start()
 

@@ -14,9 +14,9 @@
 import requests
 
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _LI
 from conveyor.conveyorheat.engine.clients import client_plugin
 from conveyor.conveyorheat.engine.clients.huawei import exc
+from conveyor.i18n import _LI
 
 from oslo_config import cfg
 from oslo_log import log as logging

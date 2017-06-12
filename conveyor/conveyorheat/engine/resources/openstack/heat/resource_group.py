@@ -19,7 +19,6 @@ import six
 
 from conveyor.conveyorheat.common import exception
 from conveyor.conveyorheat.common import grouputils
-from conveyor.conveyorheat.common.i18n import _
 from conveyor.conveyorheat.common import timeutils
 from conveyor.conveyorheat.engine import attributes
 from conveyor.conveyorheat.engine import constraints
@@ -32,6 +31,7 @@ from conveyor.conveyorheat.engine import scheduler
 from conveyor.conveyorheat.engine import support
 from conveyor.conveyorheat.scaling import rolling_update
 from conveyor.conveyorheat.scaling import template as scl_template
+from conveyor.i18n import _
 
 
 class ResourceGroup(stack_resource.StackResource):

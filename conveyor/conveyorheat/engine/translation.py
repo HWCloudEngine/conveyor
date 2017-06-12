@@ -14,11 +14,11 @@
 from oslo_utils import encodeutils
 
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _
 from conveyor.conveyorheat.engine.cfn import functions as cfn_funcs
 from conveyor.conveyorheat.engine import function
 from conveyor.conveyorheat.engine.hot import functions as hot_funcs
 from conveyor.conveyorheat.engine import properties
+from conveyor.i18n import _
 
 
 class TranslationRule(object):
