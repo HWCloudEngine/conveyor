@@ -42,10 +42,10 @@ class SecGroupTestCase(test.TestCase):
         fake_secgroup = copy.deepcopy(fake_secgroup_dict)
         mock_secgroup_list.return_value = [fake_secgroup]
         result = self.secgroup_resource.extract_secgroups([])
-        self.assertTrue(1 == len(result))
+        self.assertEqual(1, len(result))
         self.assertEqual(fake_secgroup['id'], result[0].id)
-        self.assertTrue(
-            1 == len(self.secgroup_resource.get_collected_resources()))
+        self.assertEqual(1,
+                         len(self.secgroup_resource.get_collected_resources()))
 
     @mock.patch.object(neutron.API, 'get_security_group')
     def test_extract_secgroups_with_ids(self, mock_secgroup):

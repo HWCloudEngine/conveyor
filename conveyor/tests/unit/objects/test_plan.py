@@ -14,18 +14,11 @@
 
 import copy
 import mock
-import sys
-
-if sys.version_info >= (3, 0):
-    import builtins as builtin
-else:
-    import __builtin__ as builtin
-
-from oslo_serialization import jsonutils
 
 from conveyor import context
 from conveyor.db import api as db_api
-from conveyor.resource import resource
+from conveyor import exception
+from conveyor.objects import plan
 from conveyor.tests import test
 from conveyor.tests.unit.resource import fake_object
 
@@ -37,30 +30,33 @@ class ResourceTestCase(test.TestCase):
         self.context = context.RequestContext('fake', 'fake', is_admin=False)
 
     @mock.patch.object(db_api, 'plan_create')
-    @mock.patch.object(jsonutils, 'dump')
-    @mock.patch.object(builtin, 'open')
-    def test_save_plan_to_db(self, mock_open, mock_dump, mock_plan_create):
-        resource.save_plan_to_db(self.context, '/var/lib/conveyor',
-                                 fake_object.fake_plan_dict)
+    def test_save_plan_to_db(self, mock_plan_create):
+        plan.save_plan_to_db(self.context, fake_object.fake_plan_dict)
         mock_plan_create.assert_called_once()
 
-    @mock.patch.object(jsonutils, 'load')
-    @mock.patch.object(builtin, 'open')
+    @mock.patch.object(db_api, 'plan_create', side_effect=Exception)
+    def test_save_plan_to_db_failed(self, mock_plan_create):
+        self.assertRaises(exception.PlanCreateFailed,
+                          plan.save_plan_to_db,
+                          self.context,
+                          fake_object.fake_plan_dict)
+        mock_plan_create.assert_called_once()
+
     @mock.patch.object(db_api, 'plan_get')
-    def test_read_plan_from_db(self, mock_plan_get, mock_open, mock_load):
-        mock_plan_get.return_value = fake_object.fake_plan_dict
-        result = resource.read_plan_from_db(
+    def test_read_plan_from_db(self, mock_plan_get):
+        fake_plan = copy.deepcopy(fake_object.fake_plan_dict)
+        fake_plan.pop('original_dependencies', None)
+        fake_plan.pop('updated_dependencies', None)
+        mock_plan_get.return_value = fake_plan
+        result = plan.read_plan_from_db(
             self.context, fake_object.fake_plan_dict['plan_id'])
-        self.assertEqual(resource.Plan, type(result[1]))
+        self.assertIn('original_dependencies', result)
+        self.assertIn('updated_dependencies', result)
 
     @mock.patch.object(db_api, 'plan_update')
-    @mock.patch.object(jsonutils, 'dump')
-    @mock.patch.object(builtin, 'open')
-    def test_update_plan_to_db(self, mock_open, mock_dump, mock_plan_update):
+    def test_update_plan_to_db(self, mock_plan_update):
         fake_plan_dict = copy.deepcopy(fake_object.fake_plan_dict)
-        resource.update_plan_to_db(self.context, '/var/lib/conveyor',
-                                   fake_plan_dict['plan_id'],
-                                   fake_plan_dict)
-        self.assertNotIn('original_dependencies', fake_plan_dict)
-        self.assertNotIn('updated_dependencies', fake_plan_dict)
+        plan.update_plan_to_db(self.context,
+                               fake_plan_dict['plan_id'],
+                               fake_plan_dict)
         mock_plan_update.assert_called_once()
