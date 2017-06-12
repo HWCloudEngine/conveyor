@@ -17,8 +17,8 @@ import itertools
 import six
 
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _
-from conveyor.conveyorheat.common.i18n import repr_wrapper
+from conveyor.i18n import _
+from conveyor.i18n import repr_wrapper
 
 
 class CircularDependencyException(exception.HeatException):

@@ -15,9 +15,9 @@ from troveclient import client as tc
 from troveclient.openstack.common.apiclient import exceptions
 
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _
 from conveyor.conveyorheat.engine.clients import client_plugin
 from conveyor.conveyorheat.engine import constraints
+from conveyor.i18n import _
 
 CLIENT_NAME = 'trove'
 

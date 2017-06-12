@@ -24,12 +24,12 @@ import six
 
 from conveyor.conveyorheat.common import crypt
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _
 from conveyor.conveyorheat.objects import base as heat_base
 from conveyor.conveyorheat.objects import fields as heat_fields
 from conveyor.conveyorheat.objects import resource_data
 from conveyor.conveyorheat.objects import stack
 from conveyor.db import api as db_api
+from conveyor.i18n import _
 
 cfg.CONF.import_opt('encrypt_parameters_and_properties',
                     'conveyor.conveyorheat.common.config')

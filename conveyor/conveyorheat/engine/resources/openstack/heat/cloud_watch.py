@@ -14,12 +14,12 @@
 from oslo_config import cfg
 
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _
 from conveyor.conveyorheat.engine import constraints
 from conveyor.conveyorheat.engine import properties
 from conveyor.conveyorheat.engine import resource
 from conveyor.conveyorheat.engine import support
 from conveyor.conveyorheat.engine import watchrule
+from conveyor.i18n import _
 
 
 class CloudWatchAlarm(resource.Resource):

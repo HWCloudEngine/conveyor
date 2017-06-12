@@ -17,15 +17,15 @@ from oslo_log import log as logging
 import six
 
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _
-from conveyor.conveyorheat.common.i18n import _LI
-from conveyor.conveyorheat.common.i18n import _LW
 from conveyor.conveyorheat.engine import attributes
 from conveyor.conveyorheat.engine.clients import progress
 from conveyor.conveyorheat.engine import constraints
 from conveyor.conveyorheat.engine import properties
 from conveyor.conveyorheat.engine import resource
 from conveyor.conveyorheat.engine.resources import scheduler_hints as sh
+from conveyor.i18n import _
+from conveyor.i18n import _LI
+from conveyor.i18n import _LW
 
 LOG = logging.getLogger(__name__)
 

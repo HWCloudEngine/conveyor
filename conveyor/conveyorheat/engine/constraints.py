@@ -24,9 +24,9 @@ import six
 
 from conveyor.conveyorheat.common import cache
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _
-from conveyor.conveyorheat.common.i18n import _LW
 from conveyor.conveyorheat.engine import resources
+from conveyor.i18n import _
+from conveyor.i18n import _LW
 
 # decorator that allows to cache the value
 # of the function based on input arguments

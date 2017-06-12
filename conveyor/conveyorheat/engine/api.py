@@ -17,12 +17,12 @@ from oslo_log import log as logging
 from oslo_utils import timeutils
 import six
 
-from conveyor.conveyorheat.common.i18n import _
-from conveyor.conveyorheat.common.i18n import _LE
 from conveyor.conveyorheat.common import param_utils
 from conveyor.conveyorheat.common import template_format
 from conveyor.conveyorheat.engine import constraints as constr
 from conveyor.conveyorheat.rpc import api as rpc_api
+from conveyor.i18n import _
+from conveyor.i18n import _LE
 
 LOG = logging.getLogger(__name__)
 

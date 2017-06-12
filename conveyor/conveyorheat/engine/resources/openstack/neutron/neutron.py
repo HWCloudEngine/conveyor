@@ -13,8 +13,8 @@
 import six
 
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _
 from conveyor.conveyorheat.engine import resource
+from conveyor.i18n import _
 
 
 class NeutronResource(resource.Resource):

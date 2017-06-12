@@ -27,13 +27,9 @@ from oslo_utils import uuidutils
 from osprofiler import profiler
 import six
 
-from conveyor.conveyorheat.common import context as common_context
+from conveyor import context as common_context
 from conveyor.conveyorheat.common import environment_format as env_fmt
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _
-from conveyor.conveyorheat.common.i18n import _LE
-from conveyor.conveyorheat.common.i18n import _LI
-from conveyor.conveyorheat.common.i18n import _LW
 from conveyor.conveyorheat.common import identifier
 from conveyor.conveyorheat.common import lifecycle_plugin_utils
 from conveyor.conveyorheat.common import timeutils
@@ -56,7 +52,10 @@ from conveyor.conveyorheat.objects import stack as stack_object
 from conveyor.conveyorheat.objects import stack_tag as stack_tag_object
 from conveyor.conveyorheat.objects import user_creds as ucreds_object
 from conveyor.conveyorheat.rpc import api as rpc_api
-# from conveyor.conveyorheat.rpc import worker_client as rpc_worker_client
+from conveyor.i18n import _
+from conveyor.i18n import _LE
+from conveyor.i18n import _LI
+from conveyor.i18n import _LW
 
 cfg.CONF.import_opt('error_wait_time', 'conveyor.conveyorheat.common.config')
 

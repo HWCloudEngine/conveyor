@@ -14,12 +14,12 @@
 from oslo_log import log as logging
 
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _
 from conveyor.conveyorheat.engine import attributes
 from conveyor.conveyorheat.engine import constraints
 from conveyor.conveyorheat.engine import properties
 from conveyor.conveyorheat.engine.resources.huawei.elb import elb_res_base
 from conveyor.conveyorheat.engine.resources.huawei.elb import utils
+from conveyor.i18n import _
 
 LOG = logging.getLogger(__name__)
 

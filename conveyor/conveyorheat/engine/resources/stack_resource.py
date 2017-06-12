@@ -21,8 +21,6 @@ from oslo_utils import reflection
 import six
 
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _
-from conveyor.conveyorheat.common.i18n import _LW
 from conveyor.conveyorheat.common import identifier
 from conveyor.conveyorheat.common import template_format
 from conveyor.conveyorheat.engine import attributes
@@ -34,6 +32,8 @@ from conveyor.conveyorheat.engine import template
 from conveyor.conveyorheat.objects import stack as stack_object
 from conveyor.conveyorheat.objects import stack_lock
 from conveyor.conveyorheat.rpc import api as rpc_api
+from conveyor.i18n import _
+from conveyor.i18n import _LW
 
 from conveyor.conveyorheat.engine.clients.client_plugin import ExceptionFilter
 

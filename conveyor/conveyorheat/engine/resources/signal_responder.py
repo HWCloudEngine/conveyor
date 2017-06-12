@@ -21,10 +21,10 @@ from six.moves.urllib import parse as urlparse
 
 from conveyor.conveyorheat.common import crypt
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _
-from conveyor.conveyorheat.common.i18n import _LW
 from conveyor.conveyorheat.engine.clients.os import swift
 from conveyor.conveyorheat.engine.resources import stack_user
+from conveyor.i18n import _
+from conveyor.i18n import _LW
 
 LOG = logging.getLogger(__name__)
 

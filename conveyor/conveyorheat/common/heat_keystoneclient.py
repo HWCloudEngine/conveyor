@@ -24,12 +24,12 @@ from oslo_log import log as logging
 from oslo_serialization import jsonutils
 from oslo_utils import importutils
 
+from conveyor import context
 from conveyor.conveyorheat.common import config
-from conveyor.conveyorheat.common import context
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _
-from conveyor.conveyorheat.common.i18n import _LE
-from conveyor.conveyorheat.common.i18n import _LW
+from conveyor.i18n import _
+from conveyor.i18n import _LE
+from conveyor.i18n import _LW
 
 if cfg.CONF.FusionSphere.pubcloud:
     from conveyor.conveyorheat.common.huawei import keystone_client as kc_v3

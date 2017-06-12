@@ -24,12 +24,12 @@ from oslo_log import log
 
 from conveyor.conveyorheat.common import environment_format as env_fmt
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _
-from conveyor.conveyorheat.common.i18n import _LE
-from conveyor.conveyorheat.common.i18n import _LI
-from conveyor.conveyorheat.common.i18n import _LW
 from conveyor.conveyorheat.common import policy
 from conveyor.conveyorheat.engine import support
+from conveyor.i18n import _
+from conveyor.i18n import _LE
+from conveyor.i18n import _LI
+from conveyor.i18n import _LW
 
 LOG = log.getLogger(__name__)
 

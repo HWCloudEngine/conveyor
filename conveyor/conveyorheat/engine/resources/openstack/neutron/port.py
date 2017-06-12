@@ -15,8 +15,6 @@ from oslo_log import log as logging
 from oslo_serialization import jsonutils
 import six
 
-from conveyor.conveyorheat.common.i18n import _
-from conveyor.conveyorheat.common.i18n import _LW
 from conveyor.conveyorheat.engine import attributes
 from conveyor.conveyorheat.engine import constraints
 from conveyor.conveyorheat.engine import properties
@@ -25,6 +23,8 @@ from conveyor.conveyorheat.engine.resources.openstack.neutron import neutron
 from conveyor.conveyorheat.engine.resources.openstack.neutron import subnet
 from conveyor.conveyorheat.engine import support
 from conveyor.conveyorheat.engine import translation
+from conveyor.i18n import _
+from conveyor.i18n import _LW
 
 LOG = logging.getLogger(__name__)
 

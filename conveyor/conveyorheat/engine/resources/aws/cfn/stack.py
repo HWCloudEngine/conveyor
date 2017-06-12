@@ -15,12 +15,12 @@ from requests import exceptions
 import six
 
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _
 from conveyor.conveyorheat.common import template_format
 from conveyor.conveyorheat.common import urlfetch
 from conveyor.conveyorheat.engine import attributes
 from conveyor.conveyorheat.engine import properties
 from conveyor.conveyorheat.engine.resources import stack_resource
+from conveyor.i18n import _
 
 
 class NestedStack(stack_resource.StackResource):

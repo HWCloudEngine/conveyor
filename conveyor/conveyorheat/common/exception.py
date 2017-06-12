@@ -22,8 +22,8 @@ from oslo_log import log as logging
 import six
 from six import reraise as raise_
 
-from conveyor.conveyorheat.common.i18n import _
-from conveyor.conveyorheat.common.i18n import _LE
+from conveyor.i18n import _
+from conveyor.i18n import _LE
 
 _FATAL_EXCEPTION_FORMAT_ERRORS = False
 

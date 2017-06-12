@@ -13,11 +13,11 @@
 
 from six.moves.urllib import parse
 
-from conveyor.conveyorheat.common.i18n import _
 from conveyor.conveyorheat.engine import constraints
 from conveyor.conveyorheat.engine import properties
 from conveyor.conveyorheat.engine import resource
 from conveyor.conveyorheat.engine import support
+from conveyor.i18n import _
 
 
 class KeystoneRegion(resource.Resource):

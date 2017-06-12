@@ -13,7 +13,7 @@
 
 from oslo_config import cfg
 
-from conveyor.conveyorheat.common import messaging
+# from conveyor.conveyorheat.common import messaging
 
 SERVICE = 'orchestration'
 INFO = 'INFO'
@@ -42,7 +42,8 @@ def get_default_level():
 
 
 def notify(context, event_type, level, body):
-    client = messaging.get_notifier(_get_default_publisher())
+    # client = messaging.get_notifier(_get_default_publisher())
+    client = None
 
     method = getattr(client, level.lower())
     method(context, "%s.%s" % (SERVICE, event_type), body)

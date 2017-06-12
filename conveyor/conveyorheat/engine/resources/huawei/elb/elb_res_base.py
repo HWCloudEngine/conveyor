@@ -16,10 +16,10 @@ from oslo_log import log as logging
 from oslo_serialization import jsonutils
 
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _
 from conveyor.conveyorheat.engine import resource
 from conveyor.conveyorheat.engine.resources.huawei.elb import utils
 from conveyor.conveyorheat.engine import support
+from conveyor.i18n import _
 
 LOG = logging.getLogger(__name__)
 

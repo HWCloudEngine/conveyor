@@ -11,7 +11,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from conveyor.conveyorheat.common.i18n import _
+from conveyor.i18n import _
 
 SUPPORT_STATUSES = (UNKNOWN, SUPPORTED, DEPRECATED, UNSUPPORTED, HIDDEN
                     ) = ('UNKNOWN', 'SUPPORTED', 'DEPRECATED', 'UNSUPPORTED',

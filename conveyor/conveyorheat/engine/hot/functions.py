@@ -19,10 +19,10 @@ import six
 from oslo_serialization import jsonutils
 
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _
 from conveyor.conveyorheat.engine import attributes
 from conveyor.conveyorheat.engine.cfn import functions as cfn_funcs
 from conveyor.conveyorheat.engine import function
+from conveyor.i18n import _
 
 
 class GetParam(function.Function):

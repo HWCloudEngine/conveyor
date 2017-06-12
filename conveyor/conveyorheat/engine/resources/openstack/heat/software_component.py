@@ -12,7 +12,6 @@
 #    under the License.
 
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _
 from conveyor.conveyorheat.engine import constraints as constr
 from conveyor.conveyorheat.engine import properties
 from conveyor.conveyorheat.engine import resource
@@ -20,6 +19,7 @@ from conveyor.conveyorheat.engine.resources.openstack.heat import \
     software_config as sc
 from conveyor.conveyorheat.engine import support
 from conveyor.conveyorheat.rpc import api as rpc_api
+from conveyor.i18n import _
 
 
 class SoftwareComponent(sc.SoftwareConfig):

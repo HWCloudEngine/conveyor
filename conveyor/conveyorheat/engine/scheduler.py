@@ -21,10 +21,10 @@ from oslo_utils import excutils
 import six
 from six import reraise as raise_
 
-from conveyor.conveyorheat.common.i18n import _
-from conveyor.conveyorheat.common.i18n import _LI
-from conveyor.conveyorheat.common.i18n import repr_wrapper
 from conveyor.conveyorheat.common import timeutils
+from conveyor.i18n import _
+from conveyor.i18n import _LI
+from conveyor.i18n import repr_wrapper
 
 LOG = logging.getLogger(__name__)
 

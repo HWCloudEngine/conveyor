@@ -16,9 +16,9 @@
 
 from oslo_log import log as logging
 
-from conveyor.conveyorheat.common.i18n import _LE
-from conveyor.conveyorheat.common.i18n import _LI
 from conveyor.conveyorheat.engine import resources
+from conveyor.i18n import _LE
+from conveyor.i18n import _LI
 
 LOG = logging.getLogger(__name__)
 pp_class_instances = None

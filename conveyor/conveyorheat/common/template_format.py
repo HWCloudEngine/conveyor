@@ -20,7 +20,7 @@ import six
 import yaml
 
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _
+from conveyor.i18n import _
 
 yaml_loader = yaml.SafeLoader
 

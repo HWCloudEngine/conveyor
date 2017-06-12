@@ -23,10 +23,6 @@ from oslo_utils import reflection
 import six
 
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _
-from conveyor.conveyorheat.common.i18n import _LE
-from conveyor.conveyorheat.common.i18n import _LI
-from conveyor.conveyorheat.common.i18n import _LW
 from conveyor.conveyorheat.common import identifier
 from conveyor.conveyorheat.common import short_id
 from conveyor.conveyorheat.common import timeutils
@@ -46,7 +42,10 @@ from conveyor.conveyorheat.objects import resource as resource_objects
 from conveyor.conveyorheat.objects import resource_data as \
     resource_data_objects
 from conveyor.conveyorheat.objects import stack as stack_objects
-# from conveyor.conveyorheat.rpc import client as rpc_client
+from conveyor.i18n import _
+from conveyor.i18n import _LE
+from conveyor.i18n import _LI
+from conveyor.i18n import _LW
 
 cfg.CONF.import_opt('action_retry_limit',
                     'conveyor.conveyorheat.common.config')

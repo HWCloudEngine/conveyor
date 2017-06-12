@@ -17,12 +17,12 @@ from oslo_serialization import jsonutils
 import six
 
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _
 from conveyor.conveyorheat.engine import constraints as constr
 from conveyor.conveyorheat.engine import function
 from conveyor.conveyorheat.engine.hot import parameters as hot_param
 from conveyor.conveyorheat.engine import parameters
 from conveyor.conveyorheat.engine import support
+from conveyor.i18n import _
 
 SCHEMA_KEYS = (
     REQUIRED, IMPLEMENTED, DEFAULT, TYPE, SCHEMA,

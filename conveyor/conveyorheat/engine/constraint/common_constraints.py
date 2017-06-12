@@ -20,8 +20,8 @@ import six
 from oslo_utils import netutils
 from oslo_utils import timeutils
 
-from conveyor.conveyorheat.common.i18n import _
 from conveyor.conveyorheat.engine import constraints
+from conveyor.i18n import _
 
 
 class TestConstraintDelay(constraints.BaseCustomConstraint):

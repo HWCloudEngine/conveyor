@@ -16,11 +16,11 @@ import collections
 from oslo_utils import strutils
 import six
 
-from conveyor.conveyorheat.common.i18n import _
-from conveyor.conveyorheat.common.i18n import _LW
-from conveyor.conveyorheat.common.i18n import repr_wrapper
 from conveyor.conveyorheat.engine import constraints as constr
 from conveyor.conveyorheat.engine import support
+from conveyor.i18n import _
+from conveyor.i18n import _LW
+from conveyor.i18n import repr_wrapper
 
 from oslo_log import log as logging
 

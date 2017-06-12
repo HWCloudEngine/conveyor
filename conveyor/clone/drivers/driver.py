@@ -35,10 +35,8 @@ from conveyor import network
 from conveyor import utils
 from conveyor import volume
 
-
 CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
-
 
 template_skeleton = '''
 heat_template_version: 2013-05-23
@@ -70,13 +68,15 @@ class BaseDriver(object):
                                                      sys_clone, copy_data,
                                                      undo_mgr)
             elif resource_type == 'OS::Heat::Stack':
-                self.add_extra_properties_for_stack(context, value, undo_mgr)
+                self.add_extra_properties_for_stack(context, value, sys_clone,
+                                                    copy_data, undo_mgr)
 
     def add_extra_properties_for_server(self, context, resource, resource_map,
                                         sys_clone, copy_data, undo_mgr):
         raise NotImplementedError()
 
-    def add_extra_properties_for_stack(self, context, resource, undo_mgr):
+    def add_extra_properties_for_stack(self, context, resource, sys_clone,
+                                       copy_data, undo_mgr):
         raise NotImplementedError()
 
     def handle_resources(self, context, plan_id, resource_map, sys_clone,
@@ -165,8 +165,8 @@ class BaseDriver(object):
         sys_dev_name = list(diff_disk)[0] if len(diff_disk) >= 1 else None
         LOG.debug("in _handle_dep_volume dev_name = %s", sys_dev_name)
         resource.extra_properties['sys_dev_name'] = sys_dev_name
-        guest_format = client.vservices.get_disk_format(sys_dev_name)\
-                             .get('disk_format')
+        guest_format = client.vservices.get_disk_format(sys_dev_name) \
+            .get('disk_format')
         if guest_format:
             resource.extra_properties['guest_format'] = guest_format
             mount_point = client.vservices.force_mount_disk(
@@ -319,16 +319,16 @@ class BaseDriver(object):
         LOG.debug('begin get info for volume,the vgw ip %s' % gw_ip)
         client = birdiegatewayclient.get_birdiegateway_client(
             gw_ip, str(CONF.v2vgateway_api_listen_port))
-#         sys_dev_name = client.vservices.get_disk_name(volume_id).get(
-#             'dev_name')
-#         sys_dev_name = device_name
+        #         sys_dev_name = client.vservices.get_disk_name(volume_id).get(
+        #             'dev_name')
+        #         sys_dev_name = device_name
         # sys_dev_name = attach_resp._info.get('device')
         sys_dev_name = list(diff_disk)[0] if len(diff_disk) >= 1 else None
         LOG.debug("dev_name = %s", sys_dev_name)
 
         vol_res.extra_properties['sys_dev_name'] = sys_dev_name
-        guest_format = client.vservices.get_disk_format(sys_dev_name)\
-                             .get('disk_format')
+        guest_format = client.vservices.get_disk_format(sys_dev_name) \
+            .get('disk_format')
         if guest_format:
             vol_res.extra_properties['guest_format'] = guest_format
             mount_point = client.vservices.force_mount_disk(
@@ -379,10 +379,10 @@ class BaseDriver(object):
             if vgw_id:
                 try:
                     mount_point = resource.get('extra_properties', {}) \
-                                          .get('mount_point')
+                        .get('mount_point')
                     if mount_point:
                         vgw_url = resource.get('extra_properties', {}) \
-                                          .get('gw_url')
+                            .get('gw_url')
                         vgw_ip = vgw_url.split(':')[0]
                         client = birdiegatewayclient.get_birdiegateway_client(
                             vgw_ip, str(CONF.v2vgateway_api_listen_port))

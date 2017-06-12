@@ -14,13 +14,13 @@
 import six
 
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _
 from conveyor.conveyorheat.engine import attributes
 from conveyor.conveyorheat.engine import constraints
 from conveyor.conveyorheat.engine import properties
 from conveyor.conveyorheat.engine.resources.openstack.heat import \
     scaling_policy as heat_sp
 from conveyor.conveyorheat.scaling import scalingutil as sc_util
+from conveyor.i18n import _
 
 
 class AWSScalingPolicy(heat_sp.AutoScalingPolicy):

@@ -21,9 +21,9 @@ import six
 from stevedore import extension
 
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _
 from conveyor.conveyorheat.engine import environment
 from conveyor.conveyorheat.objects import raw_template as template_object
+from conveyor.i18n import _
 
 __all__ = ['Template']
 

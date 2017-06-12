@@ -30,12 +30,12 @@ import six
 from six.moves.urllib import parse as urlparse
 
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _
-from conveyor.conveyorheat.common.i18n import _LI
-from conveyor.conveyorheat.common.i18n import _LW
 from conveyor.conveyorheat.engine.clients import client_plugin
 from conveyor.conveyorheat.engine.clients import os as os_client
 from conveyor.conveyorheat.engine import constraints
+from conveyor.i18n import _
+from conveyor.i18n import _LI
+from conveyor.i18n import _LW
 
 LOG = logging.getLogger(__name__)
 

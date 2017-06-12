@@ -18,7 +18,6 @@ import functools
 import six
 
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _
 from conveyor.conveyorheat.engine import constraints
 from conveyor.conveyorheat.engine import properties
 from conveyor.conveyorheat.engine.resources.openstack.heat import \
@@ -27,6 +26,7 @@ from conveyor.conveyorheat.engine.resources.openstack.heat import \
     software_deployment as sd
 from conveyor.conveyorheat.engine import rsrc_defn
 from conveyor.conveyorheat.engine import support
+from conveyor.i18n import _
 
 
 class StructuredConfig(sc.SoftwareConfig):

@@ -31,15 +31,10 @@ from osprofiler import profiler
 import six
 import webob
 
-from conveyor.conveyorheat.common import context
+from conveyor import context
 from conveyor.conveyorheat.common import environment_format as env_fmt
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _
-from conveyor.conveyorheat.common.i18n import _LE
-from conveyor.conveyorheat.common.i18n import _LI
-from conveyor.conveyorheat.common.i18n import _LW
 from conveyor.conveyorheat.common import identifier
-from conveyor.conveyorheat.common import messaging as rpc_messaging
 from conveyor.conveyorheat.common import policy
 from conveyor.conveyorheat.common import service_utils
 from conveyor.conveyorheat.engine import api
@@ -68,6 +63,10 @@ from conveyor.conveyorheat.objects import stack as stack_object
 from conveyor.conveyorheat.objects import watch_data
 from conveyor.conveyorheat.objects import watch_rule
 from conveyor.conveyorheat.rpc import api as rpc_api
+from conveyor.i18n import _
+from conveyor.i18n import _LE
+from conveyor.i18n import _LI
+from conveyor.i18n import _LW
 from heatclient.common import environment_format
 from heatclient.common import template_utils
 
@@ -273,8 +272,8 @@ class EngineListener(service.Service):
         self.target = messaging.Target(
             server=self.engine_id,
             topic=rpc_api.LISTENER_TOPIC)
-        server = rpc_messaging.get_rpc_server(self.target, self)
-        server.start()
+        # server = rpc_messaging.get_rpc_server(self.target, self)
+        # server.start()
 
     def listening(self, ctxt):
         """Respond to a watchdog request.

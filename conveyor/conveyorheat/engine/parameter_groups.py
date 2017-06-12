@@ -14,7 +14,7 @@
 from oslo_log import log as logging
 
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _
+from conveyor.i18n import _
 
 LOG = logging.getLogger(__name__)
 

@@ -20,8 +20,8 @@ from oslo_utils import strutils
 import six
 
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _
 from conveyor.conveyorheat.engine import constraints as constr
+from conveyor.i18n import _
 
 
 PARAMETER_KEYS = (

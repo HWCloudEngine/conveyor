@@ -30,136 +30,13 @@ from conveyor.conveyorheat.engine import service as engine
 from conveyor.conveyorheat.hw_plugins import utils
 from conveyor.conveyorheat.rpc import api as rpc_api
 
-from conveyor import exception
-
-from conveyor.common._i18n import _
 from conveyor.common import loopingcall
 from conveyor.db import api as db_api
+from conveyor.i18n import _
 
 LOG = logging.getLogger(__name__)
 
-# heat_opts = [
-#     cfg.StrOpt('heat_url',
-#                default='https://127.0.0.1:8700/v1',
-#                help='Default heat URL',
-#                deprecated_group='DEFAULT',
-#                deprecated_name='heat_url')
-#     ]
-
 CONF = cfg.CONF
-
-# CONF.register_opts(heat_opts, 'heat')
-# Mapping of V2 Catalog Endpoint_type to V3 Catalog Interfaces
-ENDPOINT_TYPE_TO_INTERFACE = {
-    'publicURL': 'public',
-    'internalURL': 'internal',
-    'adminURL': 'admin',
-}
-
-
-def get_service_from_catalog(catalog, service_type):
-    if catalog:
-        for service in catalog:
-            if 'type' not in service:
-                continue
-            if service['type'] == service_type:
-                return service
-    return None
-
-
-def get_version_from_service(service):
-    if service and service.get('endpoints'):
-        endpoint = service['endpoints'][0]
-        if 'interface' in endpoint:
-            return 3
-        else:
-            return 2.0
-    return 2.0
-
-
-def _get_endpoint_region(endpoint):
-    """Common function for getting the region from endpoint.
-
-    In Keystone V3, region has been deprecated in favor of
-    region_id.
-
-    This method provides a way to get region that works for
-    both Keystone V2 and V3.
-    """
-    return endpoint.get('region_id') or endpoint.get('region')
-
-
-def get_url_for_service(service, endpoint_type, region=None):
-    if 'type' not in service:
-        return None
-
-    identity_version = get_version_from_service(service)
-    service_endpoints = service.get('endpoints', [])
-    if region:
-        available_endpoints = [endpoint for endpoint in service_endpoints
-                               if region == _get_endpoint_region(endpoint)]
-    else:
-        available_endpoints = service_endpoints
-    """if we are dealing with the identity service and there is no endpoint
-    in the current region, it is okay to use the first endpoint for any
-    identity service endpoints and we can assume that it is global
-    """
-    if service['type'] == 'identity' and not available_endpoints:
-        available_endpoints = [endpoint for endpoint in service_endpoints]
-
-    for endpoint in available_endpoints:
-        try:
-            if identity_version < 3:
-                return endpoint.get(endpoint_type)
-            else:
-                interface = \
-                    ENDPOINT_TYPE_TO_INTERFACE.get(endpoint_type, '')
-                if endpoint.get('interface') == interface:
-                    return endpoint.get('url')
-        except (IndexError, KeyError):
-            """it could be that the current endpoint just doesn't match the
-            type, continue trying the next one
-            """
-            pass
-    return None
-
-
-def url_for(context, service_type, endpoint_type=None, region=None):
-    endpoint_type = endpoint_type or getattr(CONF,
-                                             'OPENSTACK_ENDPOINT_TYPE',
-                                             'publicURL')
-    fallback_endpoint_type = getattr(CONF, 'SECONDARY_ENDPOINT_TYPE', None)
-    region = getattr(CONF, 'os_region_name', None)
-
-    catalog = context.service_catalog
-    service = get_service_from_catalog(catalog, service_type)
-    if service:
-        url = get_url_for_service(service,
-                                  endpoint_type,
-                                  region=region)
-        if not url and fallback_endpoint_type:
-            url = get_url_for_service(service,
-                                      fallback_endpoint_type,
-                                      region=region)
-        if url:
-            return url
-    raise exception.ServiceCatalogException(service_type)
-
-
-def make_url(req, identity):
-    """Return the URL for the supplied identity dictionary."""
-    try:
-        stack_identity = identifier.HeatIdentifier(**identity)
-    except ValueError:
-        err_reason = _('Invalid Stack address')
-        raise exc.HTTPInternalServerError(err_reason)
-
-    if cfg.CONF.FusionSphere.pubcloud:
-        url = cfg.CONF.FusionSphere.heat_orchestration_url
-        if url:
-            return '%s/%s' % (url.rstrip('/'), stack_identity.url_path())
-
-    return req.relative_url(stack_identity.url_path(), True)
 
 
 def format_stack(stack, keys=None, tenant_safe=True):

@@ -18,15 +18,15 @@ from oslo_log import log as logging
 from oslo_utils import timeutils
 
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _
-from conveyor.conveyorheat.common.i18n import _LI
-from conveyor.conveyorheat.common.i18n import _LW
 from conveyor.conveyorheat.engine import stack
 from conveyor.conveyorheat.engine import timestamp
 from conveyor.conveyorheat.objects import stack as stack_object
 from conveyor.conveyorheat.objects import watch_data as watch_data_objects
 from conveyor.conveyorheat.objects import watch_rule as watch_rule_objects
 from conveyor.conveyorheat.rpc import api as rpc_api
+from conveyor.i18n import _
+from conveyor.i18n import _LI
+from conveyor.i18n import _LW
 
 LOG = logging.getLogger(__name__)
 

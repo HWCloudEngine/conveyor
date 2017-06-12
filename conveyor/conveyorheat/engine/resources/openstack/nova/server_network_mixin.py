@@ -21,8 +21,8 @@ from oslo_utils import netutils
 import retrying
 
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _
-from conveyor.conveyorheat.common.i18n import _LI
+from conveyor.i18n import _
+from conveyor.i18n import _LI
 
 from conveyor.conveyorheat.engine import resource
 

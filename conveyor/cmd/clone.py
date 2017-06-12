@@ -30,8 +30,8 @@ from oslo_reports import guru_meditation_report as gmr
 # Need to register global_opts
 from conveyor.common import config  # noqa
 from conveyor.conveyorheat.common import config as heat_config
-from conveyor.conveyorheat.common.i18n import _LC
 from conveyor.conveyorheat.engine import template
+from conveyor.i18n import _LC
 
 from conveyor import i18n
 from conveyor import service

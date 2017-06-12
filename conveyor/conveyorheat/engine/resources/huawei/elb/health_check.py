@@ -12,10 +12,10 @@
 #    under the License.
 
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _
 from conveyor.conveyorheat.engine import constraints
 from conveyor.conveyorheat.engine import properties
 from conveyor.conveyorheat.engine.resources.huawei.elb import elb_res_base
+from conveyor.i18n import _
 
 
 class HealthCheck(elb_res_base.ElbBaseResource):

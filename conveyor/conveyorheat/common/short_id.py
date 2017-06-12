@@ -21,7 +21,7 @@ import uuid
 
 import six
 
-from conveyor.conveyorheat.common.i18n import _
+from conveyor.i18n import _
 
 
 def _to_byte_string(value, num_bits):

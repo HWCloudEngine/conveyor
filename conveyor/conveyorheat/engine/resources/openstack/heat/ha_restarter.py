@@ -14,13 +14,13 @@
 from oslo_log import log as logging
 import six
 
-from conveyor.conveyorheat.common.i18n import _
-from conveyor.conveyorheat.common.i18n import _LI
 from conveyor.conveyorheat.engine import attributes
 from conveyor.conveyorheat.engine import constraints
 from conveyor.conveyorheat.engine import properties
 from conveyor.conveyorheat.engine.resources import signal_responder
 from conveyor.conveyorheat.engine import support
+from conveyor.i18n import _
+from conveyor.i18n import _LI
 
 LOG = logging.getLogger(__name__)
 

@@ -19,7 +19,7 @@ import sys
 import weakref
 
 from conveyor.conveyorheat.common import config
-from conveyor.conveyorheat.common.i18n import _LI
+from conveyor.i18n import _LI
 from keystoneclient import exceptions
 from keystoneclient import session
 from oslo_config import cfg

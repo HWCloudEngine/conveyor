@@ -26,7 +26,7 @@ import types
 from oslo_log import log as logging
 import six
 
-from conveyor.conveyorheat.common.i18n import _LE
+from conveyor.i18n import _LE
 
 LOG = logging.getLogger(__name__)
 

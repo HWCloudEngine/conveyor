@@ -19,9 +19,9 @@ import six
 
 from conveyor.conveyorheat.common import exception
 
-from conveyor.conveyorheat.common.i18n import repr_wrapper
 from conveyor.conveyorheat.engine import function
 from conveyor.conveyorheat.engine import properties
+from conveyor.i18n import repr_wrapper
 
 LOG = log.getLogger(__name__)
 

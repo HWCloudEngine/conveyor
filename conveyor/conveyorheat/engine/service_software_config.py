@@ -23,10 +23,10 @@ from six.moves.urllib import parse as urlparse
 
 from conveyor.conveyorheat.common import crypt
 from conveyor.conveyorheat.common import exception
-from conveyor.conveyorheat.common.i18n import _
-from conveyor.conveyorheat.common.i18n import _LI
 from conveyor.conveyorheat.engine import api
 from conveyor.conveyorheat.engine import scheduler
+from conveyor.i18n import _
+from conveyor.i18n import _LI
 
 from conveyor.conveyorheat.objects import resource as resource_objects
 from conveyor.conveyorheat.objects import software_config as \

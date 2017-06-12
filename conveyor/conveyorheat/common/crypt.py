@@ -19,8 +19,8 @@ from cryptography import fernet
 from oslo_config import cfg
 from oslo_utils import encodeutils
 
-from conveyor.conveyorheat.common.i18n import _
 from conveyor.conveyorheat.openstack.common.crypto import utils
+from conveyor.i18n import _
 
 auth_opts = [
     cfg.StrOpt('auth_encryption_key',

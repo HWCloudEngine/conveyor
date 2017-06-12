@@ -13,7 +13,6 @@
 
 from conveyor.conveyorheat.common import exception
 from conveyor.conveyorheat.common import grouputils
-from conveyor.conveyorheat.common.i18n import _
 from conveyor.conveyorheat.engine import attributes
 from conveyor.conveyorheat.engine import constraints
 from conveyor.conveyorheat.engine import properties
@@ -21,6 +20,7 @@ from conveyor.conveyorheat.engine.resources.aws.autoscaling import \
     autoscaling_group as aws_asg
 from conveyor.conveyorheat.engine import support
 from conveyor.conveyorheat.engine import template
+from conveyor.i18n import _
 
 
 class AutoScalingResourceGroup(aws_asg.AutoScalingGroup):

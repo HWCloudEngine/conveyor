@@ -16,12 +16,12 @@ import eventlet
 from oslo_utils import timeutils
 import six
 
-from conveyor.conveyorheat.common.i18n import _
 from conveyor.conveyorheat.engine import attributes
 from conveyor.conveyorheat.engine import constraints
 from conveyor.conveyorheat.engine import properties
 from conveyor.conveyorheat.engine import resource
 from conveyor.conveyorheat.engine import support
+from conveyor.i18n import _
 from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)
