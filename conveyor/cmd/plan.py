@@ -34,8 +34,8 @@ from conveyor import version
 # Need to register global_opts
 from conveyor.common import config  # noqa
 from conveyor.conveyorheat.common import config as heat_config
-from conveyor.conveyorheat.common.i18n import _LC
 from conveyor.conveyorheat.engine import template
+from conveyor.i18n import _LC
 
 if os.name == 'nt':
     # eventlet monkey patching the os module causes subprocess.Popen to fail
