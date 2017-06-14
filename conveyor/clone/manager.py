@@ -506,7 +506,7 @@ class CloneManager(manager.Manager):
         if not stack_id:
             LOG.error(_LE('Clone template error'))
             self.plan_api.update_plan(context, id,
-                                          {'plan_status': plan_status.ERROR})
+                                      {'plan_status': plan_status.ERROR})
 
         def _wait_for_plan_finished(context):
             """Called at an interval until the plan status finished"""

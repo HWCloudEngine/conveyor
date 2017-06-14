@@ -291,14 +291,8 @@ class PlanManager(manager.Manager):
             values['updated_at'] = timeutils.utcnow()
 
         # Update in database
-        task_status_to_db = plan_cls.TaskStatus.TASKSTATUS
-        values_to_db = copy.deepcopy(values)
-        if values_to_db.get('task_status', '') not in task_status_to_db:
-            values_to_db.pop('task_status', None)
-
-        if values_to_db:
-            plan_cls.update_plan_to_db(context, plan_id,
-                                       values_to_db)
+        plan_cls.update_plan_to_db(context, plan_id,
+                                   values)
 
         LOG.info("Update plan with id of %s succeed!", plan_id)
 
@@ -329,7 +323,7 @@ class PlanManager(manager.Manager):
                 # Remind: dep delete and add
                 resource_id = res.pop('resource_id', None)
                 updated_res.pop(resource_id)
-                for key, value in updated_res.items():
+                for key, value in updated_dep.items():
                     if resource_id in value.dependencies:
                         msg = 'have resource denpend on the %s ' \
                               'resource ,delete failed' % resource_id
@@ -523,6 +517,8 @@ class PlanManager(manager.Manager):
                                              new_updated_dep, updated_res)
             if copy_data is not None:
                 resource_obj.extra_properties['copy_data'] = copy_data
+            # Update other fields.
+            _update_simple_fields(resource_id, properties)
         elif 'OS::Cinder::VolumeType' == res_type:
             org_volume_type_id = resource_obj.id
             org_dependices = updated_dep.get(resource_id).dependencies
