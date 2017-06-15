@@ -295,15 +295,22 @@ class NetworkResource(base.resource):
                 properties['allowed_address_pairs'] = \
                     port.get('allowed_address_pairs')
 
-            # value_specs = {}
-            # if port.get('binding:profile') is not None:
-            #    value_specs['binding:profile'] = port.get('binding:profile')
-            # if port.get('binding:vnic_type') is not None:
-            #    value_specs['binding:vnic_type'] = \
-            #        port.get('binding:vnic_type')
-            #
-            # if value_specs:
-            #    properties['value_specs'] = value_specs
+            value_specs = {}
+            if port.get('binding:profile') is not None:
+                value_specs['binding:profile'] = port.get('binding:profile')
+
+            # fsp 6.1 add(wanggang)
+            if port.get('binding:vnic_type', None):
+                properties['binding:vnic_type'] = \
+                   port.get('binding:vnic_type')
+            if port.get('qos_policy_id', None):
+                properties['qos_policy'] = \
+                    port.get('qos_policy_id')
+#             properties['device_owner'] = port.get('device_owner', '')
+#             properties['device_id'] = port.get('device_id', '')
+
+            if value_specs:
+                properties['value_specs'] = value_specs
 
             if port.get('security_groups'):
                 secgroup_ids = port.get('security_groups')

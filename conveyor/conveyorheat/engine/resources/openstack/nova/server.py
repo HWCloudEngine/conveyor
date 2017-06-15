@@ -26,8 +26,6 @@ from conveyor.conveyorheat.engine.clients import progress
 from conveyor.conveyorheat.engine import constraints
 from conveyor.conveyorheat.engine import function
 from conveyor.conveyorheat.engine import properties
-from conveyor.conveyorheat.engine.resources.openstack.neutron import \
-    port as neutron_port
 from conveyor.conveyorheat.engine.resources.openstack.neutron import subnet
 from conveyor.conveyorheat.engine.resources.openstack.nova import \
     server_network_mixin
@@ -109,10 +107,10 @@ class Server(stack_user.StackUser, sh.SchedulerHintsMixin,
 
     _NETWORK_KEYS = (
         NETWORK_UUID, NETWORK_ID, NETWORK_FIXED_IP, NETWORK_PORT,
-        NETWORK_SUBNET, NETWORK_PORT_EXTRA, NETWORK_FLOATING_IP
+        NETWORK_SUBNET, NETWORK_FLOATING_IP
     ) = (
         'uuid', 'network', 'fixed_ip', 'port',
-        'subnet', 'port_extra_properties', 'floating_ip'
+        'subnet', 'floating_ip'
     )
 
     _SOFTWARE_CONFIG_FORMATS = (
@@ -398,14 +396,6 @@ class Server(stack_user.StackUser, sh.SchedulerHintsMixin,
                         constraints=[
                             constraints.CustomConstraint('neutron.port')
                         ]
-                    ),
-                    NETWORK_PORT_EXTRA: properties.Schema(
-                        properties.Schema.MAP,
-                        _('Dict, which has expand properties for port. '
-                          'Used only if port property is not specified '
-                          'for creating port.'),
-                        schema=neutron_port.Port.extra_properties_schema,
-                        support_status=support.SupportStatus(version='6.0.0')
                     ),
                     NETWORK_SUBNET: properties.Schema(
                         properties.Schema.STRING,

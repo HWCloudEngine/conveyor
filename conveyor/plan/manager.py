@@ -735,13 +735,12 @@ class PlanManager(manager.Manager):
         resource_id = properties.pop('resource_id', None)
         properties.pop('resource_type', None)
         resource_obj = updated_res[resource_id]
-        org_subnet_id = resource_obj.id
 
         if new_res_id and not uuidutils.is_uuid_like(new_res_id):
             msg = "Subnet id <%s> must be uuid." % new_res_id
             LOG.error(msg)
             raise exception.PlanResourcesUpdateError(message=msg)
-        if new_res_id and new_res_id != org_subnet_id:
+        if new_res_id:
             subnet = self.neutron_api.get_subnet(context, new_res_id)
             new_net_id = subnet['network_id']
             org_net_res_id = resource_obj.properties \

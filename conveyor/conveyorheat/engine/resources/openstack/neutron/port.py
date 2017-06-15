@@ -42,18 +42,14 @@ class Port(neutron.NeutronResource):
 
     PROPERTIES = (
         NAME, NETWORK_ID, NETWORK, FIXED_IPS, SECURITY_GROUPS,
-        REPLACEMENT_POLICY, DEVICE_ID, DEVICE_OWNER
-    ) = (
-        'name', 'network_id', 'network', 'fixed_ips', 'security_groups',
-        'replacement_policy', 'device_id', 'device_owner'
-    )
-
-    EXTRA_PROPERTIES = (
-        VALUE_SPECS, ADMIN_STATE_UP, MAC_ADDRESS,
+        REPLACEMENT_POLICY, DEVICE_ID, DEVICE_OWNER, VALUE_SPECS,
+        ADMIN_STATE_UP, MAC_ADDRESS,
         ALLOWED_ADDRESS_PAIRS, VNIC_TYPE, QOS_POLICY,
         PORT_SECURITY_ENABLED,
     ) = (
-        'value_specs', 'admin_state_up', 'mac_address',
+        'name', 'network_id', 'network', 'fixed_ips', 'security_groups',
+        'replacement_policy', 'device_id', 'device_owner', 'value_specs',
+        'admin_state_up', 'mac_address',
         'allowed_address_pairs', 'binding:vnic_type', 'qos_policy',
         'port_security_enabled',
     )
@@ -91,7 +87,6 @@ class Port(neutron.NeutronResource):
         NETWORK_ID: properties.Schema(
             properties.Schema.STRING,
             support_status=support.SupportStatus(
-                status=support.HIDDEN,
                 version='5.0.0',
                 message=_('Use property %s.') % NETWORK,
                 previous_status=support.SupportStatus(
@@ -99,9 +94,6 @@ class Port(neutron.NeutronResource):
                     version='2014.2'
                 )
             ),
-            constraints=[
-                constraints.CustomConstraint('neutron.network')
-            ],
         ),
 
         NETWORK: properties.Schema(
@@ -194,11 +186,6 @@ class Port(neutron.NeutronResource):
                           'fixed since Liberty.'),
                 previous_status=support.SupportStatus(version='2014.2'))
         ),
-    }
-
-    # NOTE(prazumovsky): properties_schema has been separated because some
-    # properties used in server for creating internal port.
-    extra_properties_schema = {
         VALUE_SPECS: properties.Schema(
             properties.Schema.MAP,
             _('Extra parameters to include in the request.'),
@@ -274,14 +261,8 @@ class Port(neutron.NeutronResource):
             ],
             update_allowed=True,
             support_status=support.SupportStatus(version='6.0.0')
-        ),
+        )
     }
-
-    # Need to update properties_schema with other properties before
-    # initialisation, because resource should contain all properties before
-    # creating. Also, documentation should correctly resolves resource
-    # properties schema.
-    properties_schema.update(extra_properties_schema)
 
     attributes_schema = {
         ADMIN_STATE_UP_ATTR: attributes.Schema(
