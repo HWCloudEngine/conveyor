@@ -1239,6 +1239,14 @@ def stack_update(context, stack_id, values, exp_trvsl=None):
     return (rows_updated is not None and rows_updated > 0)
 
 
+def stack_delete_in_db(context, stack_id):
+    session = get_session()
+    s = session.query(models.Stack). \
+        filter(models.Stack.id == stack_id).first()
+    # session.delete(s)
+    s.delete()
+
+
 def stack_delete(context, stack_id):
     # s = stack_get(context, stack_id)
     session = get_session()
@@ -1527,6 +1535,11 @@ def event_create(context, values):
     event_ref.save(session)
     session.commit()
     return event_ref
+
+
+def event_delete(context, stack_id):
+    query = _query_all_by_stack(context, stack_id)
+    return query.delete()
 
 
 def watch_rule_get(context, watch_rule_id):

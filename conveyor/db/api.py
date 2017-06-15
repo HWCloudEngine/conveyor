@@ -294,6 +294,10 @@ def stack_update(context, stack_id, values, exp_trvsl=None):
     return IMPL.stack_update(context, stack_id, values, exp_trvsl=exp_trvsl)
 
 
+def stack_delete_in_db(context, stack_id):
+    return IMPL.stack_delete_in_db(context, stack_id)
+
+
 def stack_delete(context, stack_id):
     return IMPL.stack_delete(context, stack_id)
 
@@ -373,6 +377,10 @@ def event_count_all_by_stack(context, stack_id):
 
 def event_create(context, values):
     return IMPL.event_create(context, values)
+
+
+def event_delete(context, stack_id):
+    return IMPL.event_delete(context, stack_id)
 
 
 def watch_rule_get(context, watch_rule_id):

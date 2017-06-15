@@ -334,7 +334,8 @@ class Stack(BASE, CopyBase, SoftDelete, StateAware):
         sqlalchemy.Integer,
         sqlalchemy.ForeignKey('raw_template.id'),
         nullable=False)
-    raw_template = relationship(RawTemplate, backref=backref('stack'),
+    raw_template = relationship(RawTemplate, cascade="all,delete",
+                                backref=backref('stack'),
                                 foreign_keys=[raw_template_id],
                                 lazy='subquery')
     prev_raw_template_id = sqlalchemy.Column(
