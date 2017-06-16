@@ -265,7 +265,8 @@ class CloneManager(manager.Manager):
         LOG.debug("Clone resources end in clone manager")
         return stack_info['id']
 
-    def _export_template(self, context, id, sys_clone=False, copy_data=True):
+    def _export_template(self, context, id, destination, sys_clone=False,
+                         copy_data=True):
         # get plan info
         plan = self.plan_api.get_plan_by_id(context, id)
         if not plan:
@@ -282,7 +283,8 @@ class CloneManager(manager.Manager):
             undo_mgr = None
             try:
                 undo_mgr = self.clone_driver.handle_resources(
-                    context, id, resource_map, sys_clone, copy_data)
+                    context, id, resource_map, destination,
+                    sys_clone, copy_data)
                 self._update_plan_resources(context, resource_map, id)
                 self._format_template(context, resource_map, id,
                                       expire_time, plan_type)
@@ -317,7 +319,7 @@ class CloneManager(manager.Manager):
         if update_resources:
             self.plan_api.update_plan_resources(context, id,
                                                 update_resources)
-        self._export_template(context, id, sys_clone, copy_data)
+        self._export_template(context, id, destination, sys_clone, copy_data)
         self.clone(context, id, destination, sys_clone)
 
     def _format_template(self, context, resource_map, plan_id,

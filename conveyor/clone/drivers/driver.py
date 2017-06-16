@@ -24,9 +24,11 @@ from oslo_log import log as logging
 
 from conveyor.clone.resources import common
 from conveyor.conveyoragentclient.v1 import client as birdiegatewayclient
+from conveyor.db import api as db_api
 from conveyor import heat
 from conveyor.i18n import _LE
 from conveyor.i18n import _LW
+from conveyor import image
 from conveyor.resource import api as resource_api
 
 from conveyor import compute
@@ -53,40 +55,64 @@ class BaseDriver(object):
         self.neutron_api = network.API()
         self.heat_api = heat.API()
         self.resource_api = resource_api.ResourceAPI()
+        self.glance_api = image.API()
 
-    def _add_extra_properties(self, context, resource_map,
+    def _add_extra_properties(self, context, resource_map, destination,
                               sys_clone, copy_data, undo_mgr):
         for key, value in resource_map.items():
             resource_type = value.type
             if resource_type == 'OS::Nova::Server':
                 self.add_extra_properties_for_server(context, value,
-                                                     resource_map, sys_clone,
-                                                     copy_data, undo_mgr)
+                                                     resource_map, destination,
+                                                     sys_clone, copy_data,
+                                                     undo_mgr)
             elif resource_type == 'OS::Cinder::Volume':
                 self.add_extra_properties_for_volume(context, key,
                                                      value, resource_map,
+                                                     destination,
                                                      sys_clone, copy_data,
                                                      undo_mgr)
             elif resource_type == 'OS::Heat::Stack':
-                self.add_extra_properties_for_stack(context, value, sys_clone,
+                self.add_extra_properties_for_stack(context, value,
+                                                    destination,
+                                                    sys_clone,
                                                     copy_data, undo_mgr)
 
     def add_extra_properties_for_server(self, context, resource, resource_map,
-                                        sys_clone, copy_data, undo_mgr):
+                                        destination, sys_clone, copy_data,
+                                        undo_mgr):
         raise NotImplementedError()
 
-    def add_extra_properties_for_stack(self, context, resource, sys_clone,
-                                       copy_data, undo_mgr):
+    def add_extra_properties_for_stack(self, context, resource, destination,
+                                       sys_clone, copy_data, undo_mgr):
         raise NotImplementedError()
 
-    def handle_resources(self, context, plan_id, resource_map, sys_clone,
-                         copy_data):
+    def handle_resources(self, context, plan_id, resource_map, destination,
+                         sys_clone, copy_data):
         raise NotImplementedError()
+
+    def _change_image_id_for_res(self, context, des_az, res):
+        vol_pro = res.properties
+        pams = res.parameters
+        image_ref = vol_pro.get('image', {}).get('get_param')
+        if not image_ref:
+            return
+        src = db_api.conveyor_config_get(context, vol_pro['availability_zone'])
+        des = db_api.conveyor_config_get(context, des_az)
+        if not src or not des:
+            return
+        if src[0]['config_value'] == 'hypercontainer' \
+                and des[0]['config_value'] == 'native':
+            img = self.glance_api.get(context, pams.get(image_ref)['default'])
+            org_img = img.get('properties', {}).get('__original_image')
+            if img.get('container_format') == 'hypercontainer' and org_img:
+                pams.get(image_ref)['default'] = org_img
 
     def add_extra_properties_for_volume(self, context, resource_name,
-                                        resource, resource_map,
+                                        resource, resource_map, destination,
                                         sys_clone, copy_data, undo_mgr):
         clone_along_with_vm = False
+        self._change_image_id_for_res(context, destination, resource)
         for name in resource_map:
             r = resource_map[name]
             if r.type == 'OS::Nova::Server':

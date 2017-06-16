@@ -377,6 +377,16 @@ class Volume(base.resource):
         LOG.debug('Create volume resource end: %s', volume_id)
         return volume_res
 
+    def extract_image(self, image_id):
+
+        parameter_name = self._collected_parameters.get(image_id)
+
+        if not parameter_name:
+            parameter_name = "image_%d" % self._get_parameter_num()
+            self._collected_parameters[image_id] = parameter_name
+
+        return parameter_name
+
 
 class VolumeType(base.resource):
 
