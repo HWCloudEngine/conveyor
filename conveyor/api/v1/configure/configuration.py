@@ -22,6 +22,7 @@ from oslo_log import log as logging
 from oslo_utils import timeutils
 
 from conveyor.api.wsgi import wsgi
+from conveyor.db import api as db_api
 from conveyor import utils
 
 
@@ -219,6 +220,31 @@ class ConfigurationController(wsgi.Controller):
 
         LOG.debug("List to string end, string is: %s", list_str)
         return list_str
+
+    @wsgi.response(202)
+    @wsgi.action('register')
+    def register(self, req, id, body):
+        """register config."""
+
+        if not self.is_valid_body(body, 'register'):
+            msg = "Incorrect request body format."
+            raise exc.HTTPBadRequest(explanation=msg)
+
+        context = req.environ['conveyor.context']
+        values = body['register']
+
+        if not values:
+            msg = 'No configurations found in body.'
+            raise exc.HTTPBadRequest(explanation=msg)
+
+        try:
+            for key, value in values.items():
+                db_api.conveyor_config_create(context,
+                                              {'config_key': key,
+                                               'config_value': value})
+        except Exception as e:
+            LOG.error(unicode(e))
+            raise exc.HTTPInternalServerError(explanation=unicode(e))
 
 
 def create_resource(ext_mgr):
