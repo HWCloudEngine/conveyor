@@ -239,9 +239,7 @@ class CinderVolume(vb.BaseVolume, sh.SchedulerHintsMixin):
 
     def _name(self):
         name = self.properties[self.NAME]
-        if name:
-            return name
-        return super(CinderVolume, self)._name()
+        return name
 
     def _description(self):
         return self.properties[self.DESCRIPTION]
