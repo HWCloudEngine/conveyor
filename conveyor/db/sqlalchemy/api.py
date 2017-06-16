@@ -120,11 +120,13 @@ def require_context(f):
         import conveyor.context
         conveyor.context.require_context(args[0])
         return f(*args, **kwargs)
+
     return wrapper
 
 
 def _retry_on_deadlock(f):
     """Decorator to retry a DB API call if Deadlock was received."""
+
     @functools.wraps(f)
     def wrapped(*args, **kwargs):
         while True:
@@ -137,6 +139,7 @@ def _retry_on_deadlock(f):
                 # Retry!
                 time.sleep(0.5)
                 continue
+
     functools.update_wrapper(wrapped, f)
     return wrapped
 
@@ -202,6 +205,7 @@ def model_query(context, model, *args, **kwargs):
                         % read_deleted)
 
     return query
+
 
 ###################
 
@@ -722,8 +726,8 @@ def plan_stack_delete_all(context, plan_id):
         if not ps:
             raise exception.NotFound(_('Attempt to delete plan_id: '
                                        '%(id)s %(msg)s') % {
-                'id': plan_id,
-                'msg': 'that does not exist'})
+                                         'id': plan_id,
+                                         'msg': 'that does not exist'})
         for p in ps:
             session.delete(p)
 
@@ -733,13 +737,13 @@ def plan_stack_delete(context, plan_id, stack_id):
     session = get_session()
     with session.begin():
         ps = model_query(context, models.PlanStack, session=session,
-                         read_deleted='yes').filter_by(plan_id=plan_id).\
+                         read_deleted='yes').filter_by(plan_id=plan_id). \
             filter_by(stack_id=stack_id).first()
         if not ps:
             raise exception.NotFound(_('Attempt to delete plan_id: '
                                        '%(id)s %(msg)s') % {
-                'id': plan_id,
-                'msg': 'that does not exist'})
+                                         'id': plan_id,
+                                         'msg': 'that does not exist'})
         session.delete(ps)
 
 
@@ -747,8 +751,8 @@ def plan_stack_delete(context, plan_id, stack_id):
 def plan_stack_update(context, plan_id, stack_id, values):
     session = get_session()
     with session.begin():
-        plan_ref = model_query(context, models.PlanStack, session=session)\
-            .filter_by(plan_id=plan_id).filter_by(stack_id=stack_id).\
+        plan_ref = model_query(context, models.PlanStack, session=session) \
+            .filter_by(plan_id=plan_id).filter_by(stack_id=stack_id). \
             first()
         if not plan_ref:
             raise conveyor_exception.PlanNotFoundInDb(id=id)
@@ -759,6 +763,65 @@ def plan_stack_update(context, plan_id, stack_id, values):
             raise conveyor_exception.PlanExists()
 
     return dict(plan_ref)
+
+
+@require_context
+def conveyor_config_create(context, values):
+    config_ref = models.ConveyorConfig()
+    config_ref.update(values)
+    try:
+        config_ref.save()
+    except db_exc.DBDuplicateEntry as e:
+        raise conveyor_exception.PlanExists(
+            config_key=values.get('config_key'))
+    except db_exc.DBReferenceError as e:
+        raise conveyor_exception.IntegrityException(msg=str(e))
+    except db_exc.DBError as e:
+        LOG.exception('DB error:%s', e)
+        raise conveyor_exception.PlanCreateFailed()
+    return dict(config_ref)
+
+
+@require_context
+def conveyor_config_delete(context, config_key):
+    session = get_session()
+    with session.begin():
+        config_ref = model_query(context, models.ConveyorConfig, session=session,
+                                 read_deleted='yes'). \
+            filter_by(config_key=config_key).first()
+        if not config_ref:
+            raise exception.NotFound(_('Attempt to delete config: '
+                                       '%(id)s %(msg)s') % {
+                                         'id': config_key,
+                                         'msg': 'that does not exist'})
+        session.delete(config_ref)
+
+
+@require_context
+def conveyor_config_get(context, config_key, session=None, read_deleted='no'):
+    results = (model_query(context, models.ConveyorConfig, session=session,
+                           read_deleted=read_deleted)
+               .filter_by(config_key=config_key)
+               .all())
+    return results
+
+
+@require_context
+def conveyor_config_update(context, config_key, config_value):
+    session = get_session()
+    with session.begin():
+        config_ref = model_query(context, models.ConveyorConfig, session=session) \
+            .filter_by(config_key=config_key).first()
+        if not config_ref:
+            raise conveyor_exception.PlanNotFoundInDb(config_key=config_key)
+        config_ref.update({'config_key': config_key,
+                           'config_value': config_value})
+        try:
+            config_ref.save(session=session)
+        except db_exc.DBDuplicateEntry:
+            raise conveyor_exception.PlanExists()
+
+    return dict(config_ref)
 
 
 def soft_delete_aware_query(context, *args, **kwargs):
@@ -1016,9 +1079,9 @@ def stack_get_by_name_and_owner_id(context, stack_name, owner_id):
     query = soft_delete_aware_query(
         context, models.Stack
     ).filter(sqlalchemy.or_(
-             models.Stack.tenant == context.tenant_id,
-             models.Stack.stack_user_project_id == context.tenant_id)
-             ).filter_by(name=stack_name).filter_by(owner_id=owner_id)
+        models.Stack.tenant == context.tenant_id,
+        models.Stack.stack_user_project_id == context.tenant_id)
+    ).filter_by(name=stack_name).filter_by(owner_id=owner_id)
     return query.first()
 
 
@@ -1026,9 +1089,9 @@ def stack_get_by_name(context, stack_name):
     query = soft_delete_aware_query(
         context, models.Stack
     ).filter(sqlalchemy.or_(
-             models.Stack.tenant == context.tenant_id,
-             models.Stack.stack_user_project_id == context.tenant_id)
-             ).filter_by(name=stack_name)
+        models.Stack.tenant == context.tenant_id,
+        models.Stack.stack_user_project_id == context.tenant_id)
+    ).filter_by(name=stack_name)
     return query.first()
 
 
@@ -1050,8 +1113,8 @@ def stack_get(context, stack_id, show_deleted=False, tenant_safe=True,
     # One exception to normal project scoping is users created by the
     # stacks in the stack_user_project_id (in the heat stack user domain)
     if (tenant_safe and result is not None and context is not None and
-        context.tenant_id not in (result.tenant,
-                                  result.stack_user_project_id)):
+                context.tenant_id not in (result.tenant,
+                                          result.stack_user_project_id)):
         return None
     return result
 
@@ -1218,11 +1281,11 @@ def stack_update(context, stack_id, values, exp_trvsl=None):
     if stack is None:
         raise exception.NotFound(_('Attempt to update a stack with id: '
                                    '%(id)s %(msg)s') % {
-            'id': stack_id,
-            'msg': 'that does not exist'})
+                                     'id': stack_id,
+                                     'msg': 'that does not exist'})
 
     if (exp_trvsl is not None
-            and stack.current_traversal != exp_trvsl):
+        and stack.current_traversal != exp_trvsl):
         # stack updated by another update
         return False
 
@@ -1257,8 +1320,8 @@ def stack_delete(context, stack_id):
     if not s:
         raise exception.NotFound(_('Attempt to delete a stack with id: '
                                    '%(id)s %(msg)s') % {
-            'id': stack_id,
-            'msg': 'that does not exist'})
+                                     'id': stack_id,
+                                     'msg': 'that does not exist'})
     # session = orm_session.Session.object_session(s)
     for r in s.resources:
         session.delete(r)
@@ -1394,7 +1457,7 @@ def user_creds_get(user_creds_id):
 @db_utils.retry_on_stale_data_error
 def user_creds_delete(context, user_creds_id):
     session = get_session()
-    creds = session.query(models.UserCreds).\
+    creds = session.query(models.UserCreds). \
         filter(models.UserCreds.id == user_creds_id).first()
     # creds = model_query_heat(context, models.UserCreds).get(user_creds_id)
     if not creds:
@@ -1523,7 +1586,7 @@ def _delete_event_rows(context, stack_id, limit):
 def event_create(context, values):
     if 'stack_id' in values and cfg.CONF.max_events_per_stack:
         if ((event_count_all_by_stack(context, values['stack_id']) >=
-             cfg.CONF.max_events_per_stack)):
+                 cfg.CONF.max_events_per_stack)):
             # prune
             _delete_event_rows(
                 context, values['stack_id'], cfg.CONF.event_purge_batch_size)
@@ -1577,8 +1640,8 @@ def watch_rule_update(context, watch_id, values):
     if not wr:
         raise exception.NotFound(_('Attempt to update a watch with id: '
                                    '%(id)s %(msg)s') % {
-            'id': watch_id,
-            'msg': 'that does not exist'})
+                                     'id': watch_id,
+                                     'msg': 'that does not exist'})
     wr.update(values)
     wr.save(_session(context))
 
@@ -1588,8 +1651,8 @@ def watch_rule_delete(context, watch_id):
     if not wr:
         raise exception.NotFound(_('Attempt to delete watch_rule: '
                                    '%(id)s %(msg)s') % {
-            'id': watch_id,
-            'msg': 'that does not exist'})
+                                     'id': watch_id,
+                                     'msg': 'that does not exist'})
     session = orm_session.Session.object_session(wr)
     with session.begin():
         for d in wr.watch_data:
@@ -1625,7 +1688,7 @@ def software_config_create(context, values):
 def software_config_get(context, config_id):
     result = model_query_heat(context, models.SoftwareConfig).get(config_id)
     if (result is not None and context is not None and
-            result.tenant != context.tenant_id):
+                result.tenant != context.tenant_id):
         result = None
 
     if not result:
@@ -1671,8 +1734,8 @@ def software_deployment_get(context, deployment_id):
     result = model_query_heat(
         context, models.SoftwareDeployment).get(deployment_id)
     if (result is not None and context is not None and
-        context.tenant_id not in (result.tenant,
-                                  result.stack_user_project_id)):
+                context.tenant_id not in (result.tenant,
+                                          result.stack_user_project_id)):
         result = None
 
     if not result:
@@ -1686,9 +1749,9 @@ def software_deployment_get_all(context, server_id=None):
     query = model_query_heat(
         context, sd
     ).filter(sqlalchemy.or_(
-             sd.tenant == context.tenant_id,
-             sd.stack_user_project_id == context.tenant_id)
-             ).order_by(sd.created_at)
+        sd.tenant == context.tenant_id,
+        sd.stack_user_project_id == context.tenant_id)
+    ).order_by(sd.created_at)
     if server_id:
         query = query.filter_by(server_id=server_id)
     return query.all()
@@ -1715,7 +1778,7 @@ def snapshot_create(context, values):
 def snapshot_get(context, snapshot_id):
     result = model_query_heat(context, models.Snapshot).get(snapshot_id)
     if (result is not None and context is not None and
-            context.tenant_id != result.tenant):
+                context.tenant_id != result.tenant):
         result = None
 
     if not result:
@@ -1835,7 +1898,7 @@ def purge_deleted(age, granularity='days'):
     stack_where = sqlalchemy.select([stack.c.id, stack.c.raw_template_id,
                                      stack.c.prev_raw_template_id,
                                      stack.c.user_creds_id]).where(
-                                         stack.c.deleted_at < time_line)
+        stack.c.deleted_at < time_line)
     stacks = list(engine.execute(stack_where))
     if stacks:
         stack_ids = [i[0] for i in stacks]
@@ -1973,7 +2036,7 @@ def db_encrypt_parameters_and_properties(ctxt, encryption_key, batch_size=50):
                 env = raw_template.environment
 
                 if (not env or
-                        'parameters' not in env or
+                            'parameters' not in env or
                         not tmpl.param_schemata()):
                     continue
                 if 'encrypted_param_names' in env:
@@ -2221,8 +2284,8 @@ def gw_group_delete(context, group_id):
     if not group:
         raise exception.NotFound(_('Attempt to delete a group with id: '
                                    '%(id)s %(msg)s') % {
-                                       'id': group_id,
-                                       'msg': 'that does not exist'})
+                                     'id': group_id,
+                                     'msg': 'that does not exist'})
     session = orm_session.object_session(group)
     with session.begin():
         session.delete(group)
@@ -2291,8 +2354,8 @@ def gw_member_delete(context, member_id):
     if not member:
         raise exception.NotFound(_('Attempt to delete a member with id: '
                                    '%(id)s %(msg)s') % {
-                                       'id': member_id,
-                                       'msg': 'that does not exist'})
+                                     'id': member_id,
+                                     'msg': 'that does not exist'})
 
     session = orm_session.object_session(member)
     with session.begin():
@@ -2309,7 +2372,7 @@ def gw_member_delete_by_group_id(context, group_id):
 def gw_member_get(context, member_id):
     result = model_query_heat(context, models.GWmember).get(member_id)
     if (result is not None and context is not None and
-            context.tenant_id != result.tenant):
+                context.tenant_id != result.tenant):
         result = None
 
     if not result:

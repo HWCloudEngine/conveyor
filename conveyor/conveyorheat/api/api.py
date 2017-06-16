@@ -425,7 +425,7 @@ class API(object):
                 timer.start(interval=0.5).wait()
                 # context._session = db_api.get_session()
                 db_api.event_delete(context, st['stack_id'])
-                db_api.stack_get(context, st['stack_id'], show_deleted=True)
+                # db_api.stack_get(context, st['stack_id'], show_deleted=True)
                 db_api.stack_delete_in_db(context, st['stack_id'])
                 # db_api.raw_template_delete(context,
                 #                            stack_ref['raw_template_id'])
