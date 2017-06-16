@@ -46,10 +46,8 @@ class CloneActionControllerTestCase(test.TestCase):
     @mock.patch.object(api.API, "start_template_clone")
     def test_start_template_clone(self, start_template_clone_mock):
         start_template_clone_mock.return_value = {}
-        expire_time = '2030-01-01 08:38:01.567226'
         body = {'clone_element_template': {'template':
-                                           {'expire_time': expire_time,
-                                            'plan_type': 'clone'}
+                                           {'plan_type': 'clone'}
                                            }}
         req = webob.Request.blank('/v1/%s/clones/%s/action' %
                                   (fake.PROJECT_ID, fake.PLAN_ID))

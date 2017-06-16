@@ -18,13 +18,10 @@ import time
 from webob import exc
 
 from oslo_log import log as logging
-from oslo_utils import timeutils
 
 from conveyor.api import extensions
 from conveyor.api.wsgi import wsgi
 from conveyor.clone import api
-from conveyor.db import api as db_api
-from conveyor.i18n import _
 
 LOG = logging.getLogger(__name__)
 
@@ -41,12 +38,6 @@ class MigrateActionController(wsgi.Controller):
     def _export_migrate_template(self, req, id, body):
         LOG.debug(" start exporting migrate template in API")
         context = req.environ['conveyor.context']
-        plan = db_api.plan_get(context, id)
-        expire_at = plan['expire_at']
-        expire_time = timeutils.parse_isotime(str(expire_at))
-        if timeutils.is_older_than(expire_time, 0):
-            msg = _("Template is out of time")
-            raise exc.HTTPBadRequest(explanation=msg)
         self.clone_api.export_migrate_template(context, id)
 
     @wsgi.response(202)
@@ -55,16 +46,9 @@ class MigrateActionController(wsgi.Controller):
         LOG.error('liuling begin time of migrate is %s'
                   % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())))
         LOG.debug(" start execute migrate plan in API,the plan id is %s" % id)
-        context = req.environ['conveyor.context']
         if not self.is_valid_body(body, 'migrate'):
             LOG.debug("migrate request body has not key:migrate")
             raise exc.HTTPUnprocessableEntity()
-        plan = db_api.plan_get(context, id)
-        expire_at = plan['expire_at']
-        expire_time = timeutils.parse_isotime(str(expire_at))
-        if timeutils.is_older_than(expire_time, 0):
-            msg = _("Template is out of time")
-            raise exc.HTTPBadRequest(explanation=msg)
         migrate_body = body['migrate']
         destination = migrate_body.get('destination')
         context = req.environ['conveyor.context']

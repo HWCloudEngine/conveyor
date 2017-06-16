@@ -271,7 +271,7 @@ class PlanManager(manager.Manager):
         LOG.info("Update plan <%s> with values: %s", plan_id, values)
 
         allowed_properties = ['task_status', 'plan_status',
-                              'stack_id', 'expire_at', 'updated_resources',
+                              'stack_id', 'updated_resources',
                               'sys_clone', 'copy_data']
 
         # Verify the keys and values

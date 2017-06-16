@@ -196,13 +196,6 @@ global_opts = [
     cfg.StrOpt('plan_file_path',
                default='/opt/HUAWEI/image/plans/',
                help='The directory to store the resources files of plans.'),
-    cfg.IntOpt('plan_expire_time',
-               default=60,
-               help='If a plan still was not be cloned or migrated after '
-                    'plan_expire_time minutes, the plan will be expired.'),
-    cfg.IntOpt('clear_expired_plan_interval',
-               default=300,
-               help='Interval in seconds for clearing expired plans.'),
     cfg.StrOpt('os_region_name',
                default='cloud.hybrid',
                help='Region name of this node'),

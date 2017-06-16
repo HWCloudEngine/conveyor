@@ -18,7 +18,6 @@ import six
 from webob import exc
 
 from oslo_log import log as logging
-from oslo_utils import timeutils
 from oslo_utils import uuidutils
 
 from conveyor.api import common
@@ -120,21 +119,17 @@ class Controller(wsgi.Controller):
 
         template = self._convert_template_to_json(tpl_param)
 
-        expire_time = template.get('expire_time')
         plan_type = template.get('plan_type')
 
-        if not expire_time or not plan_type:
-            msg = _("Template must have 'expire_time' and 'plan_type' field.")
-            raise exc.HTTPBadRequest(explanation=msg)
-
-        expire_time = timeutils.parse_isotime(expire_time)
-        if timeutils.is_older_than(expire_time, 0):
-            msg = _("Template is out of time.")
+        if not plan_type:
+            msg = _("Template must have 'plan_type' field.")
             raise exc.HTTPBadRequest(explanation=msg)
 
         try:
+            plan_name = body['plan'].get('plan_name', None)
             plan = self._plan_api.create_plan_by_template(context,
-                                                          template)
+                                                          template,
+                                                          plan_name=plan_name)
             return {"plan": plan}
         except Exception as e:
             LOG.error(unicode(e))

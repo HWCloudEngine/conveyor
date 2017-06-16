@@ -32,7 +32,6 @@ def upgrade(migrate_engine):
                  Column('created_at', DateTime(timezone=False)),
                  Column('updated_at', DateTime(timezone=False)),
                  Column('deleted_at', DateTime(timezone=False)),
-                 Column('expire_at', DateTime(timezone=False)),
                  Column('id', Integer, primary_key=True, nullable=False),
                  Column('plan_id', String(length=36), nullable=False),
                  Column('plan_name', String(length=255), nullable=True),

@@ -18,7 +18,6 @@ import time
 from webob import exc
 
 from oslo_log import log as logging
-from oslo_utils import timeutils
 
 from conveyor.api import extensions
 from conveyor.api.wsgi import wsgi
@@ -47,15 +46,6 @@ class CloneActionController(wsgi.Controller):
         context = req.environ['conveyor.context']
         temp_info = body['clone_element_template']
         template = temp_info['template']
-        expire_time = template['expire_time']
-        expire_time = timeutils.parse_isotime(expire_time)
-        # check template is outtime or not
-        if timeutils.is_older_than(expire_time, 0):
-            msg = _("Template is out of time")
-            raise exc.HTTPBadRequest(explanation=msg)
-        # call clone manager api
-        # remove expire_time info in template
-        template.pop('expire_time')
         # remove plan type info
         if 'plan_type' in template:
             template.pop('plan_type')
@@ -68,11 +58,6 @@ class CloneActionController(wsgi.Controller):
         LOG.debug(" start exporting template in API")
         context = req.environ['conveyor.context']
         plan = db_api.plan_get(context, id)
-        expire_at = plan['expire_at']
-        expire_time = timeutils.parse_isotime(str(expire_at))
-        if timeutils.is_older_than(expire_time, 0):
-            msg = _("Template is out of time")
-            raise exc.HTTPBadRequest(explanation=msg)
         plan_status = plan['plan_status']
         if plan_status not in (p_status.INITIATING, p_status.CREATING):
             msg = _('the plan %(plan_id)s in state %(state)s'
@@ -95,11 +80,6 @@ class CloneActionController(wsgi.Controller):
             LOG.debug("clone request body has not key:clone")
             raise exc.HTTPUnprocessableEntity()
         plan = db_api.plan_get(context, id)
-        expire_at = plan['expire_at']
-        expire_time = timeutils.parse_isotime(str(expire_at))
-        if timeutils.is_older_than(expire_time, 0):
-            msg = _("Template is out of time")
-            raise exc.HTTPBadRequest(explanation=msg)
         plan_status = plan['plan_status']
         if plan_status not in (p_status.AVAILABLE, p_status.CLONING,
                                p_status.MIGRATING,

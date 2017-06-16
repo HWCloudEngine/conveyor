@@ -54,8 +54,7 @@ FAKE_PLAN = {
                 }
             }
         }
-    },
-    'expire_at': '2017-05-22 02:01:59.136794'
+    }
 }
 
 FAKE_PLAN_VOLUME = {
@@ -87,8 +86,7 @@ FAKE_PLAN_VOLUME = {
                 'size': 1
             }
         }
-    },
-    'expire_at': '2017-06-06 07:10:27.868833'
+    }
 }
 
 FAKE_PLAN_PORT = {
@@ -194,7 +192,7 @@ FAKE_PLAN_PORT = {
                 'name': '_default'
             }
         }
-    }, 'expire_at': '2017-06-06 09:07:55.499698'
+    }
 }
 
 FAKE_RETURN_RES = {
@@ -239,7 +237,6 @@ ORI_TEMPLATE = {
     'heat_template_version': '2013-05-23',
     'description': 'Generated template',
     'parameters': {},
-    'expire_time': '2017-05-23 08:58:17.663434',
     'plan_type': 'clone',
     'resources': {
         'volume_0': {

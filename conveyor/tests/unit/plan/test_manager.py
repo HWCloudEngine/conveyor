@@ -90,7 +90,6 @@ class ResourceManagerTestCase(test.TestCase):
         fake_template = fake_template['template']
         fake_plan_dict = copy.deepcopy(fake_object.fake_plan_dict)
         fake_plan_dict.update({
-            'expire_time': fake_template['expire_time'],
             'status': 'creating'
         })
         self.plan_manager.build_plan_by_template(self.context,

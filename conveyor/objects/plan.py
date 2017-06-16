@@ -17,12 +17,10 @@
 import copy
 import six
 
-from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import timeutils
 
 from conveyor.common import plan_status as p_status
-from conveyor.common import utils
 from conveyor.db import api as db_api
 from conveyor import exception
 from conveyor.resource import resource
@@ -33,7 +31,7 @@ LOG = logging.getLogger(__name__)
 class Plan(object):
     def __init__(self, plan_id, plan_type, project_id, user_id, stack_id=None,
                  created_at=None, updated_at=None, deleted_at=None,
-                 expire_at=None, deleted=None, plan_status=None,
+                 deleted=None, plan_status=None,
                  task_status=None, plan_name=None, original_resources=None,
                  updated_resources=None, original_dependencies=None,
                  updated_dependencies=None, sys_clone=False, copy_data=True):
@@ -48,8 +46,6 @@ class Plan(object):
         self.created_at = created_at or timeutils.utcnow()
         self.updated_at = updated_at or None
         self.deleted_at = deleted_at or None
-        self.expire_at = expire_at or \
-            utils.utc_after_given_minutes(cfg.CONF.plan_expire_time)
 
         self.deleted = deleted or False
         self.plan_status = plan_status or p_status.INITIATING
@@ -135,7 +131,6 @@ class Plan(object):
                 self.created_at else None,
                 'updated_at': str(self.updated_at) if
                 self.updated_at else None,
-                'expire_at': str(self.expire_at) if self.expire_at else None,
                 'deleted_at': str(self.deleted_at) if
                 self.deleted_at else None,
                 'deleted': self.deleted,
@@ -193,7 +188,6 @@ class Plan(object):
             'stack_id': '',
             'created_at': '',
             'updated_at': '',
-            'expire_at': '',
             'deleted_at': '',
             'deleted': '',
             'task_status': '',

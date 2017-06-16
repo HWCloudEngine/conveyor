@@ -43,12 +43,11 @@ class PlanAPI(object):
         return self.plan_rpcapi.create_plan(context, type, resources,
                                             plan_name=plan_name)
 
-    def create_plan_by_template(self, context, template):
+    def create_plan_by_template(self, context, template, plan_name=None):
         LOG.debug("Create plan by template. %s", template)
 
         # Simply verify basic fields
         standard_template = copy.deepcopy(template)
-        expire_time = standard_template.pop('expire_time', '')
         plan_type = standard_template.pop('plan_type', '')
         if plan_type not in ("clone", "migrate"):
             msg = "Plan type must be 'clone' or 'migrate'."
@@ -84,8 +83,8 @@ class PlanAPI(object):
         plan_id = uuidutils.generate_uuid()
         new_plan = plan_cls.Plan(plan_id, plan_type,
                                  context.project_id, context.user_id,
-                                 expire_at=expire_time,
-                                 plan_status=p_status.CREATING)
+                                 plan_status=p_status.CREATING,
+                                 plan_name=plan_name)
 
         plan_dict = new_plan.to_dict()
         plan_cls.save_plan_to_db(context, plan_dict)

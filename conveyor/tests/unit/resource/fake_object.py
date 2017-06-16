@@ -26,7 +26,6 @@ fake_plan_dict = {
     'stack_id': '',
     'created_at': '',
     'updated_at': '',
-    'expire_at': '',
     'deleted_at': '',
     'deleted': False,
     'task_status': '',
@@ -434,7 +433,6 @@ fake_plan_template = {
         "heat_template_version": "2013-05-23",
         "description": "Generated template",
         "plan_type": "clone",
-        "expire_time": "2017-5-51 12:33:00",
         "parameter": {},
         "resources": {
             "volume_0": {

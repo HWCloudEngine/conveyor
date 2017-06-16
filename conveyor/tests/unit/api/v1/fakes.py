@@ -33,8 +33,6 @@ def create_fake_plan(id, **kwargs):
         'project_id': fake.PROJECT_ID,
         'availability_zone': DEFAULT_AZ,
         'plan_status': DEFAULT_PLAN_STATUS,
-        'expire_at': datetime.datetime(2020, 1, 1, 1, 1, 1,
-                                       tzinfo=iso8601.iso8601.Utc()),
         'name': 'plan_test',
         'display_name': DEFAULT_PLAN_NAME,
         'display_description': DEFAULT_PLAN_DESCRIPTION,
@@ -60,7 +58,6 @@ def fake_clone_template():
     template = {'template':
                 {'heat_template_version': '2013-05-23',
                  'description': 'clone template',
-                 'expire_time': "2020-1-1",
                  'plan_type': 'clone',
                  'parameters': {},
                  'resources': {'volume_0': {'type': 'OS::Cinder::Volume',

@@ -272,7 +272,6 @@ class CloneManager(manager.Manager):
         if not plan:
             LOG.error(_LE('get plan %s failed') % id)
             raise exception.PlanNotFound(plan_id=id)
-        expire_time = plan.get('expire_at')
         plan_type = plan.get('plan_type')
         resource_map = plan.get('updated_resources')
         LOG.debug("The resource_map is %s" % resource_map)
@@ -287,7 +286,7 @@ class CloneManager(manager.Manager):
                     sys_clone, copy_data)
                 self._update_plan_resources(context, resource_map, id)
                 self._format_template(context, resource_map, id,
-                                      expire_time, plan_type)
+                                      plan_type)
             except Exception as e:
                 LOG.error('The generate template of plan %s failed, and rollback operations,\
                           the error is %s', id, str(e))
@@ -299,7 +298,7 @@ class CloneManager(manager.Manager):
                                    'sys_clone': sys_clone,
                                    'copy_data': copy_data})
         LOG.debug("Export template end in clone manager")
-        return resource_map, expire_time
+        return resource_map
 
     def _update_plan_resources(self, context, resource_map, plan_id):
         updated_resources = {}
@@ -322,14 +321,12 @@ class CloneManager(manager.Manager):
         self._export_template(context, id, destination, sys_clone, copy_data)
         self.clone(context, id, destination, sys_clone)
 
-    def _format_template(self, context, resource_map, plan_id,
-                         expire_time, plan_type):
+    def _format_template(self, context, resource_map, plan_id, plan_type):
 
         resources = resource_map.values()
         template = yaml.load(template_skeleton)
         template['resources'] = {}
         template['parameters'] = {}
-        template['expire_time'] = expire_time
         template['plan_type'] = plan_type
         for r_resource in resources:
             template['resources'].update(r_resource.template_resource)
@@ -366,7 +363,6 @@ class CloneManager(manager.Manager):
         if not plan:
             LOG.error(_LE('Get plan %s failed') % id)
             raise exception.PlanNotFound(plan_id=id)
-        expire_time = plan.get('expire_at')
         resource_map = plan.get('updated_resources')
         LOG.debug("The resource_map is %s" % resource_map)
         for key, value in resource_map.items():
@@ -400,7 +396,6 @@ class CloneManager(manager.Manager):
         template = yaml.load(template_skeleton)
         template['resources'] = template_resource = {}
         template['parameters'] = {}
-        template['expire_time'] = expire_time
         for key, value in resource_map.items():
             if value.type == 'OS::Heat::Stack':
                 resource_map.pop(key)
@@ -889,9 +884,8 @@ class CloneManager(manager.Manager):
                                   {'plan_status': plan_status.MIGRATING})
         # call export_migrate_template
         resource_map = None
-        expire_time = None
         try:
-            resource_map, expire_time = self.export_migrate_template(context,
+            resource_map = self.export_migrate_template(context,
                                                                      id)
         except (exception.ExportTemplateFailed, exception.PlanNotFound):
             self.plan_api.update_plan(context, id,
@@ -921,8 +915,7 @@ class CloneManager(manager.Manager):
         template = yaml.load(template_skeleton)
         template['resources'] = template_resource = {}
         template['parameters'] = {}
-        # add expire_time
-        template['expire_time'] = expire_time
+
         for r_resource in resources:
             template['resources'].update(copy.deepcopy(
                 r_resource.template_resource))

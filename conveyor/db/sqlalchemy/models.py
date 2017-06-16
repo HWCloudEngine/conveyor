@@ -168,7 +168,6 @@ class Plan(BASE, ConveyorBase):
     )
 
     id = Column(Integer, primary_key=True)
-    expire_at = Column(DateTime)
     plan_id = Column(String(length=36), nullable=False)
     plan_name = Column(String(length=255), nullable=True)
     project_id = Column(String(length=36), nullable=False)
