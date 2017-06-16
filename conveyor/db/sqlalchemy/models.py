@@ -210,6 +210,15 @@ class PlanUpdateResource(BASE, ConveyorBase):
     resource = Column(types.Json)
 
 
+class ConveyorConfig(BASE, ConveyorBase):
+    """Represents an ConveyorConfig."""
+
+    __tablename__ = 'conveyor_config'
+    id = Column(Integer, primary_key=True)
+    config_key = Column(String(length=36), nullable=False)
+    config_value = Column(String(length=36), nullable=False)
+
+
 def get_session():
     from conveyor.db.sqlalchemy import api as db_api
     return db_api.get_session()

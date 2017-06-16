@@ -142,6 +142,22 @@ def plan_update_resource_delete(context, plan_id):
     return IMPL.plan_update_resource_delete(context, plan_id)
 
 
+def conveyor_config_create(context, values):
+    return IMPL.conveyor_config_create(context, values)
+
+
+def conveyor_config_delete(context, config_key):
+    return IMPL.conveyor_config_delete(context, config_key)
+
+
+def conveyor_config_get(context, config_key, session=None, read_deleted='no'):
+    return IMPL.conveyor_config_get(context, config_key, session, read_deleted)
+
+
+def conveyor_config_update(context, config_key, config_value):
+    return IMPL.conveyor_config_update(context, config_key, config_value)
+
+
 # add from heat
 def get_engine():
     return IMPL.get_engine()
