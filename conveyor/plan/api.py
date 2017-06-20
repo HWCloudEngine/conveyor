@@ -111,7 +111,7 @@ class PlanAPI(object):
             raise exception.PlanUpdateError(message=msg)
 
         allowed_status = (p_status.INITIATING, p_status.CREATING,
-                          p_status.AVAILABLE)
+                          p_status.AVAILABLE, p_status.FINISHED)
 
         try:
             plan = db_api.plan_get(context, plan_id)
@@ -139,7 +139,7 @@ class PlanAPI(object):
 
         # Verify plan
         allowed_status = (p_status.INITIATING, p_status.CREATING,
-                          p_status.AVAILABLE)
+                          p_status.AVAILABLE, p_status.FINISHED)
         try:
             plan = db_api.plan_get(context, plan_id)
             if plan['plan_status'] not in allowed_status:
