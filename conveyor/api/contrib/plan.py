@@ -152,7 +152,7 @@ class PlansActionController(wsgi.Controller):
     @wsgi.action('plan_show-brief')
     def _plan_show_brief(self, req, id, body):
 
-        if not self.is_valid_body(body, 'plan-show-brief'):
+        if not self.is_valid_body(body, 'plan_show-brief'):
             LOG.error('Show plan brief body has not key:'
                       'plan-show-brief')
             raise exc.HTTPUnprocessableEntity()
