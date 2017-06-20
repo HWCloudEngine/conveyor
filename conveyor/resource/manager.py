@@ -17,7 +17,6 @@
 from oslo_config import cfg
 from oslo_log import log as logging
 import oslo_messaging as messaging
-from oslo_utils import importutils
 
 from conveyor import compute
 from conveyor.conveyorheat.api import api as heat
@@ -40,16 +39,6 @@ from conveyor import volume
 CONF = cfg.CONF
 
 LOG = logging.getLogger(__name__)
-resource_plugins_opts = [
-    cfg.StrOpt('resource_driver',
-               default='conveyor.resource.plugins.openstack.driver.'
-                       'OpenstackDriver',
-               help='Driver to connect cloud')
-]
-
-CONF.register_opts(resource_plugins_opts)
-
-_plans = {}
 
 
 class ResourceManager(manager.Manager):
@@ -71,8 +60,6 @@ class ResourceManager(manager.Manager):
         self.heat_api = heat.API()
         self.original_heat_api = original_heat.API()
         self.db_api = db_api
-        resource_driver_class = importutils.import_class(CONF.resource_driver)
-        self.resource_driver = resource_driver_class()
 
         super(ResourceManager, self).__init__(service_name=
                                               "conveyor-resource",
