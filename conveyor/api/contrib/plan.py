@@ -26,6 +26,7 @@ from conveyor.api.wsgi import wsgi
 from conveyor.clone import api
 from conveyor.common import plan_status as p_status
 from conveyor.db import api as db_api
+from conveyor import exception as conveyor_exception
 from conveyor.plan import api as plan_api
 
 from conveyor.i18n import _
@@ -67,7 +68,7 @@ class PlansActionController(wsgi.Controller):
 
         LOG.debug("Start reset plan state in API for plan: %s", id)
         if not self.is_valid_body(body, 'os-reset_state'):
-            LOG.debug("Reset plan state request body has not key:\
+            LOG.error("Reset plan state request body has not key:\
                        os-reset_state")
             raise exc.HTTPUnprocessableEntity()
         context = req.environ['conveyor.context']
@@ -81,7 +82,8 @@ class PlansActionController(wsgi.Controller):
     def _force_delete_plan(self, req, id, body):
 
         if not self.is_valid_body(body, 'force_delete-plan'):
-            LOG.debug('')
+            LOG.error('Force delete plan request body has not key:'
+                      'force_delete-plan')
             raise exc.HTTPUnprocessableEntity()
         context = req.environ['conveyor.context']
         plan_id = body.get('force_delete-plan', {}).get('plan_id', None)
@@ -92,7 +94,8 @@ class PlansActionController(wsgi.Controller):
     def _plan_delete_resource(self, req, id, body):
 
         if not self.is_valid_body(body, 'plan-delete-resource'):
-            LOG.debug('')
+            LOG.error('Delete plan resource request body has not key:'
+                      'plan-delete-resource')
             raise exc.HTTPUnprocessableEntity()
         context = req.environ['conveyor.context']
         plan_id = body.get('plan-delete-resource', {}).get('plan_id', None)
@@ -143,6 +146,26 @@ class PlansActionController(wsgi.Controller):
             return {"resource": resource}
         except Exception as e:
             LOG.error(unicode(e))
+            raise exc.HTTPInternalServerError(explanation=unicode(e))
+
+    @wsgi.response(202)
+    @wsgi.action('plan_show-brief')
+    def _plan_show_brief(self, req, id, body):
+
+        if not self.is_valid_body(body, 'plan-show-brief'):
+            LOG.error('Show plan brief body has not key:'
+                      'plan-show-brief')
+            raise exc.HTTPUnprocessableEntity()
+        context = req.environ['conveyor.context']
+        plan_id = body.get('plan_show-brief', {}).get('plan_id', None)
+        try:
+            plan = db_api.plan_get(context, plan_id)
+            return {"plan": plan}
+        except conveyor_exception.PlanNotFoundInDb:
+            msg = 'Plan of %s not found' % plan_id
+            raise exc.HTTPNotFound(explanation=msg)
+        except Exception as e:
+            LOG.error()
             raise exc.HTTPInternalServerError(explanation=unicode(e))
 
 

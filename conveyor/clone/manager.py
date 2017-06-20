@@ -32,6 +32,7 @@ from novaclient import exceptions as novaclient_exceptions
 
 from conveyor import compute
 from conveyor import exception
+from conveyor import image
 from conveyor import manager
 from conveyor import network
 from conveyor import utils
@@ -144,6 +145,7 @@ class CloneManager(manager.Manager):
         self.compute_api = compute.API()
         self.neutron_api = network.API()
         self.heat_api = heat.API()
+        self.glance_api = image.API()
         self._last_host_check = 0
         self._last_bw_usage_poll = 0
         self._bw_usage_supported = True
@@ -265,7 +267,7 @@ class CloneManager(manager.Manager):
         LOG.debug("Clone resources end in clone manager")
         return stack_info['id']
 
-    def _export_template(self, context, id, destination, sys_clone=False,
+    def _export_template(self, context, id, sys_clone=False,
                          copy_data=True):
         # get plan info
         plan = self.plan_api.get_plan_by_id(context, id)
@@ -282,7 +284,7 @@ class CloneManager(manager.Manager):
             undo_mgr = None
             try:
                 undo_mgr = self.clone_driver.handle_resources(
-                    context, id, resource_map, destination,
+                    context, id, resource_map,
                     sys_clone, copy_data)
                 self._update_plan_resources(context, resource_map, id)
                 self._format_template(context, resource_map, id,
@@ -318,7 +320,7 @@ class CloneManager(manager.Manager):
         if update_resources:
             self.plan_api.update_plan_resources(context, id,
                                                 update_resources)
-        self._export_template(context, id, destination, sys_clone, copy_data)
+        self._export_template(context, id, sys_clone, copy_data)
         self.clone(context, id, destination, sys_clone)
 
     def _format_template(self, context, resource_map, plan_id, plan_type):
@@ -419,6 +421,8 @@ class CloneManager(manager.Manager):
             resource = template_resource[key]
             # change az for volume server
             if resource['type'] in add_destination_res_type:
+                resource.get('extra_properties')['availability_zone'] = \
+                    resource.get('properties')['availability_zone']
                 resource.get('properties')['availability_zone'] = destination
             if resource['type'] == 'OS::Neutron::Port':
                 resource.get('properties').pop('mac_address')
@@ -541,7 +545,7 @@ class CloneManager(manager.Manager):
         stack_in.pop('id', None)
         stack_in.pop('name', None)
         stack_in['properties']['template'], son_file_template = \
-            self._get_template_contents(template_dict, des)
+            self._get_template_contents(context, template_dict, des)
         stack_in['properties']['template'] = \
             json.dumps(stack_in['properties']['template'])
         res = {key: stack_in}
@@ -635,18 +639,22 @@ class CloneManager(manager.Manager):
             if plan.get('plan_status') == plan_status.ERROR:
                 raise exception.PlanCloneFailed(id=id, msg='')
 
-    def _get_template_contents(self, template_dict, des):
+    def _get_template_contents(self, context, template_dict, des):
         LOG.debug('the origin template is %s', template_dict)
         resources = template_dict.get('resources')
         file_template = {}
         for key, res in resources.items():
+            if 'availability_zone' in res.get('properties', {}):
+                src_az = res['properties']['availability_zone']
+                res['extra_properties']['availability_zone'] = src_az
+                res['properties']['availability_zone'] = des
+                # change image if hypercontainer to native
+                self._change_image_id_for_res(context, template_dict, key)
             if 'extra_properties' in res:
                 res.pop('extra_properties')
             if 'id' in res:
                 res.pop('id')
             res_type = res.get('type')
-            if 'availability_zone' in res.get('properties', {}):
-                res['properties']['availability_zone'] = des
             if res_type and res_type.startswith('file://'):
                 file_template[res_type] = res.get('content')
                 res.pop('content')
@@ -663,13 +671,18 @@ class CloneManager(manager.Manager):
                 son_template_dict = json.loads(v)
                 son_res = son_template_dict.get('resources')
                 for key, res in son_res.items():
+                    if 'availability_zone' in res.get('properties', {}):
+                        src_az = res['properties']['availability_zone']
+                        res['extra_properties']['availability_zone'] = src_az
+                        res['properties']['availability_zone'] = des
+                        # change image if hypercontainer to native
+                        self._change_image_id_for_res(context,
+                                                      son_template_dict, key)
                     if 'extra_properties' in res:
                         res.pop('extra_properties')
                     if 'id' in res:
                         res.pop('id')
                     res_type = res.get('type')
-                    if 'availability_zone' in res.get('properties', {}):
-                        res['properties']['availability_zone'] = des
                     if res_type and res_type.startswith('file://'):
                         son_file_template[res_type] = res.get('content')
                         res.pop('content')
@@ -1406,12 +1419,23 @@ class CloneManager(manager.Manager):
             if 'OS::Cinder::Volume' == res_type:
                     ext_properties = res.get('extra_properties')
                     sys_clone = ext_properties.get('sys_clone')
+                    properties = volume_resources.get(k).get('properties',
+                                                             {})
+                    res_image = properties.get('image', None)
                     if sys_clone:
-                        properties = volume_resources.get(k).get('properties',
-                                                                 {})
                         # properties.pop('image', None)
                         properties['image'] = CONF.sys_image
                         sys_vol_name.append(k)
+                    # if volume is system volume and not clone,
+                    # and hypercontainer to native, change hypercontainer image
+                    # to native vm image
+                    elif res_image:
+                        self._change_image_id_for_res(
+                                    context,
+                                    volume_template['template'],
+                                    k)
+                    else:
+                        pass
         origin_template = copy.deepcopy(volume_template)
         for key, res in volume_resources.items():
             if 'extra_properties' in res:
@@ -1478,7 +1502,7 @@ class CloneManager(manager.Manager):
         # 1. define all volume related resources
         stack_template = template['template']
         stack_resources = stack_template.get('resources', {})
-        sys_volumes = self._system_volumes_to_clone(stack_resources)
+        sys_volumes = self._system_volumes_to_clone(context, stack_template)
         if not sys_volumes:
             return template
 
@@ -1630,9 +1654,9 @@ class CloneManager(manager.Manager):
             self.plan_api.update_plan(context, plan_id, values)
             return None
 
-    def _system_volumes_to_clone(self, resources):
+    def _system_volumes_to_clone(self, context, stack_template):
         '''list all vm and it need to clone sys volume:{'vmname':'volname'}'''
-
+        resources = stack_template.get('resources', {})
         vm_sys_dict = {}
         for k, res in resources.items():
             res_type = res.get('type')
@@ -1647,9 +1671,15 @@ class CloneManager(manager.Manager):
                     if isinstance(volume_id, dict):
                         vol_name = volume_id.get('get_resource')
                     boot_index = bdm.get('boot_index')
-                    if boot_index in [0, '0'] and sys_clone:
-                        vm_sys_dict[k] = vol_name
-                        break
+                    if boot_index in [0, '0']:
+                        if sys_clone:
+                            vm_sys_dict[k] = vol_name
+                        else:
+
+                            self._change_image_id_for_res(context,
+                                                          stack_template,
+                                                          vol_name)
+
         return vm_sys_dict
 
     def _change_resource_to_param(self, template, res_name):
@@ -1674,3 +1704,28 @@ class CloneManager(manager.Manager):
                             if v == res_name and k == 'get_resource':
                                 volume_id.pop(k)
                                 volume_id['get_param'] = v
+
+    def _change_image_id_for_res(self, context, template, res_name):
+        pams = template.get('parameters', {})
+        res = template.get('resources', {}).get(res_name, {})
+        res_perporties = res.get('properties', {})
+        res_img = res_perporties.get('image', None)
+        if not res_img:
+            return None
+        img_parms = pams.get(res_img.get('get_param', None), {})
+        res_img_id = img_parms.get('default', None)
+        src_availability_zone = \
+            res.get('extra_properties').get('availability_zone', None)
+        des_az = res_perporties.get('availability_zone', None)
+        src = \
+            db_api.conveyor_config_get(context, src_availability_zone)
+        des = db_api.conveyor_config_get(context, des_az)
+        if not src or not des:
+            return
+        if src[0]['config_value'] == 'hypercontainer' \
+                and des[0]['config_value'] == 'native':
+            img = self.glance_api.get(context, res_img_id)
+            org_img = img.get('properties', {}).get('__original_image')
+            if img.get('container_format') == 'hypercontainer' and org_img:
+                img_ref = res_img.get('get_param', None)
+                pams.get(img_ref)['default'] = org_img

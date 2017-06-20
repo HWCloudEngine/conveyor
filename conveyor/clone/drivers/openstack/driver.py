@@ -38,12 +38,12 @@ class OpenstackDriver(driver.BaseDriver):
     def __init__(self):
         super(OpenstackDriver, self).__init__()
 
-    def handle_resources(self, context, plan_id, resource_map, destination,
+    def handle_resources(self, context, plan_id, resource_map,
                          sys_clone, copy_data):
         LOG.debug('Begin handle resources')
         undo_mgr = utils.UndoManager()
         try:
-            self._add_extra_properties(context, resource_map, destination,
+            self._add_extra_properties(context, resource_map,
                                        sys_clone, copy_data, undo_mgr)
             # self._set_resources_state(context, resource_map)
             return undo_mgr
@@ -87,14 +87,13 @@ class OpenstackDriver(driver.BaseDriver):
         _set_state(template)
 
     def add_extra_properties_for_server(self, context, resource, resource_map,
-                                        destination, sys_clone, copy_data,
+                                        sys_clone, copy_data,
                                         undo_mgr):
         migrate_net_map = CONF.migrate_net_map
         server_properties = resource.properties
         server_id = resource.id
         server_extra_properties = resource.extra_properties
         server_az = server_properties.get('availability_zone')
-        self._change_image_id_for_res(context, destination, resource)
         vm_state = server_extra_properties.get('vm_state')
         gw_url = server_extra_properties.get('gw_url')
         if not gw_url:
@@ -127,10 +126,6 @@ class OpenstackDriver(driver.BaseDriver):
                                                         volume_resource,
                                                         server_id, dev_name,
                                                         gw_id, gw_ip, undo_mgr)
-                            else:
-                                self._change_image_id_for_res(context,
-                                                              destination,
-                                                              volume_resource)
                         else:
                             d_copy = copy_data and volume_resource. \
                                 extra_properties['copy_data']
@@ -227,9 +222,6 @@ class OpenstackDriver(driver.BaseDriver):
                             volume_resource.extra_properties['sys_clone'] = \
                                 sys_clone
                             if not sys_clone:
-                                self._change_image_id_for_res(context,
-                                                              destination,
-                                                              volume_resource)
                                 continue
                         else:
                             d_copy = copy_data and volume_resource. \
@@ -310,7 +302,7 @@ class OpenstackDriver(driver.BaseDriver):
             vol_res.extra_properties['mount_point'] = mount_point.get(
                 'mount_disk')
 
-    def add_extra_properties_for_stack(self, context, resource, destination,
+    def add_extra_properties_for_stack(self, context, resource,
                                        sys_clone, copy_data, undo_mgr):
         res_prop = resource.properties
         stack_id = resource.id
@@ -326,7 +318,6 @@ class OpenstackDriver(driver.BaseDriver):
                 if res_type == 'OS::Cinder::Volume':
                     # v_prop = value.get('properties')
                     v_exra_prop = value.get('extra_properties', {})
-                    self._change_image_id_for_res(context, destination, value)
                     if not v_exra_prop or not v_exra_prop.get('gw_url'):
                         heat_res = self.heat_api.get_resource(context,
                                                               stack_id,
@@ -354,7 +345,6 @@ class OpenstackDriver(driver.BaseDriver):
                     heat_res = self.heat_api.get_resource(context,
                                                           stack_id,
                                                           key)
-                    self._change_image_id_for_res(context, destination, value)
                     phy_id = heat_res.physical_resource_id
                     server_info = self.compute_api.get_server(context, phy_id)
                     vm_state = server_info.get('OS-EXT-STS:vm_state', None)

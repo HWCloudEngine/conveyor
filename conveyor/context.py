@@ -30,7 +30,6 @@ from keystoneclient.auth.identity import v3
 from keystoneclient.auth import token_endpoint
 from oslo_config import cfg
 from oslo_log import log as logging
-import oslo_messaging
 from oslo_utils import timeutils
 
 from conveyor.common import local
@@ -387,6 +386,6 @@ def request_context(func):
         try:
             return func(self, ctx, *args, **kwargs)
         except heat_exc.HeatException:
-            raise oslo_messaging.rpc.dispatcher.ExpectedException()
+            raise
 
     return wrapped

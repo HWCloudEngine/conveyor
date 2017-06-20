@@ -21,6 +21,7 @@ from oslo_log import log as logging
 from oslo_utils import timeutils
 
 from conveyor.conveyorheat.common import environment_format
+from conveyor.conveyorheat.common import exception
 from conveyor.conveyorheat.common import identifier
 from conveyor.conveyorheat.common import param_utils
 from conveyor.conveyorheat.common import template_format
@@ -410,29 +411,49 @@ class API(object):
 
     def clear_table(self, context, stack_id, plan_id, is_heat_stack=False):
         # need stackname not id
-        # context._session = db_api.get_session()
+        stacks = None
         try:
             stacks = db_api.plan_stack_get(context, plan_id,
                                            read_deleted='yes')
+        except Exception as e:
+            LOG.error(_('Query plan stack for plan (id)s failed: %(err)s'),
+                      {'id': plan_id, 'err': e})
+            raise
+        if stacks:
             for st in stacks[::-1]:
                 stack_identity = self._make_identity(context.project_id,
                                                      '', st['stack_id'])
                 # context._session = db_api.get_session()
-                self.api.clear_table(context, stack_identity)
-                loop_fun = functools.partial(self._wait_for_table, context,
-                                             st['stack_id'])
-                timer = loopingcall.FixedIntervalLoopingCall(loop_fun)
-                timer.start(interval=0.5).wait()
-                # context._session = db_api.get_session()
-                db_api.event_delete(context, st['stack_id'])
-                # db_api.stack_get(context, st['stack_id'], show_deleted=True)
-                db_api.stack_delete_in_db(context, st['stack_id'])
-                # db_api.raw_template_delete(context,
-                #                            stack_ref['raw_template_id'])
-                db_api.plan_stack_delete(context, plan_id, st['stack_id'])
-        except Exception as e:
-            LOG.error("clear table fail %s", e)
-            raise
+                try:
+                    self.api.clear_table(context, stack_identity)
+                    loop_fun = functools.partial(self._wait_for_table, context,
+                                                 st['stack_id'])
+                    timer = loopingcall.FixedIntervalLoopingCall(loop_fun)
+                    timer.start(interval=0.5).wait()
+                except exception.EntityNotFound:
+                    LOG.warn(_('Delete stack not found in db for plan %s'),
+                             plan_id)
+                except Exception as e:
+                    LOG.error(_('Clear stack error for plan %(id)s: %(e)s'),
+                              {'id': plan_id, 'e': e})
+                    raise
+
+                try:
+                    db_api.event_delete(context, st['stack_id'])
+                    db_api.stack_delete_in_db(context, st['stack_id'])
+                except Exception as e:
+                    LOG.error(_('Clear event failed for plan %(id)s: %(e)s'),
+                              {'id': plan_id, 'e': e})
+                    raise
+                try:
+                    db_api.plan_stack_delete(context, plan_id, st['stack_id'])
+                except exception.NotFound:
+                    LOG.warn(_('Delete plan stack not found for plan %s'),
+                             plan_id)
+                except Exception as e:
+                    LOG.error(_('Clear stack failed for plan %(id)s: %(e)s'),
+                              {'id': plan_id, 'e': e})
+                    raise
 
     def delete_stack(self, context, stack_id, plan_id, is_heat_stack=False):
         # need stackname not id

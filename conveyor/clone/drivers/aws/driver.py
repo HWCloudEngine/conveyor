@@ -33,7 +33,7 @@ class AwsDriver(driver.BaseDriver):
     def __init__(self):
         super(AwsDriver, self).__init__()
 
-    def handle_resources(self, context, plan_id, resource_map, destination,
+    def handle_resources(self, context, plan_id, resource_map,
                          sys_clone, copy_data):
         LOG.debug('Begin handle resources')
         undo_mgr = utils.UndoManager()
