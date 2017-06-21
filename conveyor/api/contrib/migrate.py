@@ -22,6 +22,7 @@ from oslo_log import log as logging
 from conveyor.api import extensions
 from conveyor.api.wsgi import wsgi
 from conveyor.clone import api
+from conveyor.plan import api as plan_api
 
 LOG = logging.getLogger(__name__)
 
@@ -31,6 +32,7 @@ class MigrateActionController(wsgi.Controller):
     def __init__(self, ext_mgr=None, *args, **kwargs):
         super(MigrateActionController, self).__init__(*args, **kwargs)
         self.clone_api = api.API()
+        self._plan_api = plan_api.PlanAPI()
         self.ext_mgr = ext_mgr
 
     @wsgi.response(202)
@@ -42,7 +44,7 @@ class MigrateActionController(wsgi.Controller):
 
     def _check_plan_resource_availability_zone(self, context,
                                                plan, destination):
-        src_res_azs = self._resource_api.list_plan_resource_availability_zones(
+        src_res_azs = self._plan_api.list_plan_resource_availability_zones(
             context, plan)
         for src_res_az in src_res_azs:
             if src_res_az not in destination:
