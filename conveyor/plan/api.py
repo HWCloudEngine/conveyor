@@ -279,13 +279,13 @@ class PlanAPI(object):
         LOG.debug('Resouce api check template end. no spec type')
         return False
 
-    def list_plan_resource_availability_zones(self, context, plan):
-        if not isinstance(plan, dict):
-            plan = self.plan_rpcapi.get_plan_by_id(context, plan, detail=True)
+    def list_plan_resource_availability_zones(self, context, plan_id):
+        original_resources = db_api.plan_original_resource_get(context,
+                                                               plan_id)
 
+        LOG.info('ori_res: %s', original_resources)
         res_azs = []
-        plan_res = plan.get('original_resources')
-        for key, res in plan_res.items():
+        for key, res in original_resources.get('resource').items():
             if res['type'] in ('OS::Nova::Server', 'OS::Cinder::Volume'):
                 az = res['properties']['availability_zone']
                 if az not in res_azs:

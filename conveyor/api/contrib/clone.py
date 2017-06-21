@@ -25,6 +25,7 @@ from conveyor.clone import api
 from conveyor.common import plan_status as p_status
 from conveyor.db import api as db_api
 from conveyor.i18n import _
+from conveyor.plan import api as plan_api
 
 LOG = logging.getLogger(__name__)
 
@@ -33,6 +34,7 @@ class CloneActionController(wsgi.Controller):
     def __init__(self, ext_mgr=None, *args, **kwargs):
         super(CloneActionController, self).__init__(*args, **kwargs)
         self.clone_api = api.API()
+        self._plan_api = plan_api.PlanAPI()
         self.ext_mgr = ext_mgr
 
     @wsgi.response(202)
@@ -71,7 +73,7 @@ class CloneActionController(wsgi.Controller):
 
     def _check_plan_resource_availability_zone(self, context,
                                                plan, destination):
-        src_res_azs = self._resource_api.list_plan_resource_availability_zones(
+        src_res_azs = self._plan_api.list_plan_resource_availability_zones(
             context, plan)
         for src_res_az in src_res_azs:
             if src_res_az not in destination:
@@ -103,7 +105,7 @@ class CloneActionController(wsgi.Controller):
         if not isinstance(destination, dict):
             msg = _("The parameter 'destination' must be a map.")
             if not self._check_plan_resource_availability_zone(context,
-                                                               plan,
+                                                               id,
                                                                destination):
                 msg = _("The destination %(destination)s does not contain all "
                         "resource availability_zone of plan %{plan_id)s") % {
@@ -145,7 +147,7 @@ class CloneActionController(wsgi.Controller):
             raise exc.HTTPBadRequest(explanation=msg)
 
         if not self._check_plan_resource_availability_zone(context,
-                                                           plan,
+                                                           id,
                                                            destination):
             msg = _("The destination %(destination)s does not contain all "
                     "resource availability_zone of plan %{plan_id)s") % {
