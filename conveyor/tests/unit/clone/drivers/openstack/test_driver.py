@@ -86,7 +86,7 @@ class OpenstackDriverTestCase(test.TestCase):
         self.assertEqual(
             None,
             self.manager.add_extra_properties_for_stack(
-                self.context, stack, undo_mgr
+                self.context, stack, False, True, undo_mgr
             ))
 
     @mock.patch.object(base_driver.BaseDriver, '_wait_for_volume_status')

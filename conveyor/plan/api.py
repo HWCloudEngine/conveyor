@@ -227,7 +227,7 @@ class PlanAPI(object):
                 LOG.error(msg)
                 raise exception.PlanDeleteError(message=msg)
         except exception.PlanNotFoundInDb:
-            LOG.error('The plan <%s> could not be found.', plan_id)
+            LOG.error('The plan %s could not be found.', plan_id)
             raise exception.PlanNotFound(plan_id=plan_id)
 
         LOG.info("Begin to delete plan with id of %s", plan_id)

@@ -141,41 +141,53 @@ class ResourceManagerTestCase(test.TestCase):
                 self.context, fake_plan_id, detail=False)
             self.assertTrue('original_resources' not in result2)
 
+    @mock.patch.object(db_api, 'plan_update_resource_delete')
+    @mock.patch.object(db_api, 'plan_original_resource_delete')
     @mock.patch.object(db_api, 'plan_delete')
     @mock.patch.object(db_api, 'plan_template_delete')
     @mock.patch.object(heat.API, 'clear_table')
     @mock.patch.object(plan, 'update_plan_to_db')
-    @mock.patch.object(manager.PlanManager, 'get_plan_by_id')
+    @mock.patch.object(db_api, 'plan_get')
     def test_delete_plan(self, mock_plan_get, mock_plan_update,
                          mock_clear_table, mock_plan_tmpl_del,
-                         mock_plan_delete):
+                         mock_plan_delete,
+                         mock_original_resource_delete,
+                         mock_update_resource_delete):
         fake_plan = fake_object.mock_fake_plan()
         mock_plan_get.return_value = fake_plan
         self.plan_manager.delete_plan(self.context, 'plan_id')
         mock_clear_table.assert_called_with(self.context, '', 'plan_id')
         mock_plan_delete.assert_called_with(self.context, fake_plan['plan_id'])
 
+    @mock.patch.object(db_api, 'plan_update_resource_delete')
+    @mock.patch.object(db_api, 'plan_original_resource_delete')
     @mock.patch.object(db_api, 'plan_delete')
     @mock.patch.object(db_api, 'plan_template_delete')
     @mock.patch.object(heat.API, 'clear_table')
-    @mock.patch.object(plan, 'read_plan_from_db')
+    @mock.patch.object(db_api, 'plan_get')
     def test_force_delete_plan(self, mock_plan_read, mock_clear_table,
-                               mock_plan_tmpl_del, mock_plan_delete):
+                               mock_plan_tmpl_del, mock_plan_delete,
+                               mock_original_resource_delete,
+                               mock_update_resource_delete):
         fake_plan = fake_object.mock_fake_plan()
         mock_plan_read.return_value = fake_plan
         self.plan_manager.force_delete_plan(self.context, fake_plan['plan_id'])
         mock_plan_read.assert_called_with(self.context, fake_plan['plan_id'])
         mock_plan_delete.assert_called_with(self.context, fake_plan['plan_id'])
 
+    @mock.patch.object(db_api, 'plan_update_resource_delete')
+    @mock.patch.object(db_api, 'plan_original_resource_delete')
     @mock.patch.object(db_api, 'plan_delete')
     @mock.patch.object(db_api, 'plan_template_delete',
-                       side_effect=exception.PlanNotFoundInDb)
+                       side_effect=exception.PlanNotFoundInDb(id='fake'))
     @mock.patch.object(heat.API, 'clear_table')
-    @mock.patch.object(plan, 'read_plan_from_db')
+    @mock.patch.object(db_api, 'plan_get')
     def test_force_delete_plan_without_tmpl(self, mock_plan_read,
                                             mock_clear_table,
                                             mock_plan_tmpl_del,
-                                            mock_plan_delete):
+                                            mock_plan_delete,
+                                            mock_original_resource_delete,
+                                            mock_update_resource_delete):
         fake_plan = fake_object.mock_fake_plan()
         mock_plan_read.return_value = fake_plan
         self.plan_manager.force_delete_plan(self.context, fake_plan['plan_id'])

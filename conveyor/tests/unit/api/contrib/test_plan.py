@@ -22,6 +22,7 @@ from six.moves import http_client
 from conveyor.api.contrib import plan
 from conveyor.clone import api as clone_api
 from conveyor import context
+from conveyor.db import api as db_api
 from conveyor.plan import api as plan_api
 from conveyor.tests import test
 from conveyor.tests.unit.api import fakes as fakes
@@ -38,7 +39,7 @@ class PlanActionControllerTestCase(test.TestCase):
         self.controller = plan.PlansActionController()
 
     @mock.patch.object(clone_api.API, 'download_template')
-    @mock.patch.object(plan_api.PlanAPI, 'get_plan_by_id')
+    @mock.patch.object(db_api, 'plan_get')
     def test_download_template(self, mock_get_plan_by_id,
                                mock_download_template):
         plan_id = fake.PLAN_ID

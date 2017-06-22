@@ -648,7 +648,7 @@ class CloneManager(manager.Manager):
         for key, res in resources.items():
             if 'availability_zone' in res.get('properties', {}):
                 src_az = res['properties']['availability_zone']
-                res['extra_properties']['availability_zone'] = src_az
+                res.get('extra_properties', {})['availability_zone'] = src_az
                 res['properties']['availability_zone'] = des
                 # change image if hypercontainer to native
                 self._change_image_id_for_res(context, template_dict, key)
@@ -675,7 +675,8 @@ class CloneManager(manager.Manager):
                 for key, res in son_res.items():
                     if 'availability_zone' in res.get('properties', {}):
                         src_az = res['properties']['availability_zone']
-                        res['extra_properties']['availability_zone'] = src_az
+                        res.get('extra_properties', {})['availability_zone'] =\
+                            src_az
                         res['properties']['availability_zone'] = des
                         # change image if hypercontainer to native
                         self._change_image_id_for_res(context,
@@ -1719,7 +1720,7 @@ class CloneManager(manager.Manager):
         img_parms = pams.get(res_img.get('get_param', None), {})
         res_img_id = img_parms.get('default', None)
         src_availability_zone = \
-            res.get('extra_properties').get('availability_zone', None)
+            res.get('extra_properties', {}).get('availability_zone', None)
         des_az = res_perporties.get('availability_zone', None)
         src = \
             db_api.conveyor_config_get(context, src_availability_zone)

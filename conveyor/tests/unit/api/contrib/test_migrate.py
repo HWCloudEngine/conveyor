@@ -20,9 +20,10 @@ from six.moves import http_client
 
 from oslo_serialization import jsonutils
 
+from conveyor.api.contrib import migrate
 from conveyor.clone import api
 from conveyor import context
-from conveyor.plan import api as plan_api
+from conveyor.db import api as db_api
 from conveyor.tests import test
 from conveyor.tests.unit.api import fakes as fakes
 from conveyor.tests.unit.api.v1 import fakes as res_fakes
@@ -37,9 +38,11 @@ class MigrateActionControllerTestCase(test.TestCase):
                                               is_admin=False)
 
     @mock.patch.object(api.API, "migrate")
-    @mock.patch.object(plan_api.PlanAPI, "get_plan_by_id")
-    def test_migrate(self, mock_get_plan_by_id, mock_migrate):
-        body = {'migrate': {'destination': 'fake-az'}}
+    @mock.patch.object(db_api, "plan_get")
+    @mock.patch.object(migrate.MigrateActionController,
+                       "_check_plan_resource_availability_zone")
+    def test_migrate(self, mock_check_az, mock_get_plan_by_id, mock_migrate):
+        body = {'migrate': {'destination': {'az01': 'fake-az'}}}
         req = webob.Request.blank('/v1/%s/migrates/%s/action' %
                                   (fake.PROJECT_ID, fake.PLAN_ID))
         req.method = "POST"
@@ -48,11 +51,12 @@ class MigrateActionControllerTestCase(test.TestCase):
         plan_id = fake.PLAN_ID
         mock_get_plan_by_id.return_value = res_fakes.create_fake_plan(plan_id)
         mock_migrate.return_value = {}
+        mock_check_az.return_value = True
         res = req.get_response(fakes.wsgi_app(fake_auth_context=self.context))
         self.assertEqual(http_client.ACCEPTED, res.status_int)
 
     @mock.patch.object(api.API, "export_migrate_template")
-    @mock.patch.object(plan_api.PlanAPI, "get_plan_by_id")
+    @mock.patch.object(db_api, "plan_get")
     def test_export_migrate_template(self, mock_get_plan_by_id,
                                      mock_export_migrate_template):
         body = {'export_migrate_template': {'destination': 'fake-az'}}

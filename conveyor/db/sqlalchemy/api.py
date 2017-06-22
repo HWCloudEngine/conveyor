@@ -755,7 +755,7 @@ def plan_stack_update(context, plan_id, stack_id, values):
             .filter_by(plan_id=plan_id).filter_by(stack_id=stack_id). \
             first()
         if not plan_ref:
-            raise conveyor_exception.PlanNotFoundInDb(id=id)
+            raise conveyor_exception.PlanNotFoundInDb(id=plan_id)
         plan_ref.update(values)
         try:
             plan_ref.save(session=session)
@@ -813,7 +813,7 @@ def conveyor_config_update(context, config_key, config_value):
         config_ref = model_query(context, models.ConveyorConfig, session=session) \
             .filter_by(config_key=config_key).first()
         if not config_ref:
-            raise conveyor_exception.PlanNotFoundInDb(config_key=config_key)
+            raise conveyor_exception.PlanNotFoundInDb(id=config_key)
         config_ref.update({'config_key': config_key,
                            'config_value': config_value})
         try:

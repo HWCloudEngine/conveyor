@@ -416,7 +416,7 @@ class PlanDeployError(V2vException):
 
 
 class PlanNotFoundInDb(NotFound):
-    message = _("Plan not found for id <%(id)s>.")
+    message = _("Plan not found for id %(id)s.")
 
 
 class InvalidID(Invalid):

@@ -29,8 +29,12 @@ class ResourceTestCase(test.TestCase):
         super(ResourceTestCase, self).setUp()
         self.context = context.RequestContext('fake', 'fake', is_admin=False)
 
+    @mock.patch.object(db_api, 'plan_update_resource_create')
+    @mock.patch.object(db_api, 'plan_original_resource_create')
     @mock.patch.object(db_api, 'plan_create')
-    def test_save_plan_to_db(self, mock_plan_create):
+    def test_save_plan_to_db(self, mock_plan_create,
+                             mock_original_resource_create,
+                             mock_update_resource_create):
         plan.save_plan_to_db(self.context, fake_object.fake_plan_dict)
         mock_plan_create.assert_called_once()
 
@@ -43,11 +47,19 @@ class ResourceTestCase(test.TestCase):
         mock_plan_create.assert_called_once()
 
     @mock.patch.object(db_api, 'plan_get')
-    def test_read_plan_from_db(self, mock_plan_get):
+    @mock.patch.object(db_api, 'plan_original_resource_get')
+    @mock.patch.object(db_api, 'plan_update_resource_get')
+    def test_read_plan_from_db(self, mock_original_resource_get,
+                               mock_update_resource_get,
+                               mock_plan_get):
         fake_plan = copy.deepcopy(fake_object.fake_plan_dict)
         fake_plan.pop('original_dependencies', None)
         fake_plan.pop('updated_dependencies', None)
         mock_plan_get.return_value = fake_plan
+        mock_original_resource_get.return_value = {'resource':
+                                                   {}}
+        mock_update_resource_get.return_value = {'resource':
+                                                 {}}
         result = plan.read_plan_from_db(
             self.context, fake_object.fake_plan_dict['plan_id'])
         self.assertIn('original_dependencies', result)
