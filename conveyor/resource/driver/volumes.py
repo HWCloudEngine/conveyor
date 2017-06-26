@@ -77,8 +77,12 @@ class VolumeResource(base.resource):
 
             if volume.get('display_description'):
                 properties['description'] = volume['display_description']
-            if volume.get('volume_metadata'):
-                properties['metadata'] = volume['volume_metadata']
+
+            vol_metadata = volume.get('volume_metadata', None)
+            if vol_metadata:
+                vol_metadata.pop('__hc_vol_id', None)
+                vol_metadata.pop('__openstack_region_name', None)
+                properties['metadata'] = vol_metadata
 
             resource_type = "OS::Cinder::Volume"
             resource_name = 'volume_%d' % self.\
@@ -296,8 +300,11 @@ class Volume(base.resource):
 
         if volume.get('display_description'):
             properties['description'] = volume['display_description']
-        if volume.get('volume_metadata'):
-            properties['metadata'] = volume['volume_metadata']
+        vol_metadata = volume.get('volume_metadata', None)
+        if vol_metadata:
+            vol_metadata.pop('__hc_vol_id', None)
+            vol_metadata.pop('__openstack_region_name', None)
+            properties['metadata'] = vol_metadata
         resource_type = "OS::Cinder::Volume"
         resource_name = 'volume_%d' % self._get_resource_num(resource_type)
         volume_res = resource.Resource(resource_name, resource_type,

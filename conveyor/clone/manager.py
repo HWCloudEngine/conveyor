@@ -409,6 +409,8 @@ class CloneManager(manager.Manager):
                 context, id, {'plan_status': plan_status.FINISHED})
             return
         for r_resource in resources:
+            if r_resource.type == 'OS::Heat::Stack':
+                continue
             template['resources'].update(
                 copy.deepcopy(r_resource.template_resource))
             template['parameters'].update(
@@ -605,7 +607,7 @@ class CloneManager(manager.Manager):
         volume_template = copy.deepcopy(template)
         template['stack_id'] = stack_id
         volume_resource = {}
-        reses = template.get('resources')
+        reses = template.get('resources', {})
         for key, res in reses.items():
             res_type = res.get('type')
             if res_type == 'OS::Cinder::Volume':
@@ -649,7 +651,7 @@ class CloneManager(manager.Manager):
             if 'availability_zone' in res.get('properties', {}):
                 src_az = res['properties']['availability_zone']
                 res.get('extra_properties', {})['availability_zone'] = src_az
-                res['properties']['availability_zone'] = des
+                res['properties']['availability_zone'] = des.get(src_az, None)
                 # change image if hypercontainer to native
                 self._change_image_id_for_res(context, template_dict, key)
             if 'extra_properties' in res:
@@ -1734,3 +1736,15 @@ class CloneManager(manager.Manager):
             if img.get('container_format') == 'hypercontainer' and org_img:
                 img_ref = res_img.get('get_param', None)
                 pams.get(img_ref)['default'] = org_img
+        elif src[0]['config_value'] == 'native' \
+                and des[0]['config_value'] == 'hypercontainer':
+            img_list = self.glance_api.get_all(context)
+            for img in img_list:
+                img_id = img.get('id', None)
+                img = self.glance_api.get(context, img_id)
+                org_img = img.get('properties', {}).get('__original_image')
+                if img.get('container_format') == 'hypercontainer' \
+                        and org_img == res_img_id:
+                    img_ref = res_img.get('get_param', None)
+                    pams.get(img_ref)['default'] = img_id
+                    break

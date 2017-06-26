@@ -339,8 +339,10 @@ class OpenstackDriver(driver.BaseDriver):
                         v_exra_prop['copy_data'] = copy_data
                         value['extra_properties'] = v_exra_prop
                         value['id'] = phy_id
-                        self._handle_volume_for_stack(context, value, gw_id,
-                                                      gw_ip, undo_mgr)
+                        if copy_data:
+                            self._handle_volume_for_stack(context, value,
+                                                          gw_id,
+                                                          gw_ip, undo_mgr)
                 elif res_type == 'OS::Nova::Server':
                     heat_res = self.heat_api.get_resource(context,
                                                           stack_id,
