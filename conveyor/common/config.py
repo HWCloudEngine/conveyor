@@ -229,7 +229,10 @@ global_opts = [
                'in instance active or not.'),
     cfg.IntOpt('periodic_interval',
                default=60,
-               help='Interval, in seconds, between running periodic tasks')
+               help='Interval, in seconds, between running periodic tasks'),
+    cfg.IntOpt('heat_nested_depth',
+               default=5,
+               help='conveyor support the number of heat nesting')
 ]
 birdie_opts = [
     cfg.IntOpt('v2vgateway_api_listen_port',

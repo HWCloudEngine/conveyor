@@ -190,8 +190,8 @@ class API(object):
     def validate_template(self, context, **kwargs):
         return heatclient(context).stacks.validate(**kwargs)
 
-    def resources_list(self, context, stack_name):
-        return heatclient(context).resources.list(stack_name)
+    def resources_list(self, context, stack_name, **kwargs):
+        return heatclient(context).resources.list(stack_name, **kwargs)
 
     def get_resource(self, context, stack_id, resource_name):
         return heatclient(context).resources.get(stack_id, resource_name)

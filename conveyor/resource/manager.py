@@ -219,9 +219,18 @@ class ResourceManager(manager.Manager):
                   "the resource id and type."
             LOG.error(msg)
             raise exception.ResourceExtractFailed(reason=msg)
-        ir = InstanceResource(context)
 
+        # get all resources in stacks
+        stack_resources = []
+        if stack_ids and res_num > len(stack_ids):
+            stack_resources = self._get_all_resources_by_stacks(context,
+                                                                stack_ids)
+
+        ir = InstanceResource(context)
         if instance_ids:
+            # 1.remove server which in stack resources
+            instance_ids = self._fliter_resources_by_stack(stack_resources,
+                                                           instance_ids)
             ir.extract_instances(instance_ids)
 
         new_resources = ir.get_collected_resources()
@@ -229,6 +238,9 @@ class ResourceManager(manager.Manager):
 
         # if need generate network resource
         if network_ids:
+            # remove server which in stack resources
+            network_ids = self._fliter_resources_by_stack(stack_resources,
+                                                          network_ids)
             nt = NetworkResource(context, collected_resources=new_resources,
                                  collected_dependencies=new_dependencies)
             nt.extract_networks_resource(network_ids)
@@ -237,6 +249,9 @@ class ResourceManager(manager.Manager):
 
         # if need generate floating ips resource
         if floatingip_ids:
+            # remove server which in stack resources
+            floatingip_ids = self._fliter_resources_by_stack(stack_resources,
+                                                             floatingip_ids)
             ft = FloatIps(context, collected_resources=new_resources,
                           collected_dependencies=new_dependencies)
             ft.extract_floatingips(floatingip_ids)
@@ -245,6 +260,9 @@ class ResourceManager(manager.Manager):
 
         # if need generate secure group resource
         if secgroup_ids:
+            # remove server which in stack resources
+            secgroup_ids = self._fliter_resources_by_stack(stack_resources,
+                                                           secgroup_ids)
             st = SecGroup(context, collected_resources=new_resources,
                           collected_dependencies=new_dependencies)
             st.extract_secgroups(secgroup_ids)
@@ -253,6 +271,9 @@ class ResourceManager(manager.Manager):
 
         # loadbalance resource create
         if pool_ids:
+            # remove server which in stack resources
+            pool_ids = self._fliter_resources_by_stack(stack_resources,
+                                                       pool_ids)
             lb = loadbalance.LoadbalancePool(context,
                                              collected_resources=
                                              new_resources,
@@ -264,6 +285,9 @@ class ResourceManager(manager.Manager):
 
         # volume resource create
         if volume_ids:
+            # remove server which in stack resources
+            volume_ids = self._fliter_resources_by_stack(stack_resources,
+                                                         volume_ids)
             vol = Volume(context,
                          collected_resources=new_resources,
                          collected_dependencies=new_dependencies)
@@ -304,3 +328,28 @@ class ResourceManager(manager.Manager):
         res_or_dep.clear()
         res_or_dep.update(new_res)
         return res_or_dep
+
+    def _get_all_resources_by_stacks(self, context, stacks):
+        stack_resources = []
+        for stack in stacks:
+            kwargs = {}
+            kwargs['nested_depth'] = CONF.heat_nested_depth
+            r_res_list = self.original_heat_api.resources_list(context,
+                                                               stack,
+                                                               **kwargs)
+            if not r_res_list:
+                continue
+            for r_res in r_res_list:
+                r_id = r_res.physical_resource_id
+                if not r_id:
+                    continue
+                stack_resources.append(r_id)
+        return stack_resources
+
+    def _fliter_resources_by_stack(self, stack_resources, resouces):
+        '''remove resource in resources, which in stack_reosurces'''
+        res_list = []
+        for res in resouces:
+            if res not in stack_resources:
+                res_list.append(res)
+        return res_list
