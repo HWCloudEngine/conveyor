@@ -355,6 +355,12 @@ client_http_log_debug_opts = [
                 default=False,
                 help=_("Allow client's debug log output."))]
 
+his_client_opts = [
+    cfg.StrOpt('url',
+               default='',
+               help=_('Optional his url in format like'
+                      ' http://0.0.0.0:9393'))]
+
 revision_group = cfg.OptGroup('revision')
 revision_opts = [
     cfg.StrOpt('heat_revision',
@@ -425,7 +431,7 @@ def list_opts():
     for client in ('barbican', 'ceilometer', 'cinder', 'designate', 'glance',
                    'heat', 'keystone', 'magnum', 'manila', 'mistral',
                    'neutron', 'nova', 'sahara', 'senlin', 'swift', 'trove',
-                   'zaqar', 'ces', 'groupwatch', 'scheduler'
+                   'zaqar', 'ces', 'groupwatch', 'scheduler', 'his'
                    ):
         client_specific_group = 'clients_' + client
         yield client_specific_group, clients_opts
@@ -437,6 +443,7 @@ def list_opts():
     yield 'clients_ces', ces_client_opts
     yield 'clients_groupwatch', groupwatch_client_opts
     yield 'clients_scheduler', sheduler_client_opts
+    yield 'clients_his', his_client_opts
 
 
 cfg.CONF.register_group(paste_deploy_group)
