@@ -45,10 +45,10 @@ from conveyor.common import plan_status
 from conveyor.conveyorheat.api import api as heat
 from conveyor.db import api as db_api
 from conveyor.i18n import _LE
+from conveyor.i18n import _LI
 from conveyor.objects import plan as plan_cls
 from conveyor.plan import api as plan_api
 from conveyor.resource import resource
-
 
 resource_from_dict = resource.Resource.from_dict
 
@@ -67,14 +67,11 @@ clone_opts = [
                help='Driver to connect cloud')
 ]
 
-
 CONF = cfg.CONF
 CONF.register_opts(manager_opts)
 CONF.register_opts(clone_opts)
 
-
 LOG = logging.getLogger(__name__)
-
 
 template_skeleton = '''
 heat_template_version: 2013-05-23
@@ -106,7 +103,6 @@ RESOURCE_MAPPING = {
     'OS::Cinder::ConsistencyGroup': 'consistencyGroup',
     'OS::Cinder::Qos': 'qos'
 }
-
 
 STATE_MAP = {
     'CREATE_IN_PROGRESS': 'cloning',
@@ -439,21 +435,21 @@ class CloneManager(manager.Manager):
                 else:
                     net_template = resource.get('properties').get('network_id')
                     net_key = net_template.get('get_resource') or \
-                        net_template.get('get_param')
+                              net_template.get('get_param')
                     net_id = resource_map[net_key].id
                     is_exist = self._judge_resource_exist(
                         context, self.neutron_api.get_network, net_id)
                     _pop_need = is_exist
                 # maybe exist problem if the network not exist
-                for _fix_ip in resource.get('properties', {})\
-                                       .get('fixed_ips', []):
+                for _fix_ip in resource.get('properties', {}) \
+                        .get('fixed_ips', []):
                     if _pop_need or not _fix_ip.get('ip_address'):
                         _fix_ip.pop('ip_address', None)
             cb = resource_cb_map.get(resource['type'])
             exist_resource_type = ['OS::Cinder::Volume']
             resource_exist = False
             if resource['type'] in exist_resource_type and \
-               resource.get('extra_properties').get('exist'):
+                    resource.get('extra_properties').get('exist'):
                 resource_exist = True
             if cb or resource_exist:
                 try:
@@ -469,11 +465,11 @@ class CloneManager(manager.Manager):
                                 context, id,
                                 {'plan_status': plan_status.ERROR})
                             error_message = 'the floatingip %s exist and be used' \
-                                % resource_id
+                                            % resource_id
                             raise exception.PlanCloneFailed(id=id,
                                                             msg=error_message)
                     # add parameters into template if exists
-                    template['parameters'][key] =\
+                    template['parameters'][key] = \
                         {
                             'default': resource_id,
                             'description': description_map[resource['type']],
@@ -523,6 +519,7 @@ class CloneManager(manager.Manager):
             if status in [plan_status.FINISHED, plan_status.ERROR]:
                 LOG.info("Plan status: %s.", status)
                 raise loopingcall.LoopingCallDone()
+
         timer = loopingcall.FixedIntervalLoopingCall(_wait_for_plan_finished,
                                                      context)
         timer.start(interval=0.5).wait()
@@ -592,6 +589,7 @@ class CloneManager(manager.Manager):
             if state in ["CREATE_COMPLETE", "CREATE_FAILED"]:
                 LOG.info("Plane deployed: %s.", state)
                 raise loopingcall.LoopingCallDone()
+
         timer = loopingcall.FixedIntervalLoopingCall(_wait_for_boot)
         timer.start(interval=0.5).wait()
 
@@ -624,16 +622,6 @@ class CloneManager(manager.Manager):
                 son_template['stack_id'] = son_stack_id
                 self._copy_data_for_stack(context, son_template,
                                           son_stack_id, plan_id)
-#             else:
-#                 r = res.get('properties',{}).get('resource')
-#                 if not r or not r.get('type').startswith('file://'):
-#                     continue
-#                 ### get_new stack_id
-#                 son_template = json.loads(r.get('content'))
-#                 son_stack_id = r.get('id')
-#                 son_template['stack_id'] = son_stack_id
-#                  self._copy_data_for_stack(context, son_template,
-#                                            son_stack_id, plan_id)
 
         if volume_resource:
             volume_template['resources'] = volume_resource
@@ -655,7 +643,8 @@ class CloneManager(manager.Manager):
                 res.get('extra_properties', {})['availability_zone'] = src_az
                 res['properties']['availability_zone'] = des.get(src_az, None)
                 # change image if hypercontainer to native
-                self._change_image_id_for_res(context, template_dict, key)
+                self._change_image_id_for_res(context, template_dict, key,
+                                              is_stack=True)
             if 'extra_properties' in res:
                 res.pop('extra_properties')
             if 'id' in res:
@@ -679,12 +668,13 @@ class CloneManager(manager.Manager):
                 for key, res in son_res.items():
                     if 'availability_zone' in res.get('properties', {}):
                         src_az = res['properties']['availability_zone']
-                        res.get('extra_properties', {})['availability_zone'] =\
+                        res.get('extra_properties', {})['availability_zone'] = \
                             src_az
                         res['properties']['availability_zone'] = des
                         # change image if hypercontainer to native
                         self._change_image_id_for_res(context,
-                                                      son_template_dict, key)
+                                                      son_template_dict, key,
+                                                      is_stack=True)
                     if 'extra_properties' in res:
                         res.pop('extra_properties')
                     if 'id' in res:
@@ -699,6 +689,7 @@ class CloneManager(manager.Manager):
                         son_file_template)
                     final_file_template.update(final_son_file_template)
             return final_file_template
+
         return template_dict, _get_file_template(file_template)
 
     def _handle_lb(self, template_resource):
@@ -794,7 +785,7 @@ class CloneManager(manager.Manager):
                       {'plan_id': plan_id, 'error': e})
             raise exception.PlanUpdateError
 
-    def export_migrate_template(self, context, id,):
+    def export_migrate_template(self, context, id):
         LOG.debug("Export migrate template start in clone manager")
         return self._export_template(context, id)
 
@@ -879,6 +870,7 @@ class CloneManager(manager.Manager):
         stack_info = stack.get('stack')
         values['stack_id'] = stack_info['id']
         self.plan_api.update_plan(context, plan_id, values)
+
         # 4. check stack status and update plan status
 
         def _wait_for_boot():
@@ -894,6 +886,7 @@ class CloneManager(manager.Manager):
             if state in ["CREATE_COMPLETE", "CREATE_FAILED"]:
                 LOG.info("Plane deployed: %s.", state)
                 raise loopingcall.LoopingCallDone()
+
         timer = loopingcall.FixedIntervalLoopingCall(_wait_for_boot)
         timer.start(interval=0.5).wait()
         return stack
@@ -906,7 +899,7 @@ class CloneManager(manager.Manager):
         resource_map = None
         try:
             resource_map = self.export_migrate_template(context,
-                                                                     id)
+                                                        id)
         except (exception.ExportTemplateFailed, exception.PlanNotFound):
             self.plan_api.update_plan(context, id,
                                       {'plan_status': plan_status.ERROR})
@@ -949,11 +942,11 @@ class CloneManager(manager.Manager):
                 port_list = []
                 for p in r['properties'].get('networks', []):
                     port_name = p.get('port', {}).get('get_resource')
-                    port_id = template_resource[port_name]\
+                    port_id = template_resource[port_name] \
                         .get('extra_properties')['id']
-                    net_name = template_resource[port_name].get('properties')\
-                                                           .get('network_id')\
-                                                           .get('get_resource')
+                    net_name = template_resource[port_name].get('properties') \
+                        .get('network_id') \
+                        .get('get_resource')
                     net_id = template_resource[net_name] \
                         .get('extra_properties')['id']
                     is_exist = self._judge_resource_exist(
@@ -974,20 +967,20 @@ class CloneManager(manager.Manager):
                     if resource_roll['type'] == 'OS::Neutron::FloatingIP':
                         if resource_roll['properties'].get('port_id') \
                                 .get('get_resource') == key:
-                            floatingip_net_key = resource_roll['properties']\
+                            floatingip_net_key = resource_roll['properties'] \
                                 .get('floating_network_id', {}) \
                                 .get('get_resource')
-                            net_id = template_resource[floatingip_net_key]\
+                            net_id = template_resource[floatingip_net_key] \
                                 .get('extra_properties')['id']
                             is_exist = self._judge_resource_exist(
                                 context,
                                 self.neutron_api.get_network,
                                 net_id)
                             if is_exist:
-                                fix_ip_index = resource_roll['properties']\
+                                fix_ip_index = resource_roll['properties'] \
                                     .get('fixed_ip_address', {}) \
                                     .get('get_attr')[2]
-                                fix_ip = resource['properties'].get('fixed_ips')[fix_ip_index]\
+                                fix_ip = resource['properties'].get('fixed_ips')[fix_ip_index] \
                                     .get('ip_address')
                                 fp_list.append(
                                     (name,
@@ -1046,9 +1039,11 @@ class CloneManager(manager.Manager):
                     if resource['type'] == 'OS::Neutron::Net':
                         for _k in template_resource:
                             _r = template_resource[_k]
-                            if _r['type'] == 'OS::Neutron::Port' and \
-                                _r['properties'].get('network_id', {})\
-                                                .get('get_resource') == key:
+                            if _r['type'] == \
+                                    'OS::Neutron::Port' and \
+                                            _r['properties'].\
+                                                    get('network_id', {}).\
+                                                    get('get_resource') == key:
                                 _r.get('properties').pop('mac_address')
                                 for _f in _r['properties'].get('fixed_ips',
                                                                []):
@@ -1134,6 +1129,7 @@ class CloneManager(manager.Manager):
                 r = self.heat_api.get_resource(context, stack_id, key)
                 key_dst_heat_resource[key] = r
             return r.physical_resource_id
+
         # { 'server_0': ('server_0.id, [('port_0','port_0.id']) }
 
         for server_key in list(server_port_map):
@@ -1183,8 +1179,8 @@ class CloneManager(manager.Manager):
                     self.compute_api.interface_detach(context, server_id,
                                                       port_id)
                     port_info = resource_map.get(port_key)
-                    net_key = port_info.properties.get('network_id')\
-                                                  .get('get_resource')
+                    net_key = port_info.properties.get('network_id') \
+                        .get('get_resource')
                     security_group_list = port_info.properties.get(
                         'security_groups')
                     security_group_ids = []
@@ -1197,16 +1193,16 @@ class CloneManager(manager.Manager):
                                    'security_groups': security_group_ids,
                                    'admin_state_up': True,
                                    'mac_address': port_info.properties.get(
-                        'mac_address')
-                        }
+                                       'mac_address')
+                                   }
                     for fix in port_info.properties.get('fixed_ips', []):
                         subnet_key = fix.get('subnet_id', {}) \
-                                        .get('get_resource')
+                            .get('get_resource')
                         subnet_id = resource_map.get(subnet_key).id
                         fix_param = {'subnet_id': subnet_id,
                                      'ip_address': fix.get('ip_address')}
                         port_params.setdefault('fixed_ips', []) \
-                                   .append(fix_param)
+                            .append(fix_param)
 
                     # interface_detach rolling back callback
                     undo_mgr.undo_with(functools.partial(_create_attach_port,
@@ -1319,7 +1315,7 @@ class CloneManager(manager.Manager):
         if not t:
             return None, None
         file_name = 'file://' + CONF.plan_file_path + plan_id \
-                              + '.floatingIp.template'
+                    + '.floatingIp.template'
         fip_properties = {}
         fip_template_resource = {
             'type': file_name,
@@ -1343,8 +1339,8 @@ class CloneManager(manager.Manager):
                 new_resources[name] = rs
                 continue
             is_floatingIp = True
-            net_id = rs.get('properties', {}).get('floating_network_id', {})\
-                                             .get('get_resource', None)
+            net_id = rs.get('properties', {}).get('floating_network_id', {}) \
+                .get('get_resource', None)
             if not net_id:
                 new_resources[name] = rs
                 continue
@@ -1352,9 +1348,9 @@ class CloneManager(manager.Manager):
             subnet_id = None
             for _name, _rs in resources.items():
                 if _rs.get('type') == 'OS::Neutron::Subnet' and \
-                        _rs.get('properties', {}) \
-                           .get('network_id', {}) \
-                           .get('get_resource') == net_id:
+                                _rs.get('properties', {}) \
+                                        .get('network_id', {}) \
+                                        .get('get_resource') == net_id:
                     subnet_id = _name
                     break
 
@@ -1384,11 +1380,11 @@ class CloneManager(manager.Manager):
             new_resources[fip_prefix] = fip_template_resource
             fip_temp = {file_name: json.dumps(fip_file_template)}
 
-        return fip_temp,  \
-            {'description': 'Generated template',
-             'heat_template_version': '2013-05-23',
-             'parameters': t.get('parameters', {}),
-             'resources': new_resources}
+        return fip_temp, \
+               {'description': 'Generated template',
+                'heat_template_version': '2013-05-23',
+                'parameters': t.get('parameters', {}),
+                'resources': new_resources}
 
     def _cold_clone(self, context, template, state_map):
         '''volume dependence volume type, consistencygroup'''
@@ -1426,25 +1422,25 @@ class CloneManager(manager.Manager):
                 vol_res_name.append(k)
             # if clone system volume, remove volume image info
             if 'OS::Cinder::Volume' == res_type:
-                    ext_properties = res.get('extra_properties')
-                    sys_clone = ext_properties.get('sys_clone')
-                    properties = volume_resources.get(k).get('properties',
-                                                             {})
-                    res_image = properties.get('image', None)
-                    if sys_clone:
-                        # properties.pop('image', None)
-                        properties['image'] = CONF.sys_image
-                        sys_vol_name.append(k)
-                    # if volume is system volume and not clone,
-                    # and hypercontainer to native, change hypercontainer image
-                    # to native vm image
-                    elif res_image:
-                        self._change_image_id_for_res(
-                                    context,
-                                    volume_template['template'],
-                                    k)
-                    else:
-                        pass
+                ext_properties = res.get('extra_properties')
+                sys_clone = ext_properties.get('sys_clone')
+                properties = volume_resources.get(k).get('properties',
+                                                         {})
+                res_image = properties.get('image', None)
+                if sys_clone:
+                    # properties.pop('image', None)
+                    properties['image'] = CONF.sys_image
+                    sys_vol_name.append(k)
+                # if volume is system volume and not clone,
+                # and hypercontainer to native, change hypercontainer image
+                # to native vm image
+                elif res_image:
+                    self._change_image_id_for_res(
+                        context,
+                        volume_template['template'],
+                        k)
+                else:
+                    pass
         origin_template = copy.deepcopy(volume_template)
         for key, res in volume_resources.items():
             if 'extra_properties' in res:
@@ -1463,12 +1459,6 @@ class CloneManager(manager.Manager):
                 self._afther_resource_created_handler(context,
                                                       origin_template,
                                                       stack_id)
-#                for sys_vol in sys_vol_name:
-#                    heat_resource = self.heat_api.get_resource(context,
-#                                                               stack_id,
-#                                                               sys_vol)
-#                    res_id = heat_resource.physical_resource_id
-#                    self.volume_api.set_volume_bootable(context, res_id, True)
             except Exception as e:
                 LOG.error('Code clone error: %s', e)
                 raise
@@ -1489,11 +1479,6 @@ class CloneManager(manager.Manager):
                             n = volume_id.get('get_resource')
                             if n == name:
                                 bdm['volume_id'] = {'get_param': name}
-#                         boot_index = bdm.get('boot_index')
-#                         # if system disk is volume, remove image info
-#                         sys_clone = ext_properties.get('sys_clone')
-#                         if boot_index in [0, '0'] and sys_clone:
-#                             properties.pop('image')
                 else:
                     continue
 
@@ -1714,7 +1699,8 @@ class CloneManager(manager.Manager):
                                 volume_id.pop(k)
                                 volume_id['get_param'] = v
 
-    def _change_image_id_for_res(self, context, template, res_name):
+    def _change_image_id_for_res(self, context, template, res_name,
+                                 is_stack=False):
         pams = template.get('parameters', {})
         res = template.get('resources', {}).get(res_name, {})
         res_perporties = res.get('properties', {})
@@ -1730,32 +1716,36 @@ class CloneManager(manager.Manager):
         src = \
             db_api.conveyor_config_get(context, src_availability_zone)
         des = db_api.conveyor_config_get(context, des_az)
-        if not src or not des:
+        if not src or not des or not res_img_id:
             return
         if src[0]['config_value'] == 'hypercontainer' \
                 and des[0]['config_value'] == 'native':
             img = self.glance_api.get(context, res_img_id)
             org_img = img.get('properties', {}).get('__original_image')
             if img.get('container_format') == 'hypercontainer' and org_img:
-                img_ref = res_img.get('get_param', None)
-                pams.get(img_ref)['default'] = org_img
+                pams[para_img_name]['default'] = org_img
         elif src[0]['config_value'] == 'native' \
                 and des[0]['config_value'] == 'hypercontainer':
             hyper_image = self.his_api.get_hyper_image(context, res_img_id)
             if hyper_image is not None:
-                img_ref = res_img.get('get_param', None)
-                pams.get(img_ref)['default'] = hyper_image
+                pams[para_img_name]['default'] = hyper_image
             else:
+                if is_stack:
+                    convert_id = self.wait_convert_his_finish(context,
+                                                              res_img_id,
+                                                              res_name)
+                    pams[para_img_name]['default'] = convert_id
+                    return
                 his_res_name = 'his_' + res_name[-1]
                 his_values = {
-                            'type': 'Huawei::FusionSphere::HIS',
-                            'properties': {
-                                'original_image_id': res_img_id,
-                                'name': 'hyper@' + res_img_id
-                            }
+                    'type': 'Huawei::FusionSphere::HIS',
+                    'properties': {
+                        'original_image_id': res_img_id,
+                        'name': 'hyper@' + res_img_id
+                    }
                 }
                 for res_k in template.get('resources', {}).keys():
-                    img_res = template.get('resources', {}).\
+                    img_res = template.get('resources', {}). \
                         get(res_k).get('properties', {}).get('image', None)
                     if img_res and img_res.get('get_param', None) == \
                             para_img_name:
@@ -1763,3 +1753,17 @@ class CloneManager(manager.Manager):
                         img_res['get_resource'] = his_res_name
                 pams.pop(para_img_name)
                 template['resources'][his_res_name] = his_values
+
+    def wait_convert_his_finish(self, context, orig_id, name):
+        def _wait_for_finish():
+            """Called at an interval until the resources are finished ."""
+            img = self.glance_api.get(context, img_id)
+            if img['status'] == "active":
+                LOG.info(_LI("image in active"))
+                raise loopingcall.LoopingCallDone()
+
+        img_id = self.his_api.convert_hyper_image(context,
+                                                  original_image_id=orig_id)
+        timer = loopingcall.FixedIntervalLoopingCall(_wait_for_finish)
+        timer.start(interval=0.5).wait()
+        return img_id

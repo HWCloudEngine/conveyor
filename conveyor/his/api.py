@@ -15,7 +15,7 @@ Main abstraction layer for retrieving and storing information about disk
 images used by the compute layer.
 """
 
-from hisclient.exc import Unauthorized
+from hisclient import exc
 from hisclient.v2.client import Client as his_cli
 from oslo_log import log as logging
 
@@ -57,8 +57,28 @@ class API(object):
                             image['task']['status'] == 'success':
                 return image['task']['hyper_image_id']
             return None
-        except Unauthorized as unauth:
+        except exc.Forbidden:
+            return original_image_id
+        except exc.Unauthorized as unauth:
             raise unauth
         except Exception as e:
             LOG.error(_LE("error in get_hyper_image"))
+            raise e
+
+    def convert_hyper_image(self, context, original_image_id):
+        """Returns hyper image id.
+
+        :param context: The `context.Context` object for the request
+        :param original_image_id: the image uuid.
+        """
+        try:
+            args = {'original_image_id': original_image_id,
+                    'name': 'hyper@' + original_image_id}
+            img_id = hisclient(context.auth_token).images. \
+                convert(**args)['hyper_image_id']
+            return img_id
+        except exc.Unauthorized as unauth:
+            raise unauth
+        except Exception as e:
+            LOG.error(_LE("error in convert_hyper_image"))
             raise e
