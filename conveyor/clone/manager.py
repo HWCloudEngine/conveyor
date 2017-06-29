@@ -32,6 +32,7 @@ from novaclient import exceptions as novaclient_exceptions
 
 from conveyor import compute
 from conveyor import exception
+from conveyor import his
 from conveyor import image
 from conveyor import manager
 from conveyor import network
@@ -146,6 +147,7 @@ class CloneManager(manager.Manager):
         self.neutron_api = network.API()
         self.heat_api = heat.API()
         self.glance_api = image.API()
+        self.his_api = his.API()
         self._last_host_check = 0
         self._last_bw_usage_poll = 0
         self._bw_usage_supported = True
@@ -1719,7 +1721,8 @@ class CloneManager(manager.Manager):
         res_img = res_perporties.get('image', None)
         if not res_img:
             return None
-        img_parms = pams.get(res_img.get('get_param', None), {})
+        para_img_name = res_img.get('get_param', None)
+        img_parms = pams.get(para_img_name, {})
         res_img_id = img_parms.get('default', None)
         src_availability_zone = \
             res.get('extra_properties', {}).get('availability_zone', None)
@@ -1738,13 +1741,25 @@ class CloneManager(manager.Manager):
                 pams.get(img_ref)['default'] = org_img
         elif src[0]['config_value'] == 'native' \
                 and des[0]['config_value'] == 'hypercontainer':
-            img_list = self.glance_api.get_all(context)
-            for img in img_list:
-                img_id = img.get('id', None)
-                img = self.glance_api.get(context, img_id)
-                org_img = img.get('properties', {}).get('__original_image')
-                if img.get('container_format') == 'hypercontainer' \
-                        and org_img == res_img_id:
-                    img_ref = res_img.get('get_param', None)
-                    pams.get(img_ref)['default'] = img_id
-                    break
+            hyper_image = self.his_api.get_hyper_image(context, res_img_id)
+            if hyper_image is not None:
+                img_ref = res_img.get('get_param', None)
+                pams.get(img_ref)['default'] = hyper_image
+            else:
+                his_res_name = 'his_' + res_name[-1]
+                his_values = {
+                            'type': 'Huawei::FusionSphere::HIS',
+                            'properties': {
+                                'original_image_id': res_img_id,
+                                'name': 'hyper@' + res_img_id
+                            }
+                }
+                for res_k in template.get('resources', {}).keys():
+                    img_res = template.get('resources', {}).\
+                        get(res_k).get('properties', {}).get('image', None)
+                    if img_res and img_res.get('get_param', None) == \
+                            para_img_name:
+                        img_res.pop('get_param')
+                        img_res['get_resource'] = his_res_name
+                pams.pop(para_img_name)
+                template['resources'][his_res_name] = his_values

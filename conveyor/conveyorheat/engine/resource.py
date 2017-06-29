@@ -704,6 +704,9 @@ class Resource(object):
     def glance(self):
         return self.client('glance')
 
+    def his(self):
+        return self.client('his')
+
     @contextlib.contextmanager
     def _action_recorder(self, action, expected_exceptions=tuple()):
         """Return a context manager to record the progress of an action.
