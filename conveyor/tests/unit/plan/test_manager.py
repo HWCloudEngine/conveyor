@@ -44,8 +44,8 @@ def mock_build_res_topo(cls, context, resources):
         ori_res[name_in_tmpl] = resource.Resource(name_in_tmpl,
                                                   res_type, res_id)
         ori_deps[name_in_tmpl] = resource.ResourceDependency(res_id,
-                                                             name,
                                                              name_in_tmpl,
+                                                             name,
                                                              res_type)
     return ori_res, ori_deps
 

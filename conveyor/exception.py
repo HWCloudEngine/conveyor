@@ -476,3 +476,7 @@ class AuthorizationFailure(V2vException):
 class InvalidAPIVersionString(Invalid):
     message = _("API Version String %(version)s is of invalid format. Must "
                 "be of format MajorNum.MinorNum.")
+
+
+class IdNotInResource(Invalid):
+    message = _("resource id not in template resource module.")

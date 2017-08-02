@@ -55,11 +55,17 @@ class CloneAPI(object):
         cctxt.cast(ctxt, 'export_clone_template', id=id, sys_clone=sys_clone,
                    copy_data=copy_data)
 
-    def clone(self, ctxt, id, destination, sys_clone):
-        LOG.debug("start call rpc api clone")
+    def clone(self, ctxt, plan_id, az_map, clone_resources,
+              clone_links, update_resources, replace_resources,
+              sys_clone, data_copy):
         cctxt = self.client.prepare(version='1.18')
-        cctxt.cast(ctxt, 'clone', id=id, destination=destination,
-                   sys_clone=sys_clone)
+        cctxt.cast(ctxt, 'clone', plan_id=plan_id, az_map=az_map,
+                   clone_resources=clone_resources,
+                   clone_links=clone_links,
+                   update_resources=update_resources,
+                   replace_resources=replace_resources,
+                   sys_clone=sys_clone,
+                   data_copy=data_copy)
 
     def export_migrate_template(self, ctxt, id):
         LOG.debug("start call rpc api export_migrate_template")

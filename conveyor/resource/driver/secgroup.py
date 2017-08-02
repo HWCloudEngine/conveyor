@@ -24,7 +24,7 @@ from conveyor.resource import resource
 LOG = logging.getLogger(__name__)
 
 
-class SecGroup(base.resource):
+class SecGroup(base.Resource):
 
     def __init__(self, context, collected_resources=None,
                  collected_parameters=None, collected_dependencies=None):
@@ -92,8 +92,8 @@ class SecGroup(base.resource):
 
             # remove duplicate dependencies
             dependencies = {}.fromkeys(dependencies).keys()
-            sec_dep = resource.ResourceDependency(sec_id, sec.get('name'),
-                                                  resource_name,
+            sec_dep = resource.ResourceDependency(sec_id, resource_name,
+                                                  sec.get('name'),
                                                   resource_type,
                                                   dependencies=dependencies)
 

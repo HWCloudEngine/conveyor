@@ -27,23 +27,26 @@ LOG = logging.getLogger(__name__)
 def upgrade(migrate_engine):
     meta = MetaData()
     meta.bind = migrate_engine
-    original_resource = Table('plan_original_resource', meta,
-                              Column('created_at', DateTime(timezone=False)),
-                              Column('updated_at', DateTime(timezone=False)),
-                              Column('deleted_at', DateTime(timezone=False)),
-                              Column('id', Integer, primary_key=True,
-                                     nullable=False),
-                              Column('plan_id', String(length=36),
-                                     nullable=False),
-                              Column('resource', types.Json),
-                              Column('deleted', Integer),
-                              mysql_engine='InnoDB',
-                              mysql_charset='utf8')
+    cloned_resource = Table('plan_cloned_resources', meta,
+                            Column('created_at', DateTime(timezone=False)),
+                            Column('updated_at', DateTime(timezone=False)),
+                            Column('deleted_at', DateTime(timezone=False)),
+                            Column('id', Integer, primary_key=True,
+                                   nullable=False),
+                            Column('plan_id', String(length=36),
+                                   nullable=False),
+                            Column('destination', String(length=36),
+                                   nullable=False),
+                            Column('relation', types.Json),
+                            Column('dependencies', types.Json),
+                            Column('deleted', Integer),
+                            mysql_engine='InnoDB',
+                            mysql_charset='utf8')
 
     try:
-        original_resource.create()
+        cloned_resource.create()
     except Exception:
-        meta.drop_all(tables=[original_resource])
+        meta.drop_all(tables=[cloned_resource])
         raise
 
     if migrate_engine.name == "mysql":
@@ -62,7 +65,7 @@ def downgrade(migrate_engine):
     meta = MetaData()
     meta.bind = migrate_engine
 
-    for table in ('plan_original_resource', ):
+    for table in ('plan_cloned_resources', ):
         for prefix in ('', 'shadow_'):
             table_name = prefix + table
             if migrate_engine.has_table(table_name):

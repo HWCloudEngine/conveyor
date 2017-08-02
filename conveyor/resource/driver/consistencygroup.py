@@ -25,7 +25,7 @@ from conveyor import volume as cinder_vol
 LOG = logging.getLogger(__name__)
 
 
-class ConsistencyGroup(base.resource):
+class ConsistencyGroup(base.Resource):
 
     def __init__(self, context, collected_resources=None,
                  collected_parameters=None, collected_dependencies=None):
@@ -75,8 +75,9 @@ class ConsistencyGroup(base.resource):
                                    cg_id,
                                    properties=properties)
         cg_dependencies = resource.ResourceDependency(cg_id,
+                                                      cg_name,
                                                       cg_info.get('name'),
-                                                      cg_name, cg_type)
+                                                      cg_type)
         volume_types_id = cg_info.get('volume_types')
         volume_driver = VolumeResource(
             self.context,
@@ -91,7 +92,10 @@ class ConsistencyGroup(base.resource):
             for v in volume_type_res:
                 # addd properties
                 volume_type_property.append({'get_resource': v.name})
-                cg_dependencies.add_dependency(v.name)
+                res_name = v.properties.get('name', '')
+                v_id = v.id
+                v_type = v.type
+                cg_dependencies.add_dependency(v_id, v.name, res_name, v_type)
         cg_res.add_property('volume_types', volume_type_property)
         volume_ids = []
         try:

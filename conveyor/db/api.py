@@ -110,36 +110,39 @@ def plan_template_delete(context, plan_id):
     return IMPL.plan_template_delete(context, plan_id)
 
 
-def plan_original_resource_create(context, values):
-    return IMPL.plan_original_resource_create(context, values)
+def plan_cloned_resource_create(context, values):
+    return IMPL.plan_cloned_resource_create(context, values)
 
 
-def plan_original_resource_get(context, plan_id):
-    return IMPL.plan_original_resource_get(context, plan_id)
+def plan_cloned_resource_get(context, plan_id,
+                             availability_zone=None, time=None):
+    return IMPL.plan_cloned_resource_get(context, plan_id,
+                                         availability_zone=availability_zone,
+                                         time=time)
 
 
-def plan_original_resource_update(context, plan_id, values):
-    return IMPL.plan_original_resource_update(context, plan_id, values)
+def plan_cloned_resource_update(context, plan_id, values):
+    return IMPL.plan_cloned_resource_update(context, plan_id, values)
 
 
-def plan_original_resource_delete(context, plan_id):
-    return IMPL.plan_original_resource_delete(context, plan_id)
+def plan_cloned_resource_delete(context, plan_id):
+    return IMPL.plan_cloned_resource_delete(context, plan_id)
 
 
-def plan_update_resource_create(context, values):
-    return IMPL.plan_update_resource_create(context, values)
+def plan_availability_zone_mapper_create(context, values):
+    return IMPL.plan_availability_zone_mapper_create(context, values)
 
 
-def plan_update_resource_get(context, plan_id):
-    return IMPL.plan_update_resource_get(context, plan_id)
+def plan_availability_zone_mapper_get(context, plan_id):
+    return IMPL.plan_availability_zone_mapper_get(context, plan_id)
 
 
-def plan_update_resource_update(context, plan_id, values):
-    return IMPL.plan_update_resource_update(context, plan_id, values)
+def plan_availability_zone_mapper_update(context, plan_id, values):
+    return IMPL.plan_availability_zone_mapper_update(context, plan_id, values)
 
 
-def plan_update_resource_delete(context, plan_id):
-    return IMPL.plan_update_resource_delete(context, plan_id)
+def plan_availability_zone_mapper_delete(context, plan_id):
+    return IMPL.plan_availability_zone_mapper_delete(context, plan_id)
 
 
 def conveyor_config_create(context, values):

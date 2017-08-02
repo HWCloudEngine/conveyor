@@ -60,13 +60,40 @@ class ResourceAPI(object):
                           search_opts=search_opts,
                           marker=marker, limit=limit)
 
-    def build_reources_topo(self, context, resources):
+    def build_resources_topo(self, context, plan_id,
+                             az_map, search_opt=None):
         cctxt = self.client.prepare(version='1.18')
-        return cctxt.call(context, 'build_reources_topo',
-                          resources=resources)
+        return cctxt.call(context, 'build_resources_topo',
+                          plan_id=plan_id,
+                          availability_zone_map=az_map,
+                          search_opts=search_opt)
 
     def get_resource_detail(self, context, resource_type, resource_id):
         cctxt = self.client.prepare(version='1.18')
         return cctxt.call(context, 'get_resource_detail',
                           resource_type=resource_type,
                           resource_id=resource_id)
+
+    def list_clone_resources_attribute(self, context, plan_id, attribute):
+        cctxt = self.client.prepare(version='1.18')
+        return cctxt.call(context, 'list_clone_resources_attribute',
+                          plan_id=plan_id,
+                          attribute=attribute)
+
+    def build_resources(self, context, resources):
+        cctxt = self.client.prepare(version='1.18')
+        return cctxt.call(context, 'build_resources', resources=resources)
+
+    def replace_resources(self, context, resources, ori_res, ori_dep):
+        cctxt = self.client.prepare(version='1.18')
+        return cctxt.call(context, 'replace_resources',
+                          resources=resources, updated_res=ori_res,
+                          updated_dep=ori_dep)
+
+    def update_resources(self, context, data_copy, resources, ori_res,
+                         ori_dep):
+        cctxt = self.client.prepare(version='1.18')
+        return cctxt.call(context, 'update_resources',
+                          data_copy=data_copy,
+                          resources=resources, updated_res=ori_res,
+                          updated_dep=ori_dep)

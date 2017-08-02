@@ -52,4 +52,6 @@ RESOURCE_TYPES = ['OS::Nova::Server',
                   'OS::Heat::Stack',
                   'OS::Neutron::FloatingIP',
                   'OS::Neutron::SecurityGroup',
-                  'OS::Neutron::Pool']
+                  'OS::Neutron::Pool',
+                  'project',
+                  'availability_zone']

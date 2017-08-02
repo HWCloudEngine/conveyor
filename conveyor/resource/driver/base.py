@@ -15,7 +15,7 @@
 #    under the License.
 
 
-class resource(object):
+class Resource(object):
     def __init__(self, context):
         self.context = context
         self._tenant_id = self.context.project_id

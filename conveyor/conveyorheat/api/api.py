@@ -437,31 +437,38 @@ class API(object):
                     LOG.error(_('Clear stack error for plan %(id)s: %(e)s'),
                               {'id': plan_id, 'e': e})
                     raise
+                self._delete_stack_in_db(context, plan_id, st['stack_id'])
 
-                try:
-                    db_api.event_delete(context, st['stack_id'])
-                    db_api.stack_delete_in_db(context, st['stack_id'])
-                except Exception as e:
-                    LOG.error(_('Clear event failed for plan %(id)s: %(e)s'),
-                              {'id': plan_id, 'e': e})
-                    raise
-                try:
-                    db_api.plan_stack_delete(context, plan_id, st['stack_id'])
-                except exception.NotFound:
-                    LOG.warn(_('Delete plan stack not found for plan %s'),
-                             plan_id)
-                except Exception as e:
-                    LOG.error(_('Clear stack failed for plan %(id)s: %(e)s'),
-                              {'id': plan_id, 'e': e})
-                    raise
+    def _delete_stack_in_db(self, context, plan_id, stack_id):
+        try:
+            db_api.plan_stack_delete(context, plan_id, stack_id)
+        except exception.NotFound:
+            LOG.warn(_('Delete plan stack not found for plan %s'),
+                     plan_id)
+        except Exception as e:
+            LOG.error(_('Clear stack failed for plan %(id)s: %(e)s'),
+                      {'id': plan_id, 'e': e})
+            raise
+        try:
+            db_api.event_delete(context, stack_id)
+            db_api.stack_delete_in_db(context, stack_id)
+        except Exception as e:
+            LOG.error(_('Clear event failed for plan %(id)s: %(e)s'),
+                      {'id': plan_id, 'e': e})
+            raise
 
-    def delete_stack(self, context, stack_id, plan_id, is_heat_stack=False):
+    def delete_stack(self, context, plan_id, is_heat_stack=False):
         # need stackname not id
         # context._session = db_api.get_session()
         try:
             stacks = db_api.plan_stack_get(context, plan_id,
                                            read_deleted='yes')
             for st in stacks[::-1]:
+                stack_list = db_api.stack_get(context, st['stack_id'],
+                                              {'show_deleted': False,
+                                               'eager_load': True})
+                if not stack_list:
+                    continue
                 stack_identity = self._make_identity(context.project_id,
                                                      '', st['stack_id'])
                 # context._session = db_api.get_session()
@@ -470,7 +477,7 @@ class API(object):
                                              st['stack_id'])
                 timer = loopingcall.FixedIntervalLoopingCall(loop_fun)
                 timer.start(interval=0.5).wait()
-                db_api.plan_stack_delete(context, plan_id, st['stack_id'])
+                self._delete_stack_in_db(context, plan_id, st['stack_id'])
             # context._session = db_api.get_session()
             # db_api.plan_stack_delete_all(context, plan_id)
         except Exception as e:

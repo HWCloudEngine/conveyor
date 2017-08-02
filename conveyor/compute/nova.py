@@ -206,6 +206,7 @@ class API(object):
                 "key_name": keypair_name,
                 "os-extended-volumes:volumes_attached": volumes_attached,
                 "OS-EXT-AZ:availability_zone": availability_zone,
+                "availability_zone": availability_zone,
                 'status': status
         }
 

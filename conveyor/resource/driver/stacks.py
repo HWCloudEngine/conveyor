@@ -26,7 +26,7 @@ from conveyor.resource import resource as res
 LOG = logging.getLogger(__name__)
 
 
-class StackResource(base.resource):
+class StackResource(base.Resource):
 
     def __init__(self, context, collected_resources=None,
                  collected_parameters=None, collected_dependencies=None):
@@ -90,8 +90,8 @@ class StackResource(base.resource):
             stack_res = res.Resource(resource_name, resource_type,
                                      stack_id, properties=properties)
             stack_dep = res.ResourceDependency(stack_id,
-                                               stack['stack_name'],
                                                resource_name,
+                                               stack['stack_name'],
                                                resource_type)
 
             self._collected_resources[stack_id] = stack_res

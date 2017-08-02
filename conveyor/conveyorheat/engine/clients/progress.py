@@ -137,3 +137,11 @@ class PoolDeleteProgress(object):
                      'deleted': task_complete}
         self.vip = {'delete_called': task_complete,
                     'deleted': task_complete}
+
+
+class PortAttachProgress(object):
+    def __init__(self, srv_id, port_id, task_complete=False):
+        self.called = task_complete
+        self.complete = task_complete
+        self.srv_id = srv_id
+        self.port_id = port_id

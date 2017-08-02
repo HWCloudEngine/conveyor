@@ -27,7 +27,7 @@ from conveyor.resource import resource
 LOG = logging.getLogger(__name__)
 
 
-class LoadbalanceVip(base.resource):
+class LoadbalanceVip(base.Resource):
 
     def __init__(self, context, collected_resources=None,
                  collected_parameters=None, collected_dependencies=None):
@@ -153,8 +153,8 @@ class LoadbalanceVip(base.resource):
 
         # remove duplicate dependencies
         dependencies = {}.fromkeys(dependences).keys()
-        vip_dep = resource.ResourceDependency(vip_id, '',
-                                              vip_name, vip_type,
+        vip_dep = resource.ResourceDependency(vip_id, vip_name, '',
+                                              vip_type,
                                               dependencies=dependencies)
 
         self._collected_resources[vip_id] = vip_res
@@ -163,7 +163,7 @@ class LoadbalanceVip(base.resource):
         return vip_res
 
 
-class LoadbalancePool(base.resource):
+class LoadbalancePool(base.Resource):
 
     def __init__(self, context, collected_resources=None,
                  collected_parameters=None, collected_dependencies=None):
@@ -318,15 +318,15 @@ class LoadbalancePool(base.resource):
 
         # remove duplicate dependencies
         dependencies = {}.fromkeys(dependencies).keys()
-        pool_dep = resource.ResourceDependency(pool_id, '',
-                                               pool_name, pool_type,
+        pool_dep = resource.ResourceDependency(pool_id, pool_name, '',
+                                               pool_type,
                                                dependencies=dependencies)
 
         self._collected_resources[pool_id] = pool_res
         self._collected_dependencies[pool_id] = pool_dep
 
 
-class LoadbalanceListener(base.resource):
+class LoadbalanceListener(base.Resource):
 
     def __init__(self, context, collected_resources=None,
                  collected_parameters=None, collected_dependencies=None):
@@ -390,8 +390,8 @@ class LoadbalanceListener(base.resource):
 
         # remove duplicate dependencies
         dependencies = {}.fromkeys(dependencies).keys()
-        listener_dep = resource.ResourceDependency(listener_id, '',
-                                                   listener_name,
+        listener_dep = resource.ResourceDependency(listener_id, listener_name,
+                                                   '',
                                                    listener_type,
                                                    dependencies=dependencies)
 
@@ -401,7 +401,7 @@ class LoadbalanceListener(base.resource):
         return listener_res
 
 
-class LoadbalanceMember(base.resource):
+class LoadbalanceMember(base.Resource):
 
     def __init__(self, context, collected_resources=None,
                  collected_parameters=None, collected_dependencies=None):
@@ -475,8 +475,10 @@ class LoadbalanceMember(base.resource):
 
         # remove duplicate dependencies
         dependencies = {}.fromkeys(dependencies).keys()
-        member_dep = resource.ResourceDependency(member_id, '',
-                                                 member_name, member_type,
+        member_dep = resource.ResourceDependency(member_id,
+                                                 member_name,
+                                                 '',
+                                                 member_type,
                                                  dependencies=dependencies)
 
         self._collected_resources[member_id] = member_res
@@ -518,7 +520,7 @@ class LoadbalanceMember(base.resource):
         return None
 
 
-class LoadbalanceHealthmonitor(base.resource):
+class LoadbalanceHealthmonitor(base.Resource):
 
     def __init__(self, context, collected_resources=None,
                  collected_parameters=None, collected_dependencies=None):
@@ -599,8 +601,9 @@ class LoadbalanceHealthmonitor(base.resource):
                                               healthmonitor_id,
                                               properties=properties)
 
-        healthmonitor_dep = resource.ResourceDependency(healthmonitor_id, '',
+        healthmonitor_dep = resource.ResourceDependency(healthmonitor_id,
                                                         healthmonitor_name,
+                                                        '',
                                                         healthmonitor_type)
 
         self._collected_resources[healthmonitor_id] = healthmonitor_res

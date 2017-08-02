@@ -27,25 +27,25 @@ LOG = logging.getLogger(__name__)
 def upgrade(migrate_engine):
     meta = MetaData()
     meta.bind = migrate_engine
-    p_update = Table('plan_update_resource', meta,
-                     Column('created_at', DateTime(timezone=False)),
-                     Column('updated_at', DateTime(timezone=False)),
-                     Column('deleted_at', DateTime(timezone=False)),
-                     Column('id', Integer, primary_key=True, nullable=False),
-                     Column('plan_id', String(length=36), nullable=False),
-                     Column('resource', types.Json),
-                     Column('deleted', Integer),
-                     mysql_engine='InnoDB',
-                     mysql_charset='utf8')
+    p_az = Table('plan_availability_zone_mapper', meta,
+                 Column('created_at', DateTime(timezone=False)),
+                 Column('updated_at', DateTime(timezone=False)),
+                 Column('deleted_at', DateTime(timezone=False)),
+                 Column('id', Integer, primary_key=True, nullable=False),
+                 Column('plan_id', String(length=36), nullable=False),
+                 Column('az_mapper', types.Json),
+                 Column('deleted', Integer),
+                 mysql_engine='InnoDB',
+                 mysql_charset='utf8')
 
     try:
-        p_update.create()
+        p_az.create()
     except Exception:
-        meta.drop_all(tables=[p_update])
+        meta.drop_all(tables=[p_az])
         raise
 
     if migrate_engine.name == "mysql":
-        table = "template"
+        table = "p_az"
         migrate_engine.execute("SET foreign_key_checks = 0")
         migrate_engine.execute(
             "ALTER TABLE %s CONVERT TO CHARACTER SET utf8" % table)
@@ -60,7 +60,7 @@ def downgrade(migrate_engine):
     meta = MetaData()
     meta.bind = migrate_engine
 
-    for table in ('plan_update_resource', ):
+    for table in ('p_az', ):
         for prefix in ('', 'shadow_'):
             table_name = prefix + table
             if migrate_engine.has_table(table_name):

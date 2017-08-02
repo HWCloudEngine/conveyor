@@ -28,7 +28,7 @@ from conveyor.resource import resource
 LOG = logging.getLogger(__name__)
 
 
-class NetworkResource(base.resource):
+class NetworkResource(base.Resource):
 
     def __init__(self, context, collected_resources=None,
                  collected_parameters=None, collected_dependencies=None):
@@ -97,14 +97,19 @@ class NetworkResource(base.resource):
                 self._get_resource_num(resource_type)
 
             if with_subnets:
+                kwargs = {}
+                kwargs['id'] = net_id
+                kwargs['type'] = resource_type
+                kwargs['name_in_template'] = net.get('name')
                 self.extract_subnets_of_network(resource_name,
-                                                net.get('subnets'))
+                                                net.get('subnets'),
+                                                **kwargs)
 
             net_res = resource.Resource(resource_name, resource_type,
                                         net_id, properties=properties)
 
-            net_dep = resource.ResourceDependency(net_id, net.get('name'),
-                                                  resource_name,
+            net_dep = resource.ResourceDependency(net_id, resource_name,
+                                                  net.get('name'),
                                                   resource_type)
 
             self._collected_resources[net_id] = net_res
@@ -181,10 +186,13 @@ class NetworkResource(base.resource):
 
             nres_name = network_res[0].name
             subnet_dep = resource.ResourceDependency(subnet_id,
-                                                     subnet.get('name'),
                                                      resource_name,
-                                                     resource_type,
-                                                     dependencies=[nres_name])
+                                                     subnet.get('name'),
+                                                     resource_type)
+            dep_res_name = network_res[0].properties.get('name', '')
+            subnet_dep.add_dependency(network_res[0].id, nres_name,
+                                      dep_res_name,
+                                      network_res[0].type)
 
             self._collected_resources[subnet_id] = subnet_res
             self._collected_dependencies[subnet_id] = subnet_dep
@@ -198,7 +206,8 @@ class NetworkResource(base.resource):
 
         return subnetResources
 
-    def extract_subnets_of_network(self, network_resource_name, subnet_ids):
+    def extract_subnets_of_network(self, network_resource_name,
+                                   subnet_ids, **kwargs):
 
         LOG.debug('Extract resources of subnets %s ', subnet_ids)
 
@@ -245,10 +254,12 @@ class NetworkResource(base.resource):
 
             net_name = network_resource_name
             subnet_dep = resource.ResourceDependency(subnet_id,
-                                                     subnet.get('name'),
                                                      resource_name,
-                                                     resource_type,
-                                                     dependencies=[net_name])
+                                                     subnet.get('name'),
+                                                     resource_type)
+            subnet_dep.add_dependency(kwargs.get('id', ''), net_name,
+                                      kwargs.get('name_in_template', ''),
+                                      kwargs.get('type', ''))
 
             self._collected_resources[subnet_id] = subnet_res
             self._collected_dependencies[subnet_id] = subnet_dep
@@ -318,7 +329,10 @@ class NetworkResource(base.resource):
                 secgroup_properties = []
                 for sec in secgroup_res:
                     secgroup_properties.append({'get_resource': sec.name})
-                    dependencies.append(sec.name)
+                    dep_res_name = sec.properties.get('name', '')
+                    dependencies.append({'id': sec.id, 'name': sec.name,
+                                         'name_in_template': dep_res_name,
+                                         'type': sec.type})
                 properties['security_groups'] = secgroup_properties
 
             fixed_ips_properties = []
@@ -347,8 +361,23 @@ class NetworkResource(base.resource):
                 network_name = \
                     sub_properties.get('network_id').get('get_resource')
                 properties['network_id'] = {"get_resource": network_name}
-                dependencies.append(network_name)
-                dependencies.append(subnet_res[0].name)
+                net_res = None
+                for r_k, r_s in self._collected_resources.items():
+                    if r_s.name == network_name:
+                        net_res = r_s
+                        break
+                if net_res:
+                    dep_net_name = net_res.properties.get('name', '')
+                    dependencies.append({'id': net_res.id,
+                                         'name': net_res.name,
+                                         'name_in_template': dep_net_name,
+                                         'type': net_res.type})
+
+                dep_sub_name = sub_properties.get('name', '')
+                dependencies.append({'id': subnet_res[0].id,
+                                     'name': subnet_res[0].name,
+                                     'name_in_template': dep_sub_name,
+                                     'type': subnet_res[0].type})
 
             properties['fixed_ips'] = fixed_ips_properties
 
@@ -359,10 +388,10 @@ class NetworkResource(base.resource):
                                          port_id, properties=properties)
 
             # remove duplicate dependencies
-            dependencies = {}.fromkeys(dependencies).keys()
+            # dependencies = {}.fromkeys(dependencies).keys()
             port_dep = resource.ResourceDependency(port_id,
-                                                   port.get('name'),
                                                    resource_name,
+                                                   port.get('name'),
                                                    resource_type,
                                                    dependencies=dependencies)
 
@@ -427,7 +456,11 @@ class NetworkResource(base.resource):
                                         with_subnets=True)
             properties['floating_network_id'] = \
                 {'get_resource': net_res[0].name}
-            dependencies.append(net_res[0].name)
+            dep_res_name = net_res[0].properties.get('name', '')
+            dependencies.append({'id': net_res[0].id,
+                                 'name': net_res[0].name,
+                                 'name_in_template': dep_res_name,
+                                 'type': net_res[0].type})
 
             router_id = floatingip.get('router_id')
             router_res = None
@@ -441,18 +474,23 @@ class NetworkResource(base.resource):
                 self._get_resource_num(resource_type)
 
             if port_id:
+                kwargs = {}
+                kwargs['id'] = port_id
+                kwargs['type'] = resource_type
+                kwargs['name_in_template'] = ''
                 self._extract_associate(floatingip, router_res,
-                                        port_id, resource_name)
+                                        port_id, resource_name, **kwargs)
 
             floatingip_res = resource.Resource(resource_name, resource_type,
                                                floatingip_id,
                                                properties=properties)
 
             # remove duplicate dependencies
-            dependencies = {}.fromkeys(dependencies).keys()
+            # dependencies = {}.fromkeys(dependencies).keys()
             floatingip_dep = resource.ResourceDependency(
-                                floatingip_id, '',
+                                floatingip_id,
                                 resource_name,
+                                '',
                                 resource_type,
                                 dependencies=dependencies)
 
@@ -469,7 +507,7 @@ class NetworkResource(base.resource):
         return floatingipResources
 
     def _extract_associate(self, floatingip, router_res,
-                           port_id, floatip_name):
+                           port_id, floatip_name, **kwargs):
 
         properties = {}
         dependencies = []
@@ -485,8 +523,13 @@ class NetworkResource(base.resource):
                 return None
         properties['port_id'] = {'get_resource': port_res.name}
         properties['floatingip_id'] = {'get_resource': floatip_name}
-        dependencies.append(port_res.name)
-        dependencies.append(floatip_name)
+        dep_res_name = port_res.properties.get('name', '')
+        dependencies.append({'id': port_res.id, 'name': port_res.name,
+                             'name_in_template': dep_res_name,
+                             'type': port_res.type})
+        dependencies.append({'id': kwargs['id'], 'name': kwargs['name'],
+                             'name_in_template': kwargs['name_in_template'],
+                             'type': kwargs['type']})
 
         fixed_id_addr = floatingip.get('fixed_ip_address')
         if router_res and port_res and fixed_id_addr:
@@ -527,10 +570,11 @@ class NetworkResource(base.resource):
                                             properties=properties)
 
         # remove duplicate dependencies
-        dependencies = {}.fromkeys(dependencies).keys()
+        # dependencies = {}.fromkeys(dependencies).keys()
         association_dep = resource.ResourceDependency(
-                            resource_id, '',
+                            resource_id,
                             resource_name,
+                            '',
                             resource_type,
                             dependencies=dependencies)
 
@@ -566,7 +610,6 @@ class NetworkResource(base.resource):
                 'router_id': {'get_resource': router_res.name},
                 'subnet_id': {'get_resource': subnet_res.name}
             }
-        dependencies = [router_res.name, subnet_res.name]
 
         interface_id = interface.get('id', '')
 
@@ -576,10 +619,16 @@ class NetworkResource(base.resource):
                                           interface_id, properties=properties)
 
         interface_dep = resource.ResourceDependency(interface_id,
-                                                    interface.get('name', ''),
                                                     resource_name,
-                                                    resource_type,
-                                                    dependencies=dependencies)
+                                                    interface.get('name', ''),
+                                                    resource_type)
+        dep_router_name = router_res.properties.get('name', '')
+        interface_dep.add_dependency(router_res.id, router_res.name,
+                                     dep_router_name, router_res.type)
+
+        dep_sub_name = subnet_res.properties.get('name', '')
+        interface_dep.add_dependency(subnet_res.id, subnet_res.name,
+                                     dep_sub_name, subnet_res.type)
 
         self._collected_resources[interface_id] = interface_res
         self._collected_dependencies[interface_id] = interface_dep
@@ -635,7 +684,11 @@ class NetworkResource(base.resource):
                         properties['external_gateway_info'] = \
                             {'network': {'get_resource': net_res[0].name},
                              'enable_snat': enable_snat}
-                        dependencies.append(net_res[0].name)
+                        dep_res_name = net_res[0].properties.get('name', '')
+                        dependencies.append({'id': net_res[0].id,
+                                             'name': net_res[0].name,
+                                             'name_in_template': dep_res_name,
+                                             'type': net_res[0].type})
 
             resource_type = "OS::Neutron::Router"
             resource_name = 'router_%d' % self.\
@@ -644,10 +697,10 @@ class NetworkResource(base.resource):
                                            router_id, properties=properties)
 
             # remove duplicate dependencies
-            dependencies = {}.fromkeys(dependencies).keys()
+            # dependencies = {}.fromkeys(dependencies).keys()
             router_dep = resource.ResourceDependency(router_id,
-                                                     router.get('name'),
                                                      resource_name,
+                                                     router.get('name'),
                                                      resource_type,
                                                      dependencies=
                                                      dependencies)
@@ -686,11 +739,16 @@ class NetworkResource(base.resource):
         LOG.debug("Generate network resource start: %s", net_id)
         # generate net work resource
 
-        subnets, net_name = self._get_network_info(net_id)
+        subnets, net_res = self._get_network_info(net_id)
 
         if subnets:
             # generate subnet resource
-            self.extract_subnets_of_network(net_name, subnets)
+            net_res_name = net_res.name
+            kwargs = {}
+            kwargs['id'] = net_res.id
+            kwargs['type'] = net_res.type
+            kwargs['name_in_template'] = net_res.properties.get('name', '')
+            self.extract_subnets_of_network(net_res_name, subnets, **kwargs)
 
         # generate router and interface resource
         for subnet in subnets:
@@ -701,11 +759,11 @@ class NetworkResource(base.resource):
                           subnet)
                 return None
 
-            self._get_interface_info(subnet, subnet_res.name, other_net_ids)
+            self._get_interface_info(subnet, subnet_res, other_net_ids)
 
         LOG.debug("Generate network resource end: %s", net_id)
 
-    def _get_interface_info(self, subnet_id, subnet_name, other_net_ids):
+    def _get_interface_info(self, subnet_id, subnet_res, other_net_ids):
 
         try:
             interfaces = \
@@ -724,13 +782,13 @@ class NetworkResource(base.resource):
                 if fip.get("subnet_id", "") == subnet_id:
                     router_id = interface.get('device_id')
 
-                    router_name = self.\
+                    router_res = self.\
                         _generate_router_resource(router_id, other_net_ids)
-                    if not router_name:
+                    if not router_res:
                         return None
 
-                    self._generate_interface_resource(interface, subnet_name,
-                                                      router_name)
+                    self._generate_interface_resource(interface, subnet_res,
+                                                      router_res)
 
     def _generate_router_resource(self, router_id, other_net_ids):
 
@@ -776,7 +834,11 @@ class NetworkResource(base.resource):
                         properties['external_gateway_info'] = \
                             {'network': {'get_resource': net_res[0].name},
                              'enable_snat': enable_snat}
-                        dependencies.append(net_res[0].name)
+                        dep_res_name = net_res[0].properties.get('name', '')
+                        dependencies.append({'id': net_res[0].id,
+                                             'name': net_res[0].name,
+                                             'name_in_template': dep_res_name,
+                                             'type': net_res[0].type})
             else:
                 # if router relate public network not in clone list,
                 # do not copy router
@@ -792,19 +854,20 @@ class NetworkResource(base.resource):
                                        properties=properties)
 
         # remove duplicate dependencies
-        dependencies = {}.fromkeys(dependencies).keys()
+        # dependencies = {}.fromkeys(dependencies).keys()
         router_dep = resource.ResourceDependency(router_id,
+                                                 resource_name,
                                                  router.get('name'),
-                                                 resource_name, resource_type,
+                                                 resource_type,
                                                  dependencies=dependencies)
 
         self._collected_resources[router_id] = router_res
         self._collected_dependencies[router_id] = router_dep
 
-        return resource_name
+        return router_res
 
     def _generate_interface_resource(self, interface,
-                                     subnet_name, router_name):
+                                     subnet_res, router_res):
 
         interface_id = interface.get('id', '')
 
@@ -813,23 +876,28 @@ class NetworkResource(base.resource):
         if interface_res:
             return
         properties = {
-                'router_id': {'get_resource': router_name},
-                'subnet_id': {'get_resource': subnet_name}
+                'router_id': {'get_resource': router_res.name},
+                'subnet_id': {'get_resource': subnet_res.name}
         }
 
-        dependencies = [router_name, subnet_name]
         resource_type = "OS::Neutron::RouterInterface"
         resource_name = '%s_interface_%s' % \
-            (router_name, uuidutils.generate_uuid())
+            (router_res.name, uuidutils.generate_uuid())
         interface_res = resource.Resource(resource_name, resource_type,
                                           interface_id,
                                           properties=properties)
 
         interface_dep = resource.ResourceDependency(interface_id,
-                                                    interface.get('name', ''),
                                                     resource_name,
-                                                    resource_type,
-                                                    dependencies=dependencies)
+                                                    interface.get('name', ''),
+                                                    resource_type)
+        dep_router_name = router_res.properties.get('name', '')
+        interface_dep.add_dependency(router_res.id, router_res.name,
+                                     dep_router_name, router_res.type)
+
+        dep_sub_name = subnet_res.properties.get('name', '')
+        interface_dep.add_dependency(subnet_res.id, subnet_res.name,
+                                     dep_sub_name, subnet_res.type)
 
         self._collected_resources[interface_id] = interface_res
         self._collected_dependencies[interface_id] = interface_dep
@@ -854,7 +922,7 @@ class NetworkResource(base.resource):
         # 2. check net resource exist or not
         net_res = self._collected_resources.get(net_id)
         if net_res:
-            return net.get('subnets'), net_res.name
+            return net.get('subnets'), net_res
 
         properties = {
             'name': net.get('name'),
@@ -883,10 +951,10 @@ class NetworkResource(base.resource):
         net_res = resource.Resource(resource_name, resource_type,
                                     net_id, properties=properties)
 
-        net_dep = resource.ResourceDependency(net_id, net.get('name'),
-                                              resource_name, resource_type)
+        net_dep = resource.ResourceDependency(net_id, resource_name,
+                                              net.get('name'), resource_type)
 
         self._collected_resources[net_id] = net_res
         self._collected_dependencies[net_id] = net_dep
 
-        return net.get('subnets'), resource_name
+        return net.get('subnets'), net_res

@@ -15,6 +15,7 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+
 """
 SQLAlchemy models for conveyor data.
 """
@@ -25,7 +26,7 @@ import uuid
 from oslo_db.sqlalchemy import models
 from oslo_utils import timeutils
 import sqlalchemy
-from sqlalchemy import Boolean, Column, Index, Integer, String
+from sqlalchemy import Column, Index, Integer, String
 from sqlalchemy import DateTime, Text
 from sqlalchemy.dialects.mysql import MEDIUMTEXT
 from sqlalchemy.ext.declarative import declarative_base
@@ -175,11 +176,8 @@ class Plan(BASE, ConveyorBase):
     task_status = Column(String(length=255))
     plan_status = Column(String(length=255))
     plan_type = Column(String(length=255))
-    original_resources = Column(types.Json)
-    updated_resources = Column(types.Json)
+    clone_resources = Column(types.Json)
     stack_id = Column(String(length=36))
-    sys_clone = Column('sys_clone', Boolean)
-    copy_data = Column('copy_data', Boolean)
 
 
 class PlanTemplate(BASE, ConveyorBase):
@@ -191,22 +189,24 @@ class PlanTemplate(BASE, ConveyorBase):
     template = Column(types.Json)
 
 
-class PlanOriginalResource(BASE, ConveyorBase):
+class PlanClonedResources(BASE, ConveyorBase):
     """Represents an unparsed template which should be in JSON format."""
 
-    __tablename__ = 'plan_original_resource'
+    __tablename__ = 'plan_cloned_resources'
     id = Column(Integer, primary_key=True)
     plan_id = Column(String(length=36), nullable=False)
-    resource = Column(types.Json)
+    destination = Column(String(length=36), nullable=False)
+    relation = Column(types.Json)
+    dependencies = Column(types.Json)
 
 
-class PlanUpdateResource(BASE, ConveyorBase):
+class PlanAavailabilityZoneMapper(BASE, ConveyorBase):
     """Represents an unparsed template which should be in JSON format."""
 
-    __tablename__ = 'plan_update_resource'
+    __tablename__ = 'plan_availability_zone_mapper'
     id = Column(Integer, primary_key=True)
     plan_id = Column(String(length=36), nullable=False)
-    resource = Column(types.Json)
+    az_mapper = Column(types.Json)
 
 
 class ConveyorConfig(BASE, ConveyorBase):

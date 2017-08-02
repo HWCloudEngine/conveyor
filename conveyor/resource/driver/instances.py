@@ -31,7 +31,7 @@ from conveyor import volume
 LOG = logging.getLogger(__name__)
 
 
-class InstanceResource(base.resource):
+class InstanceResource(base.Resource):
 
     def __init__(self, context, collected_resources=None,
                  collected_parameters=None, collected_dependencies=None):
@@ -91,8 +91,9 @@ class InstanceResource(base.resource):
                                                instance_id, properties={})
 
         name = server.get('name', None)
-        instance_dependencies = resource.ResourceDependency(instance_id, name,
+        instance_dependencies = resource.ResourceDependency(instance_id,
                                                             resource_name,
+                                                            name,
                                                             resource_type)
 
         instance_resources.add_property('name', name)
@@ -121,7 +122,11 @@ class InstanceResource(base.resource):
                 instance_resources.add_property('flavor',
                                                 {'get_resource':
                                                  flavor_res[0].name})
-                instance_dependencies.add_dependency(flavor_res[0].name)
+                dep_res_name = flavor_res[0].properties.get('name', '')
+                instance_dependencies.add_dependency(flavor_res[0].id,
+                                                     flavor_res[0].name,
+                                                     dep_res_name,
+                                                     flavor_res[0].type)
             except Exception as e:
                 msg = "Instance flavor extracted failed. %s" % unicode(e)
                 LOG.error(msg)
@@ -135,7 +140,11 @@ class InstanceResource(base.resource):
                 instance_resources.add_property('key_name',
                                                 {'get_resource':
                                                  keypair_res[0].name})
-                instance_dependencies.add_dependency(keypair_res[0].name)
+                dep_res_name = keypair_res[0].properties.get('name', '')
+                instance_dependencies.add_dependency(keypair_res[0].id,
+                                                     keypair_res[0].name,
+                                                     dep_res_name,
+                                                     keypair_res[0].type)
             except Exception as e:
                 msg = "Instance keypair extracted failed. %s" % unicode(e)
                 LOG.error(msg)
@@ -242,8 +251,9 @@ class InstanceResource(base.resource):
             flavor_res = resource.Resource(resource_name, resource_type,
                                            resource_id, properties=properties)
             name = flavor.get('name', "")
-            flavor_dep = resource.ResourceDependency(resource_id, name,
+            flavor_dep = resource.ResourceDependency(resource_id,
                                                      resource_name,
+                                                     name,
                                                      resource_type)
 
             self._collected_resources[resource_id] = flavor_res
@@ -299,8 +309,8 @@ class InstanceResource(base.resource):
             keypair_res = resource.Resource(resource_name, resource_type,
                                             resource_id, properties=properties)
             keypair_dep = resource.ResourceDependency(resource_id,
-                                                      name,
                                                       resource_name,
+                                                      name,
                                                       resource_type)
 
             self._collected_resources[resource_id] = keypair_res
@@ -348,7 +358,11 @@ class InstanceResource(base.resource):
             sec_property = []
             for sec in secgroups__res:
                 sec_property.append({'get_resource': sec.get('name')})
-                instance_dependencies.add_dependency(sec.get('name'))
+                res_type = 'OS::Neutron::SecurityGroup'
+                instance_dependencies.add_dependency(sec.get('id'),
+                                                     sec.get('name'),
+                                                     '',
+                                                     res_type)
             if sec_property:
                 instance_resources.add_property('security_groups',
                                                 sec_property)
@@ -393,8 +407,9 @@ class InstanceResource(base.resource):
                 index += 1
             properties = {'volume_id': {'get_resource': v.name},
                           'boot_index': boot_index}
-
-            instance_dependencies.add_dependency(v.name)
+            dep_res_name = v.properties.get('name', '')
+            instance_dependencies.add_dependency(v.id, v.name,
+                                                 dep_res_name, v.type)
 
             try:
                 volume_dict = self.cinder_api.get(self.context, v.id)
@@ -463,7 +478,11 @@ class InstanceResource(base.resource):
 
                     network_properties.append({"port": {"get_resource":
                                                         port_res[0].name}})
-                    instance_dependencies.add_dependency(port_res[0].name)
+                    dep_res_name = port_res[0].properties.get('name', '')
+                    instance_dependencies.add_dependency(port_res[0].id,
+                                                         port_res[0].name,
+                                                         dep_res_name,
+                                                         port_res[0].type)
 
                 elif ip_type == 'floating':
                     floatingip = \

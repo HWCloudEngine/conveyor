@@ -15,10 +15,13 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import numbers
+import six
 
 from oslo_log import log as logging
 
 from conveyor.common import plan_status as p_status
+from conveyor import exception
 from conveyor.resource import rpcapi
 
 LOG = logging.getLogger(__name__)
@@ -41,9 +44,11 @@ class ResourceAPI(object):
                                                   search_opts=search_opts,
                                                   marker=marker, limit=limit)
 
-    def build_reources_topo(self, context, resources):
-        LOG.info("Create a %s plan by resources: %s.", type, resources)
-        return self.resource_rpcapi.build_reources_topo(context, resources)
+    def build_resources_topo(self, context, plan_id,
+                             az_map, search_opt=None):
+        return self.resource_rpcapi.build_resources_topo(context, plan_id,
+                                                         az_map,
+                                                         search_opt=search_opt)
 
     def get_resource_detail(self, context, resource_type, resource_id):
         LOG.info("Get %s resource details with id of <%s>.",
@@ -51,3 +56,76 @@ class ResourceAPI(object):
         return self.resource_rpcapi.get_resource_detail(context,
                                                         resource_type,
                                                         resource_id)
+
+    def list_clone_resources_attribute(self, context, plan_id, attribute):
+        return self.resource_rpcapi.list_clone_resources_attribute(context,
+                                                                   plan_id,
+                                                                   attribute)
+
+    def build_resources(self, context, resources):
+        return self.resource_rpcapi.build_resources(context, resources)
+
+    def replace_resources(self, context, resources,
+                          ori_res, ori_dep):
+        LOG.info("replace resources with values: %s", resources)
+
+        if not isinstance(resources, list):
+            msg = "'resources' argument must be a list."
+            LOG.error(msg)
+            raise exception.PlanUpdateError(message=msg)
+
+        # Verify resources
+        for res in resources:
+            if not isinstance(res, dict):
+                msg = "Every resource to be replaced must be a dict."
+                LOG.error(msg)
+                raise exception.PlanUpdateError(message=msg)
+
+            # Simply parse value.
+            for k, v in res.items():
+                if v == 'true':
+                    res[k] = True
+                elif v == 'false':
+                    res[k] = False
+                elif isinstance(v, six.string_types):
+                    try:
+                        new_value = eval(v)
+                        if type(new_value) in (dict, list, numbers.Number):
+                            res[k] = new_value
+                    except Exception:
+                        pass
+
+        return self.resource_rpcapi.replace_resources(
+            context, resources, ori_res, ori_dep)
+
+    def update_resources(self, context, data_copy, resources,
+                          ori_res, ori_dep):
+        LOG.info("update resources with values: %s", resources)
+        if not isinstance(resources, list):
+            msg = "'resources' argument must be a list."
+            LOG.error(msg)
+            raise exception.PlanUpdateError(message=msg)
+
+        # Verify resources
+        for res in resources:
+            if not isinstance(res, dict):
+                msg = "Every resource to be replaced must be a dict."
+                LOG.error(msg)
+                raise exception.PlanUpdateError(message=msg)
+
+            # Simply parse value.
+            for k, v in res.items():
+                if v == 'true':
+                    res[k] = True
+                elif v == 'false':
+                    res[k] = False
+                elif isinstance(v, six.string_types):
+                    try:
+                        new_value = eval(v)
+                        if type(new_value) in (dict, list, numbers.Number):
+                            res[k] = new_value
+                    except Exception:
+                        pass
+
+        return self.resource_rpcapi.update_resources(
+            context, data_copy, resources, ori_res, ori_dep)
