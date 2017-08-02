@@ -126,16 +126,29 @@ class Resource(object):
 
 class ResourceDependency(object):
     def __init__(self, id, name, name_in_template,
-                 type, dependencies=None):
+                 type, dependencies=None, is_cloned=False):
         self.id = id
         self.name = name
         self.name_in_template = name_in_template
         self.type = type
+        self.is_cloned = is_cloned
         self.dependencies = dependencies or []
 
-    def add_dependency(self, res_name):
-        if res_name not in self.dependencies:
-            self.dependencies.append(res_name)
+    def add_dependency(self, id, res_name, name_in_template,
+                       type, is_cloned=False):
+
+        flag = True
+        for dep in self.dependencies:
+            dep_id = dep.get('id', '')
+            if dep_id == id:
+                flag = False
+                break
+        if flag:
+            new_dep = {'id': id, 'name': res_name,
+                       'name_in_template': name_in_template,
+                       'type': type,
+                       'is_cloned': is_cloned}
+            self.dependencies.append(new_dep)
 
     def to_dict(self):
         dep = {
@@ -143,6 +156,7 @@ class ResourceDependency(object):
                "name": self.name,
                "type": self.type,
                "name_in_template": self.name_in_template,
+               'is_cloned': self.is_cloned,
                "dependencies": self.dependencies
                }
 
@@ -154,5 +168,6 @@ class ResourceDependency(object):
                    dep_dict['name'],
                    dep_dict['name_in_template'],
                    dep_dict['type'],
+                   dep_dict['is_cloned'],
                    dependencies=dep_dict.get('dependencies'))
         return self

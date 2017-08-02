@@ -253,27 +253,135 @@ def _plan_template_get(context, plan_id,
     return result
 
 
-def _plan_original_resource_get(context, plan_id,
-                                session=None, read_deleted='no'):
-    result = model_query(
-        context,
-        models.PlanOriginalResource,
-        session=session,
-        read_deleted='no').filter_by(
-        plan_id=plan_id).first()
-    if not result:
-        raise conveyor_exception.PlanNotFoundInDb(id=plan_id)
-    return result
+@require_context
+def _cloned_resources_query(context, session=None):
+    """Get the query to retrieve the Plan.
+
+    :param context: the context used to run the method _plan_get_query
+    :param session: the session to use
+
+    :returns:
+    """
+    return model_query(context, models.PlanClonedResources, session=session)
 
 
-def _plan_update_resource_get(context, plan_id,
-                              session=None, read_deleted='no'):
-    result = model_query(
-        context,
-        models.PlanUpdateResource,
-        session=session,
-        read_deleted='no').filter_by(
-        plan_id=plan_id).first()
+def _process_cloned_resources_filters(query, filters):
+    """Common filter processing for Plan queries.
+
+    Filter values that are in lists, tuples, or sets cause an 'IN' operator
+    to be used, while exact matching ('==' operator) is used for other values.
+
+    A filter key/value of 'no_migration_targets'=True causes Plans with
+    either a NULL 'migration_status' or a 'migration_status' that does not
+    start with 'target:' to be retrieved.
+
+    A 'metadata' filter key must correspond to a dictionary value of metadata
+    key-value pairs.
+
+    :param query: Model query to use
+    :param filters: dictionary of filters
+    :returns: updated query or None
+    """
+    filters = filters.copy()
+
+    # Apply exact match filters for everything else, ensure that the
+    # filter value exists on the model
+    for key in filters.keys():
+        try:
+            column_attr = getattr(models.PlanClonedResources, key)
+            # Do not allow relationship properties since those require
+            # schema specific knowledge
+            prop = getattr(column_attr, 'property')
+            if isinstance(prop, RelationshipProperty):
+                LOG.debug(("'%s' filter key is not valid, "
+                           "it maps to a relationship."), key)
+                return None
+        except AttributeError:
+            LOG.debug("'%s' filter key is not valid.", key)
+            return None
+
+    # Holds the simple exact matches
+    filter_dict = {}
+
+    # Iterate over all filters, special case the filter if necessary
+    for key, value in filters.items():
+        if isinstance(value, (list, tuple, set, frozenset)):
+            # Looking for values in a list; apply to query directly
+            column_attr = getattr(models.PlanClonedResources, key)
+            query = query.filter(column_attr.in_(value))
+        else:
+            # OK, simple exact match; save for later
+            filter_dict[key] = value
+
+    # Apply simple exact matches
+    if filter_dict:
+        query = query.filter_by(**filter_dict)
+    return query
+
+
+def _plan_cloned_resource_get(context, plan_id,
+                              session=None,
+                              read_deleted='no',
+                              availability_zone=None,
+                              time=None):
+    session = get_session()
+    result = []
+    with session.begin():
+        # Generate the query
+        sort_keys = ['created_at']
+        sort_dirs = ['desc']
+        query = _generate_paginate_query(
+                        context, session,
+                        None, None,
+                        sort_keys, sort_dirs, None,
+                        paginate_type=models.PlanClonedResources)
+        # No Plans would match, return empty list
+        if query:
+            if availability_zone:
+                result = query.filter_by(
+                            plan_id=plan_id).filter_by(
+                            destination=availability_zone).all()
+            else:
+                result = query.filter_by(
+                            plan_id=plan_id).all()
+    if time:
+        new_result = []
+        for rs in result:
+            if isinstance(time, six.string_types):
+                time = timeutils.parse_isotime(time)
+            create_time = rs.create_at
+            if isinstance(create_time, six.string_types):
+                create_time = timeutils.parse_isotime(create_time)
+            # detal = time - create_time (s)
+            detal = timeutils.delta_seconds(create_time, time)
+            if detal >= 0:
+                new_result.append(rs)
+        return new_result
+    else:
+        return result
+
+
+def _plan_availability_zone_mapper_get(context, plan_id,
+                                       session=None,
+                                       read_deleted='no',
+                                       time=None):
+    # if time is None, query the last data, else
+    # query the create_time equal time data
+    if time:
+        result = model_query(
+            context,
+            models.PlanAavailabilityZoneMapper,
+            session=session,
+            read_deleted='no').filter_by(
+            plan_id=plan_id).filter_by(
+            create_at=time).first()
+    else:
+        result = model_query(
+            context,
+            models.PlanAavailabilityZoneMapper,
+            session=session,
+            read_deleted='no').filter_by(
+            plan_id=plan_id).first()
     if not result:
         raise conveyor_exception.PlanNotFoundInDb(id=plan_id)
     return result
@@ -589,19 +697,24 @@ def plan_template_delete(context, plan_id):
 
 
 @require_context
-def plan_original_resource_get(context, plan_id):
+def plan_cloned_resource_get(context, plan_id,
+                             availability_zone=None,
+                             time=None):
     try:
-        result = _plan_original_resource_get(context, plan_id)
+        result = _plan_cloned_resource_get(
+                        context, plan_id,
+                        availability_zone=availability_zone,
+                        time=time)
     except db_exc.DBError:
         msg = _("Invalid plan id %s for query original resource") % plan_id
         LOG.warn(msg)
         raise conveyor_exception.InvalidID(id=plan_id)
-    return dict(result)
+    return result
 
 
 @require_context
-def plan_original_resource_create(context, values):
-    ori_resource_ref = models.PlanOriginalResource()
+def plan_cloned_resource_create(context, values):
+    ori_resource_ref = models.PlanClonedResources()
     ori_resource_ref.update(values)
     try:
         ori_resource_ref.save()
@@ -616,11 +729,11 @@ def plan_original_resource_create(context, values):
 
 
 @require_context
-def plan_original_resource_update(context, plan_id, values):
+def plan_cloned_resource_update(context, plan_id, values):
     session = get_session()
     with session.begin():
-        ori_resource_ref = _plan_original_resource_get(context, plan_id,
-                                                       session=session)
+        ori_resource_ref = _plan_cloned_resource_get(context, plan_id,
+                                                     session=session)
         if not ori_resource_ref:
             raise conveyor_exception.PlanNotFoundInDb(id=plan_id)
         ori_resource_ref.update(values)
@@ -632,18 +745,20 @@ def plan_original_resource_update(context, plan_id, values):
     return dict(ori_resource_ref)
 
 
-def plan_original_resource_delete(context, plan_id):
+def plan_cloned_resource_delete(context, plan_id):
     session = get_session()
     with session.begin():
-        ori_resource_ref = _plan_original_resource_get(context, plan_id,
-                                                       session=session)
-        session.delete(ori_resource_ref)
+        clone_reses = _plan_cloned_resource_get(context, plan_id,
+                                                session=session)
+        for res in clone_reses:
+            session.delete(res)
 
 
 @require_context
-def plan_update_resource_get(context, plan_id):
+def plan_availability_zone_mapper_get(context, plan_id, time=None):
     try:
-        result = _plan_update_resource_get(context, plan_id)
+        result = _plan_availability_zone_mapper_get(context, plan_id,
+                                                    time=time)
     except db_exc.DBError:
         msg = _("Invalid plan id %s for query update resource") % plan_id
         LOG.warn(msg)
@@ -652,8 +767,8 @@ def plan_update_resource_get(context, plan_id):
 
 
 @require_context
-def plan_update_resource_create(context, values):
-    update_resource_ref = models.PlanUpdateResource()
+def plan_availability_zone_mapper_create(context, values):
+    update_resource_ref = models.PlanAavailabilityZoneMapper()
     update_resource_ref.update(values)
     try:
         update_resource_ref.save()
@@ -668,28 +783,32 @@ def plan_update_resource_create(context, values):
 
 
 @require_context
-def plan_update_resource_update(context, plan_id, values):
+def plan_availability_zone_mapper_update(context, plan_id, values):
     session = get_session()
     with session.begin():
-        update_resource_ref = _plan_update_resource_get(context, plan_id,
-                                                        session=session)
-        if not update_resource_ref:
+        az_mapper_ref = \
+            _plan_availability_zone_mapper_get(context,
+                                               plan_id,
+                                               session=session)
+        if not az_mapper_ref:
             raise conveyor_exception.PlanNotFoundInDb(id=plan_id)
-        update_resource_ref.update(values)
+        az_mapper_ref.update(values)
         try:
-            update_resource_ref.save(session=session)
+            az_mapper_ref.save(session=session)
         except db_exc.DBDuplicateEntry:
             raise conveyor_exception.PlanExists()
 
-    return dict(update_resource_ref)
+    return dict(az_mapper_ref)
 
 
-def plan_update_resource_delete(context, plan_id):
+def plan_availability_zone_mapper_delete(context, plan_id):
     session = get_session()
     with session.begin():
-        update_resource_ref = _plan_update_resource_get(context, plan_id,
-                                                        session=session)
-        session.delete(update_resource_ref)
+        results = (model_query(context, models.PlanAavailabilityZoneMapper,
+                               session=session).filter_by(plan_id=plan_id)
+                   .all())
+        for rs in results:
+            session.delete(rs)
 
 
 @require_context
@@ -2383,4 +2502,7 @@ def gw_member_get(context, member_id):
 
 PAGINATION_HELPERS = {
     models.Plan: (_plan_get_query, _process_plan_filters, _plan_get),
+    models.PlanClonedResources: (_cloned_resources_query,
+                                 _process_cloned_resources_filters,
+                                 _plan_cloned_resource_get)
 }

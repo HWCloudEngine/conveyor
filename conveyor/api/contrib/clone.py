@@ -38,23 +38,6 @@ class CloneActionController(wsgi.Controller):
         self.ext_mgr = ext_mgr
 
     @wsgi.response(202)
-    @wsgi.action('clone_element_template')
-    def _start_template_clone(self, req, id, body):
-        LOG.debug("Clone start in API from template")
-        if not self.is_valid_body(body, 'clone_element_template'):
-            LOG.debug("Clone template request body has not key:\
-                       clone_element_template")
-            raise exc.HTTPUnprocessableEntity()
-        context = req.environ['conveyor.context']
-        temp_info = body['clone_element_template']
-        template = temp_info['template']
-        # remove plan type info
-        if 'plan_type' in template:
-            template.pop('plan_type')
-        LOG.debug("Clone from template: %s", temp_info)
-        self.clone_api.start_template_clone(context, temp_info)
-
-    @wsgi.response(202)
     @wsgi.action('export_clone_template')
     def _export_clone_template(self, req, id, body):
         LOG.debug(" start exporting template in API")
@@ -71,15 +54,6 @@ class CloneActionController(wsgi.Controller):
         copy_data = clone_body.get('copy_data', True)
         self.clone_api.export_clone_template(context, id, sys_clone, copy_data)
 
-    def _check_plan_resource_availability_zone(self, context,
-                                               plan, destination):
-        src_res_azs = self._plan_api.list_plan_resource_availability_zones(
-            context, plan)
-        for src_res_az in src_res_azs:
-            if src_res_az not in destination:
-                return False
-        return True
-
     @wsgi.response(202)
     @wsgi.action('clone')
     def _clone(self, req, id, body):
@@ -92,7 +66,7 @@ class CloneActionController(wsgi.Controller):
             raise exc.HTTPUnprocessableEntity()
         plan = db_api.plan_get(context, id)
         plan_status = plan['plan_status']
-        if plan_status not in (p_status.AVAILABLE, p_status.CLONING,
+        if plan_status not in (p_status.AVAILABLE,
                                p_status.MIGRATING,
                                p_status.FINISHED,):
             msg = _("the plan %(plan_id)s in state %(state)s can't clone") % {
@@ -101,23 +75,25 @@ class CloneActionController(wsgi.Controller):
             }
             raise exc.HTTPBadRequest(explanation=msg)
         clone_body = body['clone']
-        destination = clone_body.get('destination')
-        if not isinstance(destination, dict):
-            msg = _("The parameter 'destination' must be a map.")
-            if not self._check_plan_resource_availability_zone(context,
-                                                               id,
-                                                               destination):
-                msg = _("The destination %(destination)s does not contain all "
-                        "resource availability_zone of plan %{plan_id)s") % {
-                          'destination': destination,
-                          'plan_id': id
-                      }
-                raise exc.HTTPBadRequest(explanation=msg)
-            raise exc.HTTPBadRequest(explanation=msg)
+        plan_id = clone_body.get('plan_id')
+        az_map = clone_body.get('availability_zone_map')
+        clone_resources = clone_body.get('clone_resources', [])
+        clone_links = clone_body.get('clone_links', [])
+        update_resources = clone_body.get('update_resources', [])
+        replace_resources = clone_body.get('replace_resources', [])
         sys_clone = clone_body.get('sys_clone', False)
-        # copy_data = clone_body.get('copy_data', True)
+        data_copy = clone_body.get('copy_data', True)
+        LOG.debug("Clone Resources: %(res)s, "
+                  "the replaces: %(link)s, the update: %(up)s",
+                  {'res': clone_resources,
+                   'link': replace_resources, 'up': update_resources})
+        if not isinstance(az_map, dict):
+            msg = _("The parameter 'destination' must be a map.")
+            raise exc.HTTPBadRequest(explanation=msg)
         context = req.environ['conveyor.context']
-        self.clone_api.clone(context, id, destination, sys_clone)
+        self.clone_api.clone(context, plan_id, az_map, clone_resources,
+                             clone_links, update_resources, replace_resources,
+                             sys_clone, data_copy)
 
     @wsgi.response(202)
     @wsgi.action('export_template_and_clone')
@@ -141,19 +117,9 @@ class CloneActionController(wsgi.Controller):
                                p_status.FINISHED, p_status.CREATING):
             msg = _("the plan %(plan_id)s in state %(state)s"
                     "can't export_template_and_clone") % {
-                'plan_id': id,
-                'state': plan_status,
-            }
-            raise exc.HTTPBadRequest(explanation=msg)
-
-        if not self._check_plan_resource_availability_zone(context,
-                                                           id,
-                                                           destination):
-            msg = _("The destination %(destination)s does not contain all "
-                    "resource availability_zone of plan %{plan_id)s") % {
-                'destination': destination,
-                'plan_id': id
-            }
+                      'plan_id': id,
+                      'state': plan_status,
+                  }
             raise exc.HTTPBadRequest(explanation=msg)
         self.clone_api.export_template_and_clone(context, id, destination,
                                                  resources, sys_clone,

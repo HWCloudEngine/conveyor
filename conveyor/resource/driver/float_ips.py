@@ -25,7 +25,7 @@ from conveyor.resource import resource
 LOG = logging.getLogger(__name__)
 
 
-class FloatIps(base.resource):
+class FloatIps(base.Resource):
 
     def __init__(self, context, collected_resources=None,
                  collected_parameters=None, collected_dependencies=None):
@@ -104,8 +104,6 @@ class FloatIps(base.resource):
             properties['floating_network_id'] = \
                 {'get_resource': net_res[0].name}
 
-            dependencies.append(net_res[0].name)
-
             resource_type = "OS::Neutron::FloatingIP"
             resource_name = 'floatingip_%d' % \
                 self._get_resource_num(resource_type)
@@ -116,10 +114,12 @@ class FloatIps(base.resource):
             # remove duplicate dependencies
             dependencies = {}.fromkeys(dependencies).keys()
             floatingip_dep = \
-                resource.ResourceDependency(floatingip_id, '',
-                                            resource_name,
-                                            resource_type,
-                                            dependencies=dependencies)
+                resource.ResourceDependency(floatingip_id, resource_name,
+                                            '',
+                                            resource_type)
+            dep_res_name = net_res[0].properties.get('name', '')
+            floatingip_dep.add_dependency(net_res[0].id, dep_res_name,
+                                          net_res[0].name, net_res[0].type)
 
             self._collected_resources[floatingip_id] = floatingip_res
             self._collected_dependencies[floatingip_id] = floatingip_dep

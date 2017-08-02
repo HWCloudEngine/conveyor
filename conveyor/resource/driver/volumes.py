@@ -25,7 +25,7 @@ from conveyor import volume
 LOG = logging.getLogger(__name__)
 
 
-class VolumeResource(base.resource):
+class VolumeResource(base.Resource):
 
     def __init__(self, context, collected_resources=None,
                  collected_parameters=None, collected_dependencies=None):
@@ -90,8 +90,8 @@ class VolumeResource(base.resource):
             volume_res = resource.Resource(resource_name, resource_type,
                                            volume_id, properties=properties)
             volume_dep = resource.ResourceDependency(volume_id,
-                                                     volume['display_name'],
                                                      resource_name,
+                                                     volume['display_name'],
                                                      resource_type)
 
             volume_res.add_extra_property('status', vol_state)
@@ -112,7 +112,12 @@ class VolumeResource(base.resource):
                         t_name = volume_type_res[0].name
                         volume_res.add_property('volume_type',
                                                 {'get_resource': t_name})
-                        volume_dep.add_dependency(volume_type_res[0].name)
+                        dep_res_name = \
+                            volume_type_res[0].properties.get('name', '')
+                        volume_dep.add_dependency(volume_type_res[0].id,
+                                                  volume_type_res[0].name,
+                                                  dep_res_name,
+                                                  volume_type_res[0].type)
 
             if volume['bootable'] and volume.get('volume_image_metadata'):
                 image_id = volume['volume_image_metadata'].get('image_id')
@@ -190,7 +195,9 @@ class VolumeResource(base.resource):
 
                 qos_res = qos_driver.extract_qos(qos_id)
                 properties['qos_specs_id'] = {'get_resource': qos_res.name}
-                dependencies.append(qos_res.name)
+                dependencies.append({'id': qos_res.id, 'name': qos_res.name,
+                                     'name_in_template': '',
+                                     'type': qos_res.type})
                 self._collected_resources = \
                     qos_driver.get_collected_resources()
                 self._collected_dependencies = \
@@ -209,8 +216,8 @@ class VolumeResource(base.resource):
 
             volume_type_dep = resource.ResourceDependency(
                                 volume_type_id,
-                                volume_type['name'],
                                 resource_name,
+                                volume_type['name'],
                                 resource_type,
                                 dependencies=dependencies)
 
@@ -239,7 +246,7 @@ class VolumeResource(base.resource):
         return parameter_name
 
 
-class Volume(base.resource):
+class Volume(base.Resource):
 
     def __init__(self, context, collected_resources=None,
                  collected_parameters=None, collected_dependencies=None):
@@ -310,8 +317,9 @@ class Volume(base.resource):
         volume_res = resource.Resource(resource_name, resource_type,
                                        volume_id, properties=properties)
         volume_dep = resource.ResourceDependency(volume_id,
+                                                 resource_name,
                                                  volume['display_name'],
-                                                 resource_name, resource_type)
+                                                 resource_type)
 
         self._collected_resources[volume_id] = volume_res
         self._collected_dependencies[volume_id] = volume_dep
@@ -341,7 +349,11 @@ class Volume(base.resource):
                     t_name = volume_type_res.name
                     volume_res.add_property('volume_type',
                                             {'get_resource': t_name})
-                    volume_dep.add_dependency(volume_type_res.name)
+                    dep_res_name = volume_type_res.properties.get('name', '')
+                    volume_dep.add_dependency(volume_type_res.id,
+                                              volume_type_res.name,
+                                              dep_res_name,
+                                              volume_type_res.type)
                     self._collected_resources = \
                         type_driver.get_collected_resources()
                     self._collected_dependencies = \
@@ -375,7 +387,11 @@ class Volume(base.resource):
             cons_res = consisgroup_driver.extract_consistency_group(cg_id)
             volume_res.add_property('consistencygroup_id',
                                     {'get_resource': cons_res.name})
-            volume_dep.add_dependency(cons_res.name)
+            dep_res_name = cons_res.properties.get('name', '')
+            volume_dep.add_dependency(cons_res.id,
+                                      cons_res.name,
+                                      dep_res_name,
+                                      cons_res.type)
             self._collected_resources = \
                 consisgroup_driver.get_collected_resources()
             self._collected_dependencies = \
@@ -395,7 +411,7 @@ class Volume(base.resource):
         return parameter_name
 
 
-class VolumeType(base.resource):
+class VolumeType(base.Resource):
 
     def __init__(self, context, collected_resources=None,
                  collected_parameters=None, collected_dependencies=None):
@@ -463,7 +479,8 @@ class VolumeType(base.resource):
             self._collected_dependencies = \
                 qos_driver.get_collected_dependencies()
             properties['qos_specs_id'] = {'get_resource': qos_res.name}
-            dependencies.append(qos_res.name)
+            dependencies.append({'id': qos_res.id, 'name': qos_res.name,
+                                 'name_in_template': '', 'type': qos_res.type})
 
         # 3. bulid volume type resource
         properties['name'] = volume_type.get('name')
@@ -480,8 +497,8 @@ class VolumeType(base.resource):
                                             properties=properties)
 
         type_dep = resource.ResourceDependency(volume_type_id,
-                                               volume_type['name'],
                                                resource_name,
+                                               volume_type['name'],
                                                resource_type,
                                                dependencies=dependencies)
         self._collected_resources[volume_type_id] = volume_type_res
@@ -491,7 +508,7 @@ class VolumeType(base.resource):
         return volume_type_res
 
 
-class QosResource(base.resource):
+class QosResource(base.Resource):
 
     def __init__(self, context, collected_resources=None,
                  collected_parameters=None, collected_dependencies=None):
@@ -527,8 +544,8 @@ class QosResource(base.resource):
         qos_res = resource.Resource(qos_name, qos_type,
                                     qos_id, properties=properties)
 
-        qos_dep = resource.ResourceDependency(qos_id, '',
-                                              qos_name, qos_type)
+        qos_dep = resource.ResourceDependency(qos_id, qos_name, '',
+                                              qos_type)
 
         self._collected_resources[qos_id] = qos_res
         self._collected_dependencies[qos_id] = qos_dep

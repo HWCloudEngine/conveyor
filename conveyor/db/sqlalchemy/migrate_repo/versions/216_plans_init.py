@@ -13,7 +13,7 @@
 #    under the License.
 
 from oslo_log import log as logging
-from sqlalchemy import Boolean, Column, DateTime
+from sqlalchemy import Column, DateTime
 from sqlalchemy import Index, Integer, MetaData, String, Table
 
 from conveyor.db.sqlalchemy import types
@@ -42,11 +42,8 @@ def upgrade(migrate_engine):
                  Column('task_status', String(length=255)),
                  Column('plan_status', String(length=255)),
                  Column('plan_type', String(length=255)),
-                 Column('original_resources', types.Json),
-                 Column('updated_resources', types.Json),
+                 Column('clone_resources', types.Json),
                  Column('stack_id', String(length=36)),
-                 Column('sys_clone', Boolean, default=False),
-                 Column('copy_data', Boolean, default=True),
                  Column('deleted', Integer),
                  mysql_engine='InnoDB',
                  mysql_charset='utf8'

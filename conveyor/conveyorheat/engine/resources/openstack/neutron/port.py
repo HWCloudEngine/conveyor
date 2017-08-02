@@ -16,6 +16,7 @@ from oslo_serialization import jsonutils
 import six
 
 from conveyor.conveyorheat.engine import attributes
+from conveyor.conveyorheat.engine.clients import progress
 from conveyor.conveyorheat.engine import constraints
 from conveyor.conveyorheat.engine import properties
 from conveyor.conveyorheat.engine import resource
@@ -535,7 +536,82 @@ class Port(neutron.NeutronResource):
                                       {'port': prev_port_props})
 
 
+class PortAttachment(resource.Resource):
+    """A resource for associating server and ports.
+    """
+
+    default_client_name = 'nova'
+
+    PROPERTIES = (
+        INSTANCE_ID, PORT_ID,
+    ) = (
+        'instance_uuid', 'port_id',
+    )
+
+    properties_schema = {
+        INSTANCE_ID: properties.Schema(
+            properties.Schema.STRING,
+            _('ID of the server to associate.'),
+            required=True,
+            update_allowed=True
+        ),
+        PORT_ID: properties.Schema(
+            properties.Schema.STRING,
+            _('ID of an existing port with at least one IP address to '
+              'associate with this server.'),
+            required=True,
+            update_allowed=True,
+            constraints=[
+                constraints.CustomConstraint('neutron.port')
+            ]
+        ),
+    }
+
+    def handle_create(self):
+        server_id = self.properties[self.INSTANCE_ID]
+        port_id = self.properties[self.PORT_ID]
+
+        attach_id = self.client_plugin('nova').interface_attach(
+            server_id, port_id)
+
+        self.resource_id_set(attach_id)
+        prg = progress.PortAttachProgress(
+            server_id, port_id)
+        prg.called = True
+
+        return prg
+
+    def check_create_complete(self, prg):
+        return self.client_plugin('nova').check_interface_attach(
+            prg.srv_id, prg.port_id)
+
+    def handle_delete(self):
+        prg = None
+
+        if self.resource_id:
+            server_id = self.properties[self.INSTANCE_ID]
+            port_id = self.properties[self.PORT_ID]
+            self.client_plugin('nova').interface_detach(server_id,
+                                                        self.resource_id)
+            prg = progress.PortAttachProgress(
+                server_id, port_id)
+            prg.called = True
+
+        return prg
+
+    def check_delete_complete(self, prg):
+        if prg is None:
+            return True
+
+        if not prg.complete:
+            prg.complete = self.client_plugin(
+            ).check_interface_detach(prg.srv_id, prg.port_id)
+            return False
+        return True
+
+
 def resource_mapping():
     return {
         'OS::Neutron::Port': Port,
+        'Huawei::FusionSphere::PortAttachment': PortAttachment,
     }

@@ -24,6 +24,7 @@ from conveyor.api import common
 from conveyor.api.wsgi import wsgi
 from conveyor.common import plan_status as p_status
 from conveyor.common import template_format
+from conveyor.db import api as db_api
 from conveyor.i18n import _
 from conveyor.plan import api as plan_api
 
@@ -48,7 +49,7 @@ class Controller(wsgi.Controller):
         context = req.environ['conveyor.context']
 
         try:
-            plan = self._plan_api.get_plan_by_id(context, id)
+            plan = db_api.plan_get(context, id)
             return {"plan": plan}
         except Exception as e:
             LOG.error(unicode(e))
@@ -66,24 +67,24 @@ class Controller(wsgi.Controller):
 
         resources = []
 
-        if not params.get('type') or not params.get('resources'):
-            msg = _('The body should contain type and resources information.')
+        if not params.get('plan_type'):
+            msg = _('The body should contain type information.')
             raise exc.HTTPBadRequest(explanation=msg)
 
-        for res in params.get('resources', []):
+        for res in params.get('clone_obj', []):
             if not isinstance(res, dict):
                 msg = _("Every resource must be a dict with id and type keys.")
                 raise exc.HTTPBadRequest(explanation=msg)
 
-            res_id = res.get('id')
-            res_type = res.get('type')
+            res_id = res.get('obj_id')
+            res_type = res.get('obj_type')
             if not res_id or not res_type:
                 msg = _('Type or id is empty')
                 raise exc.HTTPBadRequest(explanation=msg)
             if res_type not in p_status.RESOURCE_TYPES:
                 msg = _('Type does not support')
                 raise exc.HTTPBadRequest(explanation=msg)
-            resources.append({'id': res_id, 'type': res_type})
+            resources.append({'obj_id': res_id, 'obj_type': res_type})
 
         if not resources:
             msg = _('No vaild resource, please check the types and ids')
@@ -92,12 +93,13 @@ class Controller(wsgi.Controller):
         plan_name = params.get('plan_name')
 
         try:
-            plan_id, dependencies = \
-                self._plan_api.create_plan(context, params.get('type'),
+            plan_dict = \
+                self._plan_api.create_plan(context, params.get('plan_type'),
                                            resources,
                                            plan_name=plan_name)
-            return {'plan': {'plan_id': plan_id,
-                             'original_dependencies': dependencies}}
+            plan_dict['clone_obj'] = plan_dict['clone_resources']
+            plan_dict.pop('clone_resources', None)
+            return {'plan': plan_dict}
         except Exception as e:
             LOG.error(unicode(e))
             raise exc.HTTPInternalServerError(explanation=unicode(e))

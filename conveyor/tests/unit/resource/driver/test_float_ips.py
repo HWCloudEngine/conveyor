@@ -88,8 +88,8 @@ class NetworkResourceTestCase(test.TestCase):
                                          'OS::Neutron::FloatingIP',
                                          fake_fip_id)
         fake_fip_dep = resource.ResourceDependency(fake_fip_id,
-                                                   fake_fip_name,
                                                    'floatingip_0',
+                                                   fake_fip_name,
                                                    'OS::Neutron::FloatingIP')
         self.fip_resource = float_ips.FloatIps(
             self.context,

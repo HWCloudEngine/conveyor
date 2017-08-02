@@ -80,8 +80,6 @@ class PlanManager(manager.Manager):
         LOG.info("Begin to create a %s plan by resources: %s.", plan_type,
                  resources)
 
-        ori_res, ori_dep = \
-            self.resource_api.build_reources_topo(context, resources)
         plan_id = uuidutils.generate_uuid()
         if not plan_name:
             plan_name = plan_id
@@ -90,21 +88,14 @@ class PlanManager(manager.Manager):
                                  context.project_id,
                                  context.user_id,
                                  plan_name=plan_name,
-                                 original_resources=ori_res,
-                                 original_dependencies=ori_dep)
-
-        # Resources of migrate plan are not allowed to be modified,
-        # so 'updated fields' are empty.
-        if plan_type == "clone":
-            new_plan.updated_resources = copy.deepcopy(ori_res)
-            new_plan.updated_dependencies = copy.deepcopy(ori_dep)
+                                 clone_resources=resources)
 
         # Save to database.
         plan_dict = new_plan.to_dict()
         plan_cls.save_plan_to_db(context, plan_dict)
         LOG.info("Create plan succeed. Plan_id is %s", plan_id)
 
-        return plan_id, plan_dict['original_dependencies']
+        return plan_dict
 
     def build_plan_by_template(self, context, plan_dict, template):
         LOG.info("Begin to build plan <%s> by template.",
@@ -163,28 +154,6 @@ class PlanManager(manager.Manager):
                                        {'plan_status': p_status.ERROR})
             raise exception.PlanCreateFailed(message=msg)
 
-    def get_resource_detail_from_plan(self, context, plan_id,
-                                      resource_id, is_original=True):
-        LOG.info("Get details of resource %s in plan <%s>. "
-                 "is_original is %d.", resource_id, plan_id, is_original)
-
-        # Check whether plan exist. If not found in memory, get plan from db.
-        plan = self.get_plan_by_id(context, plan_id)
-
-        if is_original:
-            resource = \
-                plan.get('original_resources', {}).get(resource_id, None)
-        else:
-            resource = \
-                plan.get('updated_resources', {}).get(resource_id, None)
-
-        if not resource:
-            msg = "Resource <%s> not found in plan <%s>" % \
-                  (resource_id, plan_id)
-            LOG.error(msg)
-            raise exception.ResourceNotFound(message=msg)
-        return resource
-
     def get_plan_by_id(self, context, plan_id, detail=True):
 
         LOG.info("Get plan with id of %s", plan_id)
@@ -226,10 +195,33 @@ class PlanManager(manager.Manager):
             LOG.error('Delete plan %(id)s template info failed: %(err)s',
                       {'id': plan_id, 'err': e})
             raise
+
+        try:
+            db_api.plan_cloned_resource_delete(context, plan_id)
+        except exception.PlanNotFoundInDb:
+            LOG.warn('Plan does not have cloned resources :%s', plan_id)
+        except Exception as e:
+            LOG.error('Delete plan %(id)s cloned resources failed: %(err)s',
+                      {'id': plan_id, 'err': e})
+            raise
+
+        try:
+            db_api.plan_availability_zone_mapper_delete(context, plan_id)
+        except exception.PlanNotFoundInDb:
+            LOG.warn('Plan does not have az map :%s', plan_id)
+        except Exception as e:
+            LOG.error('Delete plan %(id)s az map failed: %(err)s',
+                      {'id': plan_id, 'err': e})
+            raise
         # delete plan info
-        db_api.plan_original_resource_delete(context, plan_id)
-        db_api.plan_update_resource_delete(context, plan_id)
-        db_api.plan_delete(context, plan_id)
+        try:
+            db_api.plan_delete(context, plan_id)
+        except exception.PlanNotFoundInDb:
+            LOG.warn('Plan does not have az map :%s', plan_id)
+        except Exception as e:
+            LOG.error('Delete plan %(id)s az map failed: %(err)s',
+                      {'id': plan_id, 'err': e})
+            raise
 
         LOG.info("Delete plan with id of %s succeed!", plan_id)
 
@@ -246,9 +238,32 @@ class PlanManager(manager.Manager):
             LOG.error('Delete plan %(id)s template info failed: %(err)s',
                       {'id': plan_id, 'err': e})
             raise
-        db_api.plan_original_resource_delete(context, plan_id)
-        db_api.plan_update_resource_delete(context, plan_id)
-        db_api.plan_delete(context, plan_id)
+        try:
+            db_api.plan_cloned_resource_delete(context, plan_id)
+        except exception.PlanNotFoundInDb:
+            LOG.warn('Plan does not have cloned resources :%s', plan_id)
+        except Exception as e:
+            LOG.error('Delete plan %(id)s cloned resources failed: %(err)s',
+                      {'id': plan_id, 'err': e})
+            raise
+
+        try:
+            db_api.plan_availability_zone_mapper_delete(context, plan_id)
+        except exception.PlanNotFoundInDb:
+            LOG.warn('Plan does not have az map :%s', plan_id)
+        except Exception as e:
+            LOG.error('Delete plan %(id)s az map failed: %(err)s',
+                      {'id': plan_id, 'err': e})
+            raise
+        # delete plan info
+        try:
+            db_api.plan_delete(context, plan_id)
+        except exception.PlanNotFoundInDb:
+            LOG.warn('Plan does not have az map :%s', plan_id)
+        except Exception as e:
+            LOG.error('Delete plan %(id)s az map failed: %(err)s',
+                      {'id': plan_id, 'err': e})
+            raise
 
     def plan_delete_resource(self, context, plan_id):
         try:

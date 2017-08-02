@@ -64,14 +64,6 @@ class PlanAPI(object):
         return cctxt.cast(context, 'build_plan_by_template',
                           plan_dict=plan_dict, template=template)
 
-    def get_resource_detail_from_plan(self, context, plan_id,
-                                      resource_id, is_original=True):
-        cctxt = self.client.prepare(version='1.18')
-        return cctxt.call(context, 'get_resource_detail_from_plan',
-                          plan_id=plan_id,
-                          resource_id=resource_id,
-                          is_original=is_original)
-
     def update_plan(self, context, plan_id, values):
         cctxt = self.client.prepare(version='1.18')
         return cctxt.call(context, 'update_plan',
