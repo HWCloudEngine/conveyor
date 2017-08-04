@@ -97,3 +97,7 @@ class ResourceAPI(object):
                           data_copy=data_copy,
                           resources=resources, updated_res=ori_res,
                           updated_dep=ori_dep)
+
+    def delete_cloned_resource(self, context, plan_id):
+        cctxt = self.client.prepare(version='1.18')
+        return cctxt.cast(context, 'delete_cloned_resource', plan_id=plan_id)

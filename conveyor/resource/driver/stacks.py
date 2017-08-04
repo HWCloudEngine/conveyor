@@ -42,7 +42,7 @@ class StackResource(base.Resource):
         stackResources = []
         if not stack_ids:
             LOG.info('Extract resources of all stacks.')
-            stack_dicts = self.heat_api.stack_list(self.context)
+            return stackResources
         else:
             LOG.info('Extract resources of stacks: %s', stack_ids)
             # remove duplicate volume

@@ -32,6 +32,7 @@ from conveyor.conveyorheat.hw_plugins import utils
 from conveyor.conveyorheat.rpc import api as rpc_api
 
 from conveyor.common import loopingcall
+from conveyor.common import plan_status
 from conveyor.db import api as db_api
 from conveyor.i18n import _
 
@@ -395,7 +396,7 @@ class API(object):
             for st in stacks[::-1]:
                 stack_identity = self._make_identity(context.project_id,
                                                      '', st['stack_id'])
-                # context._session = db_api.get_session()
+
                 self.api.clear_resource(context, stack_identity)
                 loop_fun = functools.partial(self._wait_for_resource, context,
                                              st['stack_id'])
@@ -403,11 +404,18 @@ class API(object):
                 timer.start(interval=0.5).wait()
                 db_api.plan_stack_update(context, plan_id, st['stack_id'],
                                          values)
-            # context._session = db_api.get_session()
-            # db_api.plan_stack_delete(context, plan_id)
+                plan_task_status = \
+                    {'task_status': plan_status.RESOURCE_DELETING}
+                db_api.plan_update(context, plan_id, plan_task_status)
         except Exception as e:
             LOG.error("clear resource fail %s", e)
+            plan_task_status = \
+                {'task_status': plan_status.RESOURCE_DELETING_FAILED}
+            db_api.plan_update(context, plan_id, plan_task_status)
             raise
+        plan_task_status = \
+            {'task_status': plan_status.FINISHED}
+        db_api.plan_update(context, plan_id, plan_task_status)
 
     def clear_table(self, context, stack_id, plan_id, is_heat_stack=False):
         # need stackname not id

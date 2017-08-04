@@ -265,16 +265,6 @@ class PlanManager(manager.Manager):
                       {'id': plan_id, 'err': e})
             raise
 
-    def plan_delete_resource(self, context, plan_id):
-        try:
-            plan = db_api.plan_get(context, plan_id)
-            self.heat_api.clear_resource(context, plan['stack_id'], plan_id)
-        except Exception as e:
-            msg = "Delete plan resource <%s> failed. %s" % \
-                  (plan_id, unicode(e))
-            LOG.error(msg)
-            raise exception.PlanDeleteError(message=msg)
-
     def update_plan(self, context, plan_id, values):
 
         @utils.synchronized(plan_id)

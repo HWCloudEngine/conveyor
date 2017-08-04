@@ -18,10 +18,13 @@ status of a plan.
 """
 
 PLAN_STATUS = (INITIATING, CREATING, AVAILABLE, CLONING, MIGRATING,
-               FINISHED, DELETING, DELETED, ERROR_DELETING, EXPIRED, ERROR) = (
+               FINISHED, DELETING, DELETED, ERROR_DELETING, EXPIRED, ERROR,
+               RESOURCE_DELETING, RESOURCE_DELETING_FAILED) = (
                'initiating', 'creating', 'available', 'cloning', 'migrating',
                'finished', 'deleting', 'deleted',
-               'error_deleting', 'expired', 'error')
+               'error_deleting', 'expired', 'error',
+               'cloned resources deleting',
+               'cloned resources failed')
 
 
 STATE_MAP = {

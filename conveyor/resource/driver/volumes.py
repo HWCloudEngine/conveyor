@@ -258,9 +258,9 @@ class Volume(base.Resource):
 
     def extract_volumes(self, volume_ids):
         if not volume_ids:
-            _msg = 'Create volume resource error: id is null.'
-            LOG.error(_msg)
-            raise exception.InvalidInput(reason=_msg)
+            _msg = 'No volume resource to extract.'
+            LOG.info(_msg)
+            return
 
         try:
             for volume_id in volume_ids:

@@ -44,9 +44,7 @@ class FloatIps(base.Resource):
 
         if not floatingip_ids:
             LOG.debug('Extract resources of floating ips.')
-            floatingip_list = self.neutron_api.floatingip_list(self.context)
-            floatingip_objs = filter(self._tenant_filter,
-                                     floatingip_list)
+            return floatingipResources
 
         else:
             LOG.debug('Extract resources of floating ips: %s', floatingip_ids)

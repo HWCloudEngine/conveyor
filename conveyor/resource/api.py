@@ -129,3 +129,12 @@ class ResourceAPI(object):
 
         return self.resource_rpcapi.update_resources(
             context, data_copy, resources, ori_res, ori_dep)
+
+    def delete_cloned_resource(self, context, plan_id):
+        try:
+            rsp = self.resource_rpcapi.delete_cloned_resource(context, plan_id)
+        except Exception as e:
+            LOG.error('Force delete plan resource %(id)s error: %(err)s',
+                      {'id': plan_id, 'err': unicode(e)})
+            raise
+        return rsp

@@ -48,8 +48,8 @@ class InstanceResource(base.Resource):
         instance_reses = []
         servers = []
         if not instance_ids:
-            LOG.info('Get resources of all instances.')
-            servers = self.nova_api.get_all_servers(self.context)
+            LOG.info('No instances to extract.')
+            return instance_reses
         else:
             LOG.info('Get resources of instance: %s', instance_ids)
             for instance_id in instance_ids:

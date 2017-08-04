@@ -271,8 +271,7 @@ class NetworkResource(base.Resource):
 
         if not port_ids:
             LOG.debug('Extract resources of all ports.')
-            port_objs = filter(self._tenant_filter,
-                               self.neutron_api.port_list(self.context))
+            return portResources
         else:
             LOG.debug('Extract resources of ports: %s', port_ids)
             # remove duplicate ports

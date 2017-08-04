@@ -491,6 +491,8 @@ class ResourceManager(manager.Manager):
             elif obj_type == 'availability_zone':
                 clone_res = self._list_availability_zone_resources(context,
                                                                    obj_id)
+            elif obj_type == 'OS::Heat::Stack':
+                clone_res = self._list_stack_resources(context, obj_id)
             else:
                 reses = []
                 res = self.get_resource_detail(context, obj_type, obj_id)
@@ -531,6 +533,27 @@ class ResourceManager(manager.Manager):
             reses = self.get_resources(context, search_opts=search_opts)
             az_resources_map[res_type] = reses
         return az_resources_map
+
+    def _list_stack_resources(self, context, stack_id):
+        # query resources in stack
+        stack_reses = self.original_heat_api.resources_list(context, stack_id)
+        clone_reses_map = {}
+        for stack_res in stack_reses:
+            res_type = stack_res.resource_type
+            res_id = stack_res.physical_resource_id
+            clone_res = self.get_resource_detail(context, res_type, res_id)
+            if res_type in clone_reses_map.keys():
+                clone_reses_map[res_type].append(clone_res)
+            else:
+                clone_reses = []
+                clone_reses.append(clone_res)
+                clone_reses_map[res_type] = clone_reses
+        # query stack information
+        stack_info = self.get_resource_detail(context,
+                                              'OS::Heat::Stack',
+                                              stack_id)
+        clone_reses_map['OS::Heat::Stack'] = [stack_info]
+        return clone_reses_map
 
     def _get_resources_by_az(self, resources, dependencies, availability_zone):
         az_resources = []
@@ -738,6 +761,16 @@ class ResourceManager(manager.Manager):
             if res.get('id') == res_id:
                 return True, res
         return False, None
+
+    def delete_cloned_resource(self, context, plan_id):
+        try:
+            plan = db_api.plan_get(context, plan_id)
+            self.heat_api.clear_resource(context, plan['stack_id'], plan_id)
+        except Exception as e:
+            msg = "Delete plan resource <%s> failed. %s" % \
+                  (plan_id, unicode(e))
+            LOG.error(msg)
+            raise exception.PlanDeleteError(message=msg)
 
     def replace_resources(self, context, resources, updated_res,
                           updated_dep):

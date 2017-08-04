@@ -119,6 +119,18 @@ class ResourceActionController(wsgi.Controller):
             LOG.error(unicode(e))
             raise exc.HTTPInternalServerError(explanation=unicode(e))
 
+    @wsgi.response(202)
+    @wsgi.action('delete-cloned_resource')
+    def _delete_cloned_resource(self, req, id, body):
+
+        if not self.is_valid_body(body, 'delete-cloned_resource'):
+            LOG.error('Delete plan resource request body has not key:'
+                      'plan-delete-resource')
+            raise exc.HTTPUnprocessableEntity()
+        context = req.environ['conveyor.context']
+        plan_id = body.get('delete-cloned_resource', {}).get('plan_id', None)
+        self._resource_api.delete_cloned_resource(context, plan_id)
+
 
 class Resource(extensions.ExtensionDescriptor):
     """Enable admin actions."""
