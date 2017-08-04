@@ -223,6 +223,10 @@ global_opts = [
                 default=False,
                 help='Provide cloud can detach volume '
                 'in instance active or not.'),
+    cfg.BoolOpt('is_provide_device_name',
+                default=False,
+                help='Provide cloud can detach volume '
+                'in instance active or not.'),
     cfg.StrOpt('sys_image',
                default='',
                help='Provide cloud can detach volume '

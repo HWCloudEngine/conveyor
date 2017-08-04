@@ -39,7 +39,8 @@ class NetworkResource(base.Resource):
         self._collected_parameters = collected_parameters or {}
         self._collected_dependencies = collected_dependencies or {}
 
-    def extract_nets(self, net_ids, with_subnets=False):
+    def extract_nets(self, net_ids, with_subnets=False, parent_name=None,
+                     parent_resources=None):
 
         net_objs = []
         netResources = []
@@ -95,7 +96,8 @@ class NetworkResource(base.Resource):
             resource_type = "OS::Neutron::Net"
             resource_name = 'network_%d' % \
                 self._get_resource_num(resource_type)
-
+            if parent_name and net_id in parent_resources:
+                resource_name = parent_name + '.' + resource_name
             if with_subnets:
                 kwargs = {}
                 kwargs['id'] = net_id
@@ -103,6 +105,8 @@ class NetworkResource(base.Resource):
                 kwargs['name_in_template'] = net.get('name')
                 self.extract_subnets_of_network(resource_name,
                                                 net.get('subnets'),
+                                                parent_name,
+                                                parent_resources,
                                                 **kwargs)
 
             net_res = resource.Resource(resource_name, resource_type,
@@ -124,7 +128,8 @@ class NetworkResource(base.Resource):
 
         return netResources
 
-    def extract_subnets(self, subnet_ids):
+    def extract_subnets(self, subnet_ids, parent_name=None,
+                        parent_resources=None):
 
         subnet_objs = []
         subnetResources = []
@@ -172,7 +177,9 @@ class NetworkResource(base.Resource):
             net_id = subnet.get('network_id')
             network_res = None
             if net_id:
-                network_res = self.extract_nets([net_id])
+                network_res = self.extract_nets([net_id], False,
+                                                parent_name,
+                                                parent_resources)
             if not network_res:
                 LOG.error("Network resource %s could not be found.", net_id)
                 raise exception.ResourceNotFound(resource_type='Network',
@@ -181,6 +188,8 @@ class NetworkResource(base.Resource):
 
             resource_type = "OS::Neutron::Subnet"
             resource_name = 'subnet_%d' % self._get_resource_num(resource_type)
+            if parent_name and subnet_id in parent_resources:
+                resource_name = parent_name + '.' + resource_name
             subnet_res = resource.Resource(resource_name, resource_type,
                                            subnet_id, properties=properties)
 
@@ -207,7 +216,10 @@ class NetworkResource(base.Resource):
         return subnetResources
 
     def extract_subnets_of_network(self, network_resource_name,
-                                   subnet_ids, **kwargs):
+                                   subnet_ids,
+                                   parent_name=None,
+                                   parent_resources=None,
+                                   **kwargs):
 
         LOG.debug('Extract resources of subnets %s ', subnet_ids)
 
@@ -249,6 +261,8 @@ class NetworkResource(base.Resource):
             resource_type = "OS::Neutron::Subnet"
             resource_name = 'subnet_%d' % self.\
                 _get_resource_num(resource_type)
+            if parent_name and subnet_id in parent_resources:
+                resource_name = parent_name + '.' + resource_name
             subnet_res = resource.Resource(resource_name, resource_type,
                                            subnet_id, properties=properties)
 
@@ -264,7 +278,7 @@ class NetworkResource(base.Resource):
             self._collected_resources[subnet_id] = subnet_res
             self._collected_dependencies[subnet_id] = subnet_dep
 
-    def extract_ports(self, port_ids):
+    def extract_ports(self, port_ids, parent_name=None, parent_resources=None):
 
         port_objs = []
         portResources = []
@@ -324,7 +338,9 @@ class NetworkResource(base.Resource):
 
             if port.get('security_groups'):
                 secgroup_ids = port.get('security_groups')
-                secgroup_res = self.extract_secgroups(secgroup_ids)
+                secgroup_res = self.extract_secgroups(secgroup_ids,
+                                                      parent_name,
+                                                      parent_resources)
                 secgroup_properties = []
                 for sec in secgroup_res:
                     secgroup_properties.append({'get_resource': sec.name})
@@ -345,7 +361,8 @@ class NetworkResource(base.Resource):
                     LOG.error(msg)
                     raise exception.ResourceAttributesException(message=msg)
 
-                subnet_res = self.extract_subnets([subnet_id])
+                subnet_res = self.extract_subnets([subnet_id], parent_name,
+                                                  parent_resources)
                 if not subnet_res:
                     LOG.error("Subnet %s could not be found.", subnet_id)
                     raise exception.ResourceNotFound(resource_type='Subnet',
@@ -382,6 +399,8 @@ class NetworkResource(base.Resource):
 
             resource_type = "OS::Neutron::Port"
             resource_name = 'port_%d' % self._get_resource_num(resource_type)
+            if parent_name and port_id in parent_resources:
+                resource_name = parent_name + '.' + resource_name
 
             port_res = resource.Resource(resource_name, resource_type,
                                          port_id, properties=properties)
@@ -406,7 +425,8 @@ class NetworkResource(base.Resource):
 
         return portResources
 
-    def extract_floatingips(self, floatingip_ids):
+    def extract_floatingips(self, floatingip_ids, parent_name=None,
+                            parent_resources=None):
 
         floatingip_objs = []
         floatingipResources = []
@@ -452,7 +472,9 @@ class NetworkResource(base.Resource):
                 raise exception.ResourceAttributesException(message=msg)
 
             net_res = self.extract_nets([floating_network_id],
-                                        with_subnets=True)
+                                        with_subnets=True,
+                                        parent_name=parent_name,
+                                        parent_resources=parent_resources)
             properties['floating_network_id'] = \
                 {'get_resource': net_res[0].name}
             dep_res_name = net_res[0].properties.get('name', '')
@@ -464,21 +486,25 @@ class NetworkResource(base.Resource):
             router_id = floatingip.get('router_id')
             router_res = None
             if router_id:
-                router_res = self.extract_routers([router_id])
+                router_res = self.extract_routers([router_id], parent_name,
+                                                  parent_resources)
 
             port_id = floatingip.get('port_id')
 
             resource_type = "OS::Neutron::FloatingIP"
             resource_name = 'floatingip_%d' % \
                 self._get_resource_num(resource_type)
-
+            if parent_name and port_id in parent_resources:
+                resource_name = parent_name + '.' + resource_name
             if port_id:
                 kwargs = {}
                 kwargs['id'] = port_id
                 kwargs['type'] = resource_type
                 kwargs['name_in_template'] = ''
                 self._extract_associate(floatingip, router_res,
-                                        port_id, resource_name, **kwargs)
+                                        port_id, resource_name,
+                                        parent_name, parent_resources,
+                                        **kwargs)
 
             floatingip_res = resource.Resource(resource_name, resource_type,
                                                floatingip_id,
@@ -506,13 +532,15 @@ class NetworkResource(base.Resource):
         return floatingipResources
 
     def _extract_associate(self, floatingip, router_res,
-                           port_id, floatip_name, **kwargs):
+                           port_id, floatip_name, parent_name=None,
+                           parent_resources=None, **kwargs):
 
         properties = {}
         dependencies = []
         port_res = self._collected_resources.get(port_id)
         if not port_res:
-            port_res = self.extract_ports([port_id])
+            port_res = self.extract_ports([port_id], parent_name,
+                                          parent_resources)
 
             if port_res:
                 port_res = port_res[0]
@@ -558,12 +586,16 @@ class NetworkResource(base.Resource):
             if subnet_res_name:
                 subnet_res = self._get_resource_by_name(subnet_res_name)
                 if subnet_res:
-                    self._extract_router_interface(router_res[0], subnet_res)
+                    self._extract_router_interface(router_res[0], subnet_res,
+                                                   parent_name,
+                                                   parent_resources)
 
         resource_type = "OS::Neutron::FloatingIPAssociation"
         resource_name = 'FloatingIPAssiation_%d' % \
             self._get_resource_num(resource_type)
         resource_id = uuidutils.generate_uuid()
+        if parent_name and port_id in parent_resources:
+            resource_name = parent_name + '.' + resource_name
         association_res = resource.Resource(resource_name, resource_type,
                                             resource_id,
                                             properties=properties)
@@ -580,7 +612,9 @@ class NetworkResource(base.Resource):
         self._collected_resources[resource_id] = association_res
         self._collected_dependencies[resource_id] = association_dep
 
-    def _extract_router_interface(self, router_res, subnet_res):
+    def _extract_router_interface(self, router_res, subnet_res,
+                                  parent_name=None,
+                                  parent_resources=None):
         LOG.debug("Extract resources of router interface by %s and %s.",
                   router_res.name, subnet_res.name)
 
@@ -614,6 +648,8 @@ class NetworkResource(base.Resource):
 
         resource_type = "OS::Neutron::RouterInterface"
         resource_name = '%s_interface_0' % router_res.name
+        if parent_name and router_res.id in parent_resources:
+            resource_name = parent_name + '.' + resource_name
         interface_res = resource.Resource(resource_name, resource_type,
                                           interface_id, properties=properties)
 
@@ -634,7 +670,8 @@ class NetworkResource(base.Resource):
 
         return interface_res
 
-    def extract_routers(self, router_ids):
+    def extract_routers(self, router_ids, parent_name=None,
+                        parent_resources=None):
 
         router_objs = []
         routerResources = []
@@ -677,7 +714,10 @@ class NetworkResource(base.Resource):
             if external_gateway_info:
                 network = external_gateway_info.get('network_id')
                 if network:
-                    net_res = self.extract_nets([network], with_subnets=True)
+                    net_res = self.extract_nets(
+                        [network], with_subnets=True,
+                        parent_name=parent_name,
+                        parent_resources=parent_resources)
                     if net_res:
                         enable_snat = external_gateway_info.get('enable_snat')
                         properties['external_gateway_info'] = \
@@ -692,6 +732,8 @@ class NetworkResource(base.Resource):
             resource_type = "OS::Neutron::Router"
             resource_name = 'router_%d' % self.\
                 _get_resource_num(resource_type)
+            if parent_name and router_id in parent_resources:
+                resource_name = parent_name + '.' + resource_name
             router_res = resource.Resource(resource_name, resource_type,
                                            router_id, properties=properties)
 
@@ -717,7 +759,8 @@ class NetworkResource(base.Resource):
 
         return routerResources
 
-    def extract_secgroups(self, secgroup_ids):
+    def extract_secgroups(self, secgroup_ids, parent_name=None,
+                          parent_resources=None):
 
         collected_dependencies = self._collected_dependencies
         nr = secgroup.SecGroup(
@@ -725,20 +768,25 @@ class NetworkResource(base.Resource):
                     collected_resources=self._collected_resources,
                     collected_parameters=self._collected_parameters,
                     collected_dependencies=collected_dependencies)
-        return nr.extract_secgroups(secgroup_ids)
+        return nr.extract_secgroups(secgroup_ids, parent_name,
+                                    parent_resources)
 
-    def extract_networks_resource(self, net_ids):
+    def extract_networks_resource(self, net_ids, parent_name=None,
+                                  parent_resources=None):
 
         copy_net_ids = deepcopy(net_ids)
         for net_id in net_ids:
-            self.extract_network_resource(net_id, copy_net_ids)
+            self.extract_network_resource(net_id, copy_net_ids, parent_name,
+                                          parent_resources)
 
-    def extract_network_resource(self, net_id, other_net_ids):
+    def extract_network_resource(self, net_id, other_net_ids,
+                                 parent_name=None, parent_resources=None):
 
         LOG.debug("Generate network resource start: %s", net_id)
         # generate net work resource
 
-        subnets, net_res = self._get_network_info(net_id)
+        subnets, net_res = self._get_network_info(net_id, parent_name,
+                                                   parent_resources)
 
         if subnets:
             # generate subnet resource
@@ -747,7 +795,8 @@ class NetworkResource(base.Resource):
             kwargs['id'] = net_res.id
             kwargs['type'] = net_res.type
             kwargs['name_in_template'] = net_res.properties.get('name', '')
-            self.extract_subnets_of_network(net_res_name, subnets, **kwargs)
+            self.extract_subnets_of_network(net_res_name, subnets, parent_name,
+                                            parent_resources, **kwargs)
 
         # generate router and interface resource
         for subnet in subnets:
@@ -758,11 +807,15 @@ class NetworkResource(base.Resource):
                           subnet)
                 return None
 
-            self._get_interface_info(subnet, subnet_res, other_net_ids)
+            self._get_interface_info(subnet, subnet_res, other_net_ids,
+                                     parent_name,
+                                     parent_resources)
 
         LOG.debug("Generate network resource end: %s", net_id)
 
-    def _get_interface_info(self, subnet_id, subnet_res, other_net_ids):
+    def _get_interface_info(self, subnet_id, subnet_res, other_net_ids,
+                            parent_name=None,
+                            parent_resources=None):
 
         try:
             interfaces = \
@@ -782,14 +835,18 @@ class NetworkResource(base.Resource):
                     router_id = interface.get('device_id')
 
                     router_res = self.\
-                        _generate_router_resource(router_id, other_net_ids)
-                    if not router_res:
+                        _generate_router_resource(router_id, other_net_ids,
+                                                  parent_name,
+                                                  parent_resources)
+                    if not router_id:
                         return None
 
                     self._generate_interface_resource(interface, subnet_res,
-                                                      router_res)
+                                                      router_res, parent_name,
+                                                      parent_resources)
 
-    def _generate_router_resource(self, router_id, other_net_ids):
+    def _generate_router_resource(self, router_id, other_net_ids,
+                                  parent_name=None, parent_resources=None):
 
         # 1. get router info from neutron api
         # routers = None
@@ -827,7 +884,10 @@ class NetworkResource(base.Resource):
             network = external_gateway_info.get('network_id')
             if (network in other_net_ids):
                 if network:
-                    net_res = self.extract_nets([network], with_subnets=True)
+                    net_res = self.extract_nets(
+                        [network], with_subnets=True,
+                        parent_name=parent_name,
+                        parent_resources=parent_resources)
                     if net_res:
                         enable_snat = external_gateway_info.get('enable_snat')
                         properties['external_gateway_info'] = \
@@ -848,6 +908,8 @@ class NetworkResource(base.Resource):
 
         resource_type = "OS::Neutron::Router"
         resource_name = 'router_%d' % self._get_resource_num(resource_type)
+        if parent_name and router_id in parent_resources:
+            resource_name = parent_name + '.' + resource_name
         router_res = resource.Resource(resource_name, resource_type,
                                        router_id,
                                        properties=properties)
@@ -866,7 +928,9 @@ class NetworkResource(base.Resource):
         return router_res
 
     def _generate_interface_resource(self, interface,
-                                     subnet_res, router_res):
+                                     subnet_res, router_res,
+                                     parent_name=None,
+                                     parent_resources=None):
 
         interface_id = interface.get('id', '')
 
@@ -882,6 +946,8 @@ class NetworkResource(base.Resource):
         resource_type = "OS::Neutron::RouterInterface"
         resource_name = '%s_interface_%s' % \
             (router_res.name, uuidutils.generate_uuid())
+        if parent_name and interface_id in parent_resources:
+            resource_name = parent_name + '.' + resource_name
         interface_res = resource.Resource(resource_name, resource_type,
                                           interface_id,
                                           properties=properties)
@@ -901,7 +967,8 @@ class NetworkResource(base.Resource):
         self._collected_resources[interface_id] = interface_res
         self._collected_dependencies[interface_id] = interface_dep
 
-    def _get_network_info(self, net_id):
+    def _get_network_info(self, net_id, parent_name=None,
+                          parent_resources=None):
 
         # 1. get net info from neutron api
 
@@ -947,6 +1014,8 @@ class NetworkResource(base.Resource):
 
         resource_type = "OS::Neutron::Net"
         resource_name = 'network_%d' % self._get_resource_num(resource_type)
+        if parent_name and net_id in parent_resources:
+            resource_name = parent_name + '.' + resource_name
         net_res = resource.Resource(resource_name, resource_type,
                                     net_id, properties=properties)
 

@@ -36,7 +36,8 @@ class FloatIps(base.Resource):
         self._collected_parameters = collected_parameters or {}
         self._collected_dependencies = collected_dependencies or {}
 
-    def extract_floatingips(self, floatingip_ids):
+    def extract_floatingips(self, floatingip_ids, parent_name=None,
+                            parent_resources=None):
 
         # 1. get floating ips info
         floatingip_objs = []
@@ -44,7 +45,9 @@ class FloatIps(base.Resource):
 
         if not floatingip_ids:
             LOG.debug('Extract resources of floating ips.')
-            return floatingipResources
+            floatingip_list = self.neutron_api.floatingip_list(self.context)
+            floatingip_objs = filter(self._tenant_filter,
+                                     floatingip_list)
 
         else:
             LOG.debug('Extract resources of floating ips: %s', floatingip_ids)
@@ -90,7 +93,9 @@ class FloatIps(base.Resource):
 
             net_res =  \
                 network_cls.extract_nets([floating_network_id],
-                                         with_subnets=True)
+                                         with_subnets=True,
+                                         parent_name=parent_name,
+                                         parent_resources=parent_resources)
 
             # refresh collected resource in order
             # to add network and subnet resource
@@ -105,6 +110,8 @@ class FloatIps(base.Resource):
             resource_type = "OS::Neutron::FloatingIP"
             resource_name = 'floatingip_%d' % \
                 self._get_resource_num(resource_type)
+            if parent_name and floatingip_id in parent_resources:
+                resource_name = parent_name + '.' + resource_name
             floatingip_res = resource.Resource(resource_name, resource_type,
                                                floatingip_id,
                                                properties=properties)

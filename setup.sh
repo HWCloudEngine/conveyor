@@ -7,7 +7,7 @@
 
 
 #v2v api service IP
-API_SERVICE_IP=162.3.253.50
+API_SERVICE_IP=162.3.253.60
 API_SERVICE_PORT=9999
  
 LOG_DIR=/var/log/fusionsphere/component/conveyor 

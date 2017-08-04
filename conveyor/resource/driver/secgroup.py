@@ -35,7 +35,8 @@ class SecGroup(base.Resource):
         self._collected_parameters = collected_parameters or {}
         self._collected_dependencies = collected_dependencies or {}
 
-    def extract_secgroups(self, secgroup_ids):
+    def extract_secgroups(self, secgroup_ids, parent_name=None,
+                          parent_resources=None):
 
         secgroup_objs = []
         secgroupResources = []
@@ -77,6 +78,8 @@ class SecGroup(base.Resource):
             resource_type = "OS::Neutron::SecurityGroup"
             resource_name = 'security_group_%d' % \
                 self._get_resource_num(resource_type)
+            if parent_name and sec_id in parent_resources:
+                resource_name = parent_name + '.' + resource_name
             sec_res = resource.Resource(resource_name, resource_type,
                                         sec_id, properties=properties)
 

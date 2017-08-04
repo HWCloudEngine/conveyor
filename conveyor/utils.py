@@ -65,6 +65,17 @@ vgw_index = {}
 
 vgw_id_dict = {}
 
+vgw_port_dict = {}
+
+
+def get_next_port_for_vgw(vgw_id):
+    global vgw_port_dict
+    port = vgw_port_dict.get(vgw_id)
+    if not port:
+        port = CONF.trans_ports[0]
+    vgw_port_dict[vgw_id] = port + 1
+    return port
+
 
 def get_next_vgw(region):
     global vgw_dict, vgw_index, vgw_id_dict

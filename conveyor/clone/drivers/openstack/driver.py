@@ -308,9 +308,6 @@ class OpenstackDriver(driver.BaseDriver):
         stack_id = resource.id
         template = json.loads(res_prop.get('template'))
 
-        def is_file_type(t):
-            return t and t.startswith('file://')
-
         def _add_extra_prop(template, stack_id):
             temp_res = template.get('resources')
             for key, value in temp_res.items():
@@ -318,11 +315,12 @@ class OpenstackDriver(driver.BaseDriver):
                 if res_type == 'OS::Cinder::Volume':
                     # v_prop = value.get('properties')
                     v_exra_prop = value.get('extra_properties', {})
+                    d_copy = copy_data and v_exra_prop['copy_data']
+                    v_exra_prop['copy_data'] = d_copy
+                    if not d_copy:
+                        continue
                     if not v_exra_prop or not v_exra_prop.get('gw_url'):
-                        heat_res = self.heat_api.get_resource(context,
-                                                              stack_id,
-                                                              key)
-                        phy_id = heat_res.physical_resource_id
+                        phy_id = v_exra_prop.get('id')
                         res_info = self.volume_api.get(context, phy_id)
                         az = res_info.get('availability_zone')
                         gw_id, gw_ip = utils.get_next_vgw(az)
@@ -332,35 +330,19 @@ class OpenstackDriver(driver.BaseDriver):
                         gw_url = gw_ip + ':' + str(
                             CONF.v2vgateway_api_listen_port)
                         v_exra_prop.update({"gw_url": gw_url, "gw_id": gw_id})
-                        v_exra_prop['is_deacidized'] = True
-                        v_exra_prop['id'] = phy_id
                         volume_status = res_info['status']
                         v_exra_prop['status'] = volume_status
-                        v_exra_prop['copy_data'] = copy_data
                         value['extra_properties'] = v_exra_prop
                         value['id'] = phy_id
-                        if copy_data:
-                            self._handle_volume_for_stack(context, value,
-                                                          gw_id,
-                                                          gw_ip, undo_mgr)
+                        self._handle_volume_for_stack(context, value, gw_id,
+                                                      gw_ip, undo_mgr)
                 elif res_type == 'OS::Nova::Server':
-                    heat_res = self.heat_api.get_resource(context,
-                                                          stack_id,
-                                                          key)
-                    phy_id = heat_res.physical_resource_id
+                    v_exra_prop = value.get('extra_properties', {})
+                    phy_id = v_exra_prop.get('id')
                     server_info = self.compute_api.get_server(context, phy_id)
                     vm_state = server_info.get('OS-EXT-STS:vm_state', None)
-                    v_exra_prop = value.get('extra_properties', {})
                     v_exra_prop['vm_state'] = vm_state
-                    v_exra_prop['id'] = phy_id
                     value['extra_properties'] = v_exra_prop
-                elif res_type and res_type.startswith('file://'):
-                    son_template = value.get('content')
-                    son_template = json.loads(son_template)
-                    son_stack_id = value.get('id')
-                    _add_extra_prop(son_template, son_stack_id)
-                    value['content'] = json.dumps(son_template)
-
         _add_extra_prop(template, stack_id)
         res_prop['template'] = json.dumps(template)
 
@@ -370,23 +352,36 @@ class OpenstackDriver(driver.BaseDriver):
         volume_info = self.volume_api.get(context, volume_id)
         volume_status = volume_info['status']
         v_shareable = volume_info['shareable']
-        if v_shareable == 'false' and volume_status == 'in-use':
-            vol_res.get('extra_properties')['set_shareable'] = True
-            self.volume_api.set_volume_shareable(context, volume_id, True)
-            undo_mgr.undo_with(functools.partial(self._set_volume_shareable,
-                                                 context,
-                                                 volume_id,
-                                                 False))
-        LOG.debug('Attach volume %s to gw host %s', volume_id, gw_id)
-        attach_resp = self.compute_api.attach_volume(context,
-                                                     gw_id,
+        if not v_shareable and volume_status == 'in-use':
+            volume_attachments = volume_info.get('attachments', [])
+            vol_res.get('extra_properties')['attachments'] = volume_attachments
+            for attachment in volume_attachments:
+                server_id = attachment.get('server_id')
+                server_info = self.compute_api.get_server(context, server_id)
+                vm_state = server_info.get('OS-EXT-STS:vm_state', None)
+                if vm_state != 'stopped':
+                    _msg = 'the server %s not stopped' % server_id
+                    raise exception.V2vException(message=_msg)
+                device = attachment.get('device')
+                self.compute_api.detach_volume(context, server_id,
+                                               volume_id)
+                self._wait_for_volume_status(context, volume_id, server_id,
+                                             'available')
+                undo_mgr.undo_with(functools.partial(self._attach_volume,
+                                                     context,
+                                                     server_id,
                                                      volume_id,
-                                                     None)
+                                                     device))
         client = birdiegatewayclient.get_birdiegateway_client(
             gw_ip,
             str(CONF.v2vgateway_api_listen_port)
         )
         disks = set(client.vservices.get_disk_name().get('dev_name'))
+        LOG.debug('Attach volume %s to gw host %s', volume_id, gw_id)
+        attach_resp = self.compute_api.attach_volume(context,
+                                                     gw_id,
+                                                     volume_id,
+                                                     None)
         LOG.debug('The volume attachment info is %s '
                   % str(attach_resp))
         undo_mgr.undo_with(functools.partial(self._detach_volume,
@@ -485,30 +480,28 @@ class OpenstackDriver(driver.BaseDriver):
                 res_type = res.get('type')
                 if res_type == 'OS::Cinder::Volume':
                     try:
-                        if res.get('extra_properties', {}).get(
-                                'is_deacidized'):
-                            copy_data = res.get('extra_properties', {}). \
-                                get('set_shareable')
-                            if not copy_data:
-                                continue
-                            set_shareable = res.get('extra_properties', {}) \
-                                .get('set_shareable')
-                            volume_id = res.get('extra_properties', {}) \
-                                .get('id')
-                            vgw_id = res.get('extra_properties').get('gw_id')
-                            self._detach_volume(context, vgw_id, volume_id)
-                            if set_shareable:
-                                self.volume_api.set_volume_shareable(context,
-                                                                     volume_id,
-                                                                     False)
+                        copy_data = res.get('extra_properties', {}). \
+                            get('copy_data')
+                        if not copy_data:
+                            continue
+                        attachments = res.get('extra_properties', {}) \
+                            .get('attachments')
+                        volume_id = res.get('extra_properties', {}) \
+                            .get('id')
+                        vgw_id = res.get('extra_properties').get('gw_id')
+                        self._detach_volume(context, vgw_id, volume_id)
+                        if attachments:
+                            for attachment in attachments:
+                                server_id = attachment.get('server_id')
+                                device = attachment.get('device')
+                                self.compute_api.attach_volume(context,
+                                                               server_id,
+                                                               volume_id,
+                                                               device)
                     except Exception as e:
                         LOG.error(_LE('Error from handle volume of stack after'
                                       ' clone.'
                                       'Error=%(e)s'), {'e': e})
-                elif res_type and res_type.startswith('file://'):
-                    son_template = json.loads(res.get('content'))
-                    self._handle_volume_for_stack_after_clone(context,
-                                                              son_template)
         except Exception as e:
             LOG.warn('detach the volume %s from vgw %s error,'
                      'the volume not attached to vgw',

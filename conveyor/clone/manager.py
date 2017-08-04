@@ -15,6 +15,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 import copy
+import eventlet
 import functools
 import json
 import netaddr
@@ -34,6 +35,7 @@ from novaclient import exceptions as novaclient_exceptions
 
 from conveyor import compute
 from conveyor import exception
+from conveyor import heat as original_heat
 from conveyor import his
 from conveyor import image
 from conveyor import manager
@@ -162,6 +164,7 @@ class CloneManager(manager.Manager):
         super(CloneManager, self).__init__(service_name="clone",
                                            *args, **kwargs)
         self.conveyor_cmd = base.MigrationCmd()
+        self.original_heat_api = original_heat.API()
 
     def start_template_clone(self, context, template):
         LOG.debug("Clone resources start in clone manager")
@@ -211,6 +214,7 @@ class CloneManager(manager.Manager):
             LOG.warning("Clone resource warning: clone resource is empty.")
             return stack_info['id'], src_template
         LOG.debug("After pop self define info, resources: %s", src_resources)
+        clone_threads = []
         try:
             for key, r_resource in src_resources.items():
                 res_type = r_resource['type']
@@ -244,7 +248,16 @@ class CloneManager(manager.Manager):
                         'DATA_TRANS_FINISHED')
                     self.plan_api.update_plan(context, plan_id, values)
                     continue
-                rs_maganger.start_template_clone(context, key, src_template)
+
+                def _clone_bg(rs_maganger, key, src_template):
+                    return rs_maganger.start_template_clone(context,
+                                                            key, src_template)
+                clone_threads.append(eventlet.spawn(_clone_bg,
+                                                    rs_maganger,
+                                                    key,
+                                                    src_template))
+            for t in clone_threads:
+                t.wait()
         except Exception as e:
             LOG.error("Clone resource error: %s", e)
             # if clone failed and rollback parameter is true,
@@ -260,9 +273,9 @@ class CloneManager(manager.Manager):
             return None, None
 
         # all resources clone success, set plan status finished
-        values = {}
-        values['plan_status'] = plan_status.STATE_MAP.get('FINISHED')
-        self.plan_api.update_plan(context, plan_id, values)
+        # values = {}
+        # values['plan_status'] = plan_status.STATE_MAP.get('FINISHED')
+        # self.plan_api.update_plan(context, plan_id, values)
         LOG.debug("Clone resources end in clone manager")
         return stack_info['id'], src_template
 
@@ -481,12 +494,12 @@ class CloneManager(manager.Manager):
         template = yaml.load(template_skeleton)
         template['resources'] = template_resource = {}
         template['parameters'] = {}
+        stack_reses = []
         for key, value in resource_map.items():
             if value.type == 'OS::Heat::Stack':
-                resource_map.pop(key)
+                stack_reses.append(copy.deepcopy(value))
                 # stack_prop = value.properties
-                self._clone_stack(context, key, value, plan_id, az_map)
-
+                # self._clone_stack(context, value, id, destination)
         if not resource_map:
             self.plan_api.update_plan(
                 context, plan_id, {'plan_status': plan_status.FINISHED})
@@ -611,7 +624,21 @@ class CloneManager(manager.Manager):
             LOG.error(_LE('Clone template error'))
             self.plan_api.update_plan(context, plan_id,
                                       {'plan_status': plan_status.ERROR})
-            return
+        else:
+            try:
+                for stack_res in stack_reses:
+                    self._handle_stack_template(context, stack_res, stack_id,
+                                                template)
+                    self._clone_stack(context, stack_res,
+                                                     plan_id, az_map)
+                values = {}
+                values['plan_status'] = plan_status.STATE_MAP.get('FINISHED')
+                self.plan_api.update_plan(context, plan_id, values)
+            except Exception as e:
+                LOG.error(_LE("Clone stack resource error: %s"), e)
+                self.plan_api.update_plan(context, id,
+                                          {'plan_status': plan_status.ERROR})
+                self.heat_api.delete_stack(context, plan_id)
 
         def _wait_for_plan_finished(context):
             """Called at an interval until the plan status finished"""
@@ -630,7 +657,9 @@ class CloneManager(manager.Manager):
         # plan = self.plan_api.get_plan_by_id(context, id)
         # clone_resources = plan.get('updated_resources', {})
         clone_resources = update_res if update_resources else ori_res
-        self.clone_driver.reset_resources(context, clone_resources)
+        for key, value in resource_map.items():
+            resource_map[key] = value.to_dict()
+        self.clone_driver.reset_resources(context, resource_map)
 
         # save cloned_res and az_map
         self._save_cloned_res_and_az(context, plan_id, az_map, clone_resources,
@@ -937,10 +966,59 @@ class CloneManager(manager.Manager):
             else:
                 raise exception.IdNotInResource()
 
-    def _clone_stack(self, context, key, stack_info, plan_id, des):
+    def _add_parameter(self, context, stack_id, stack_template,
+                       top_parameters, key):
+        stack_params = stack_template.get('template').get('parameters')
+        param_info = stack_params.get(key, None)
+        params_value = None
+        if not param_info:
+            try:
+                heat_resource = self.heat_api.get_resource(context,
+                                                           stack_id,
+                                                           key)
+                params_value = heat_resource.physical_resource_id
+            except Exception as e:
+                LOG.debug('Query %(key)s in stack %(stack)s e: %(e)s',
+                          {'key': key, 'stack': stack_id, 'e': e})
+        else:
+            params_value = param_info.get('default')
+        if not params_value:
+            raise exception.ParameterNotFound(param=key)
+        top_parameters[key] = \
+            {
+                'default': params_value,
+                'type': 'string'
+            }
+
+    def _handle_stack_template(self, context, stack_res, stack_id,
+                               stack_template):
+        template = stack_res.properties.get('template')
+        top_template = json.loads(template)
+        top_resources = top_template.get('resources')
+        top_parameters = top_template.setdefault('parameters', {})
+
+        def _get_re(d):
+            if not isinstance(d, (tuple, list)):
+                d = [d]
+            for t in d:
+                if isinstance(t, dict):
+                    for k, v in t.items():
+                        if k == 'get_resource' and v not in top_resources:
+                            t.pop(k)
+                            t['get_param'] = v
+                            # add parameters
+                            if v not in top_parameters:
+                                self._add_parameter(context, stack_id,
+                                                    stack_template,
+                                                    top_parameters, v)
+                        else:
+                            _get_re(v)
+        for v in top_resources.values():
+            _get_re(v.get('properties'))
+        stack_res.properties['template'] = json.dumps(top_template)
+
+    def _clone_stack(self, context, stack_info, plan_id, des):
         LOG.debug('begin clone stack')
-        self.plan_api.update_plan(context, plan_id,
-                                  {'plan_status': plan_status.CLONING})
         stack_in = stack_info.to_dict()
         template = stack_in['properties'].get('template')
         template_dict = json.loads(template)
@@ -953,11 +1031,13 @@ class CloneManager(manager.Manager):
         stack_in.pop('parameters', None)
         stack_in.pop('id', None)
         stack_in.pop('name', None)
-        stack_in['properties']['template'], son_file_template = \
-            self._get_template_contents(context, template_dict, des)
-        stack_in['properties']['template'] = \
-            json.dumps(stack_in['properties']['template'])
-        res = {key: stack_in}
+        if stack_in['properties'].get('parameters'):
+            stack_in['properties'].pop('parameters')
+        self._delete_exist_res_for_stack(context, template_dict)
+        template_dict = self._get_template_contents(context,
+                                                    template_dict, des)
+        stack_in['properties']['template'] = json.dumps(template_dict)
+        res = {stack_name: stack_in}
         heat_template = {
             "heat_template_version": '2013-05-23',
             "description": "clone template",
@@ -967,7 +1047,7 @@ class CloneManager(manager.Manager):
             stack_name=stack_name + '-' + uuidutils.generate_uuid(),
             disable_rollback=disable_rollback,
             template=heat_template,
-            files=son_file_template
+            files=None
         )
         stack = None
         try:
@@ -1004,10 +1084,121 @@ class CloneManager(manager.Manager):
             self.plan_api.update_plan(context, plan_id,
                                       {'plan_status': plan_status.ERROR})
             raise exception.PlanDeployError(plan_id=plan_id)
+        new_stack_res = self.heat_api.get_resource(context, stack_id,
+                                                   stack_name)
+        # get the newly-created stack
+        new_stack_id = new_stack_res.physical_resource_id
         self._copy_data_for_stack(context, origin_template_dict,
-                                  stack_id, plan_id)
+                                  stack_id, plan_id, new_stack_id)
+        return stack_id
 
-    def _copy_data_for_stack(self, context, template, stack_id, plan_id):
+    def _delete_exist_res_for_stack(self, context, template_dict):
+        resource_cb_map = {
+            'OS::Nova::Flavor': self.compute_api.get_flavor,
+            'OS::Neutron::FloatingIP': self.neutron_api.get_floatingip,
+            'OS::Neutron::Net': self.neutron_api.get_network,
+            'OS::Neutron::SecurityGroup': self.neutron_api.get_security_group,
+            'OS::Neutron::Subnet': self.neutron_api.get_subnet,
+            'OS::Nova::KeyPair': self.compute_api.get_keypair,
+            'OS::Neutron::Router': self.neutron_api.get_router,
+            'OS::Neutron::RouterInterface': self.neutron_api.get_port,
+            'OS::Cinder::VolumeType': self.volume_api.get_volume_type,
+            'OS::Cinder::Qos': self.volume_api.get_qos_specs
+        }
+        description_map = {
+            'OS::Nova::Flavor': 'Flavor description',
+            'OS::Neutron::FloatingIP': 'FloatingIP description',
+            'OS::Neutron::Net': 'Network description',
+            'OS::Neutron::SecurityGroup': 'Security group description',
+            'OS::Neutron::Subnet': 'Subnet description',
+            'OS::Neutron::Port': 'Port description',
+            'OS::Nova::KeyPair': 'KeyPair description',
+            'OS::Neutron::Router': 'Router description',
+            'OS::Neutron::RouterInterface': 'RouterInterface description',
+            'OS::Cinder::VolumeType': 'VolumeType description',
+            'OS::Cinder::Qos': 'Volume Qos description'
+        }
+        template_resource = template_dict.get('resources')
+        resource_map = copy.deepcopy(template_resource)
+        # handle for lb
+        self._handle_lb(template_resource)
+        for key in list(template_resource):
+            # key would be port_0, subnet_0, etc...
+            resource = template_resource[key]
+            if resource['type'] == 'OS::Neutron::Port':
+                resource.get('properties').pop('mac_address')
+                _pop_need = True
+                resource_id = resource.get('extra_properties').get('id')
+                if not resource_id:
+                    _pop_need = False
+                else:
+                    net_template = resource.get('properties').get('network_id')
+                    net_key = net_template.get('get_resource') or \
+                        net_template.get('get_param')
+                    net_id = resource_map[net_key].get('extra_properties')\
+                                                  .get('id')
+                    is_exist = self._judge_resource_exist(
+                        context, self.neutron_api.get_network, net_id)
+                    _pop_need = is_exist
+                # maybe exist problem if the network not exist
+                for _fix_ip in resource.get('properties', {})\
+                                       .get('fixed_ips', []):
+                    if _pop_need or not _fix_ip.get('ip_address'):
+                        _fix_ip.pop('ip_address', None)
+            cb = resource_cb_map.get(resource['type'])
+            exist_resource_type = ['OS::Cinder::Volume']
+            resource_exist = False
+            if resource['type'] in exist_resource_type and \
+               resource.get('extra_properties').get('exist'):
+                resource_exist = True
+            if cb or resource_exist:
+                try:
+                    resource_id = resource_map[key].get('extra_properties')\
+                                                   .get('id')
+                    if not resource_id:
+                        continue
+                    resource_result = cb(context, resource_id)
+                    LOG.debug(" resource %s exists", key)
+                    # special treatment for floatingip
+                    if resource['type'] == 'OS::Neutron::FloatingIP':
+                        if resource_result.get('fixed_ip_address'):
+                            self.plan_api.update_plan(
+                                context, id,
+                                {'plan_status': plan_status.ERROR})
+                            error_message = 'the floatingip %s exist and be used' \
+                                % resource_id
+                            raise exception.PlanCloneFailed(id=id,
+                                                            msg=error_message)
+                    # add parameters into template if exists
+                    template_dict['parameters'][key] =\
+                        {
+                            'default': resource_id,
+                            'description': description_map[resource['type']],
+                            'type': 'string'
+                        }
+
+                    def _update_resource(r_list):
+                        if type(r_list) not in (tuple, list):
+                            r_list = [r_list]
+                        for r in r_list:
+                            if type(r) is dict:
+                                for _k in list(r):
+                                    if _k == 'get_resource':
+                                        if r[_k] == key:
+                                            r.pop(_k)
+                                            r['get_param'] = key
+                                    else:
+                                        _update_resource(r[_k])
+
+                    _update_resource(template_resource)
+                    template_resource.pop(key)
+                except (novaclient_exceptions.NotFound,
+                        neutronclient_exceptions.NotFound,
+                        cinderclient_exceptions.NotFound):
+                    pass
+
+    def _copy_data_for_stack(self, context, template, stack_id,
+                             plan_id, son_stack_id=None):
         volume_template = copy.deepcopy(template)
         template['stack_id'] = stack_id
         volume_resource = {}
@@ -1016,23 +1207,13 @@ class CloneManager(manager.Manager):
             res_type = res.get('type')
             if res_type == 'OS::Cinder::Volume':
                 volume_resource[key] = res
-
-            elif res_type and res_type.startswith('file://'):
-                son_template = json.loads(res.get('content'))
-                son_stack = self.heat_api.get_resource(context,
-                                                       stack_id,
-                                                       key)
-                son_stack_id = son_stack.physical_resource_id
-                son_template['stack_id'] = son_stack_id
-                self._copy_data_for_stack(context, son_template,
-                                          son_stack_id, plan_id)
-
         if volume_resource:
             volume_template['resources'] = volume_resource
             template = {}
             template['template'] = copy.deepcopy(volume_template)
             template['plan_id'] = plan_id
-            self._afther_resource_created_handler(context, template, stack_id)
+            self._afther_resource_created_handler(context, template, stack_id,
+                                                  son_stack_id)
             plan = db_api.plan_get(context, plan_id)
             if plan.get('plan_status') == plan_status.ERROR:
                 raise exception.PlanCloneFailed(id=id, msg='')
@@ -1040,7 +1221,6 @@ class CloneManager(manager.Manager):
     def _get_template_contents(self, context, template_dict, des):
         LOG.debug('the origin template is %s', template_dict)
         resources = template_dict.get('resources')
-        file_template = {}
         for key, res in resources.items():
             if 'availability_zone' in res.get('properties', {}):
                 src_az = res['properties']['availability_zone']
@@ -1053,48 +1233,7 @@ class CloneManager(manager.Manager):
                 res.pop('extra_properties')
             if 'id' in res:
                 res.pop('id')
-            res_type = res.get('type')
-            if res_type and res_type.startswith('file://'):
-                file_template[res_type] = res.get('content')
-                res.pop('content')
-            if res_type == 'OS::Heat::AutoScalingGroup':
-                r = res.get('properties', {}).get('resource')
-                if r and r.get('type').startswith('file://'):
-                    file_template[r.get('type')] = r.get('content')
-                    r.pop('content')
-
-        def _get_file_template(file_template):
-            final_file_template = {}
-            for k, v in file_template.items():
-                son_file_template = {}
-                son_template_dict = json.loads(v)
-                son_res = son_template_dict.get('resources')
-                for key, res in son_res.items():
-                    if 'availability_zone' in res.get('properties', {}):
-                        src_az = res['properties']['availability_zone']
-                        res.get('extra_properties', {})['availability_zone'] = \
-                            src_az
-                        res['properties']['availability_zone'] = des
-                        # change image if hypercontainer to native
-                        self._change_image_id_for_res(context,
-                                                      son_template_dict, key,
-                                                      is_stack=True)
-                    if 'extra_properties' in res:
-                        res.pop('extra_properties')
-                    if 'id' in res:
-                        res.pop('id')
-                    res_type = res.get('type')
-                    if res_type and res_type.startswith('file://'):
-                        son_file_template[res_type] = res.get('content')
-                        res.pop('content')
-                final_file_template[k] = json.dumps(son_template_dict)
-                if son_file_template:
-                    final_son_file_template = _get_file_template(
-                        son_file_template)
-                    final_file_template.update(final_son_file_template)
-            return final_file_template
-
-        return template_dict, _get_file_template(file_template)
+        return template_dict
 
     def _handle_lb(self, template_resource):
         vip_pool_dict = {}
@@ -2008,11 +2147,13 @@ class CloneManager(manager.Manager):
         LOG.debug('Live clone template for finishing volumes: %s', template)
         return template
 
-    def _afther_resource_created_handler(self, context, template, stack_id):
+    def _afther_resource_created_handler(self, context, template,
+                                         stack_id, son_stack_id=None):
 
         src_template = template['template']
         src_resources = src_template.get('resources')
         plan_id = template.get('plan_id')
+        clone_threads = []
         try:
             for key, r_resource in src_resources.items():
                 res_type = r_resource['type']
@@ -2024,10 +2165,17 @@ class CloneManager(manager.Manager):
                     continue
                 # 5.2 resource create successful, get resource ID,
                 # and add to resource
-                heat_resource = self.heat_api.get_resource(context, stack_id,
-                                                           key)
-                r_resource['id'] = heat_resource.physical_resource_id
-                src_template['stack_id'] = stack_id
+                if son_stack_id:
+                    heat_resource = self.original_heat_api.get_resource(
+                        context, son_stack_id, key)
+                    r_resource['id'] = heat_resource.physical_resource_id
+                    src_template['stack_id'] = son_stack_id
+                else:
+                    heat_resource = self.heat_api.get_resource(context,
+                                                               stack_id,
+                                                               key)
+                    r_resource['id'] = heat_resource.physical_resource_id
+                    src_template['stack_id'] = stack_id
                 # after step need update plan status
                 src_template['plan_id'] = plan_id
                 # 5.3 call resource manager clone fun
@@ -2046,7 +2194,17 @@ class CloneManager(manager.Manager):
                         'DATA_TRANS_FINISHED')
                     self.plan_api.update_plan(context, plan_id, values)
                     continue
-                rs_maganger.start_template_clone(context, key, src_template)
+
+                def _clone_bg(rs_maganger, key, src_template):
+                    return rs_maganger.start_template_clone(context,
+                                                            key, src_template)
+                clone_threads.append(eventlet.spawn(_clone_bg,
+                                                    rs_maganger,
+                                                    key,
+                                                    src_template))
+            for t in clone_threads:
+                t.wait()
+                # rs_maganger.start_template_clone(context, key, src_template)
         except Exception as e:
             LOG.error("Clone resource error: %s", e)
             # if clone failed and rollback parameter is true,

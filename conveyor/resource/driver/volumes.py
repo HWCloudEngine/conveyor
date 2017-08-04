@@ -35,7 +35,8 @@ class VolumeResource(base.Resource):
         self._collected_parameters = collected_parameters or {}
         self._collected_dependencies = collected_dependencies or {}
 
-    def extract_volumes(self, volume_ids):
+    def extract_volumes(self, volume_ids, parent_name=None,
+                        parent_resources=None):
 
         volume_dicts = []
         volumeResources = []
@@ -87,6 +88,8 @@ class VolumeResource(base.Resource):
             resource_type = "OS::Cinder::Volume"
             resource_name = 'volume_%d' % self.\
                 _get_resource_num(resource_type)
+            if parent_name and volume_id in parent_resources:
+                resource_name = parent_name + '.' + resource_name
             volume_res = resource.Resource(resource_name, resource_type,
                                            volume_id, properties=properties)
             volume_dep = resource.ResourceDependency(volume_id,
@@ -107,7 +110,9 @@ class VolumeResource(base.Resource):
                         break
                 if volume_type_id:
                     volume_type_res = \
-                        self.extract_volume_types([volume_type_id])
+                        self.extract_volume_types([volume_type_id],
+                                                  parent_name,
+                                                  parent_resources)
                     if volume_type_res:
                         t_name = volume_type_res[0].name
                         volume_res.add_property('volume_type',
@@ -122,7 +127,9 @@ class VolumeResource(base.Resource):
             if volume['bootable'] and volume.get('volume_image_metadata'):
                 image_id = volume['volume_image_metadata'].get('image_id')
                 if image_id:
-                    image_para_name = self.extract_image(image_id)
+                    image_para_name = self.extract_image(image_id,
+                                                         parent_name,
+                                                         parent_resources)
                     description = ("Image to use to boot server or volume")
                     constraints = [{'custom_constraint': "glance.image"}]
                     volume_res.add_parameter(image_para_name, description,
@@ -147,7 +154,8 @@ class VolumeResource(base.Resource):
 
         return volumeResources
 
-    def extract_volume_types(self, volume_type_ids):
+    def extract_volume_types(self, volume_type_ids, parent_name=None,
+                             parent_resources=None):
 
         volume_type_dicts = []
         volumeTypeResources = []
@@ -193,7 +201,8 @@ class VolumeResource(base.Resource):
                         collected_parameters=self._collected_parameters,
                         collected_dependencies=self._collected_dependencies)
 
-                qos_res = qos_driver.extract_qos(qos_id)
+                qos_res = qos_driver.extract_qos(qos_id, parent_name,
+                                                 parent_resources)
                 properties['qos_specs_id'] = {'get_resource': qos_res.name}
                 dependencies.append({'id': qos_res.id, 'name': qos_res.name,
                                      'name_in_template': '',
@@ -209,7 +218,8 @@ class VolumeResource(base.Resource):
             resource_type = "OS::Cinder::VolumeType"
             resource_name = 'volume_type_%d' % \
                 self._get_resource_num(resource_type)
-
+            if parent_name and volume_type_id in parent_resources:
+                resource_name = parent_name + '.' + resource_name
             volume_type_res = resource.Resource(resource_name, resource_type,
                                                 volume_type_id,
                                                 properties=properties)
@@ -235,12 +245,14 @@ class VolumeResource(base.Resource):
 
         return volumeTypeResources
 
-    def extract_image(self, image_id):
+    def extract_image(self, image_id, parent_name=None, parent_resources=None):
 
         parameter_name = self._collected_parameters.get(image_id)
 
         if not parameter_name:
             parameter_name = "image_%d" % self._get_parameter_num()
+            if parent_name and image_id in parent_resources:
+                parameter_name = parent_name + '.' + parameter_name
             self._collected_parameters[image_id] = parameter_name
 
         return parameter_name
@@ -256,7 +268,8 @@ class Volume(base.Resource):
         self._collected_parameters = collected_parameters or {}
         self._collected_dependencies = collected_dependencies or {}
 
-    def extract_volumes(self, volume_ids):
+    def extract_volumes(self, volume_ids, parent_name=None,
+                        parent_resources=None):
         if not volume_ids:
             _msg = 'No volume resource to extract.'
             LOG.info(_msg)
@@ -264,7 +277,7 @@ class Volume(base.Resource):
 
         try:
             for volume_id in volume_ids:
-                self.extract_volume(volume_id)
+                self.extract_volume(volume_id, parent_name, parent_resources)
         except exception.ResourceExtractFailed:
             raise
         except exception.ResourceNotFound:
@@ -274,7 +287,8 @@ class Volume(base.Resource):
             LOG.error(_msg)
             raise exception.ResourceExtractFailed(_msg)
 
-    def extract_volume(self, volume_id):
+    def extract_volume(self, volume_id, parent_name=None,
+                       parent_resources=None):
 
         LOG.debug('Create volume resource start: %s', volume_id)
         # 1.query volume info
@@ -314,6 +328,8 @@ class Volume(base.Resource):
             properties['metadata'] = vol_metadata
         resource_type = "OS::Cinder::Volume"
         resource_name = 'volume_%d' % self._get_resource_num(resource_type)
+        if parent_name and volume_id in parent_resources:
+            resource_name = parent_name + '.' + resource_name
         volume_res = resource.Resource(resource_name, resource_type,
                                        volume_id, properties=properties)
         volume_dep = resource.ResourceDependency(volume_id,
@@ -344,7 +360,8 @@ class Volume(base.Resource):
                         collected_resources=self._collected_resources,
                         collected_parameters=self._collected_parameters,
                         collected_dependencies=self._collected_dependencies)
-                volume_type_res = type_driver.extract_volume_type(type_id)
+                volume_type_res = type_driver.extract_volume_type(
+                    type_id, parent_name, parent_resources)
                 if volume_type_res:
                     t_name = volume_type_res.name
                     volume_res.add_property('volume_type',
@@ -364,7 +381,8 @@ class Volume(base.Resource):
            volume.get('volume_image_metadata'):
             image_id = volume['volume_image_metadata'].get('image_id')
             if image_id:
-                image_para_name = self.extract_image(image_id)
+                image_para_name = self.extract_image(image_id, parent_name,
+                                                     parent_resources)
                 description = ("Image to use to boot server or volume")
                 constraints = [{'custom_constraint': "glance.image"}]
                 volume_res.add_parameter(image_para_name, description,
@@ -384,7 +402,10 @@ class Volume(base.Resource):
                     collected_resources=self._collected_resources,
                     collected_parameters=self._collected_parameters,
                     collected_dependencies=self._collected_dependencies)
-            cons_res = consisgroup_driver.extract_consistency_group(cg_id)
+            cons_res = consisgroup_driver.extract_consistency_group(
+                cg_id,
+                parent_name,
+                parent_resources)
             volume_res.add_property('consistencygroup_id',
                                     {'get_resource': cons_res.name})
             dep_res_name = cons_res.properties.get('name', '')
@@ -400,12 +421,15 @@ class Volume(base.Resource):
         LOG.debug('Create volume resource end: %s', volume_id)
         return volume_res
 
-    def extract_image(self, image_id):
+    def extract_image(self, image_id, parent_name=None,
+                      parent_resources=None):
 
         parameter_name = self._collected_parameters.get(image_id)
 
         if not parameter_name:
             parameter_name = "image_%d" % self._get_parameter_num()
+            if parent_name and image_id in parent_resources:
+                parameter_name = parent_name + '.' + parameter_name
             self._collected_parameters[image_id] = parameter_name
 
         return parameter_name
@@ -421,7 +445,8 @@ class VolumeType(base.Resource):
         self._collected_parameters = collected_parameters or {}
         self._collected_dependencies = collected_dependencies or {}
 
-    def extract_volume_types(self, volume_type_ids):
+    def extract_volume_types(self, volume_type_ids, parent_name=None,
+                             parent_resources=None):
         if not volume_type_ids:
             _msg = 'Create volume type resource error: id is null.'
             LOG.error(_msg)
@@ -429,7 +454,9 @@ class VolumeType(base.Resource):
         volume_type_res = []
         try:
             for volume_type_id in volume_type_ids:
-                type_res = self.extract_volume_type(volume_type_id)
+                type_res = self.extract_volume_type(volume_type_id,
+                                                    parent_name,
+                                                    parent_resources)
                 volume_type_res.append(type_res)
         except exception.ResourceExtractFailed:
             raise
@@ -442,7 +469,8 @@ class VolumeType(base.Resource):
 
         return volume_type_res
 
-    def extract_volume_type(self, volume_type_id):
+    def extract_volume_type(self, volume_type_id, parent_name=None,
+                            parent_resources=None):
 
         LOG.debug('Create volume type resource start: %s', volume_type_id)
         properties = {}
@@ -474,7 +502,8 @@ class VolumeType(base.Resource):
                     collected_parameters=self._collected_parameters,
                     collected_dependencies=self._collected_dependencies)
 
-            qos_res = qos_driver.extract_qos(qos_id)
+            qos_res = qos_driver.extract_qos(qos_id, parent_name,
+                                             parent_resources)
             self._collected_resources = qos_driver.get_collected_resources()
             self._collected_dependencies = \
                 qos_driver.get_collected_dependencies()
@@ -491,7 +520,8 @@ class VolumeType(base.Resource):
         resource_type = "OS::Cinder::VolumeType"
         resource_name = 'volume_type_%d' % \
             self._get_resource_num(resource_type)
-
+        if parent_name and volume_type_id in parent_resources:
+            resource_name = parent_name + '.' + resource_name
         volume_type_res = resource.Resource(resource_name, resource_type,
                                             volume_type_id,
                                             properties=properties)
@@ -518,7 +548,8 @@ class QosResource(base.Resource):
         self._collected_parameters = collected_parameters or {}
         self._collected_dependencies = collected_dependencies or {}
 
-    def extract_qos(self, qos_id):
+    def extract_qos(self, qos_id, parent_name=None,
+                    parent_resources=None):
 
         LOG.debug('Create qos resource start: %s', qos_id)
         properties = {}
@@ -540,7 +571,8 @@ class QosResource(base.Resource):
 
         qos_type = "OS::Cinder::Qos"
         qos_name = 'CinderQos_%d' % self._get_resource_num(qos_type)
-
+        if parent_name and qos_id in parent_resources:
+            qos_name = parent_name + '.' + qos_name
         qos_res = resource.Resource(qos_name, qos_type,
                                     qos_id, properties=properties)
 

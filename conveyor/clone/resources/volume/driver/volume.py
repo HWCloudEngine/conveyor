@@ -57,7 +57,13 @@ class VolumeCloneDriver(object):
             set_plan_state(context, plan_id, plan_state,
                            plan_status.STATE_MAP)
             return
-
+        resource_names = resource_name.split('.')
+        if len(resource_names) >= 1:
+            if resource_names[0].startswith('stack'):
+                self._copy_stack_volume(context, resource_name, template,
+                                        plan_id, trans_data_wait_fun,
+                                        volume_wait_fun, set_plan_state)
+                return
         # 1. check instance which dependences this volume in template or not
         # if instance exists in template do not execute copy data step
         is_attached = self._check_volume_attach_instance(resource_name,
@@ -110,20 +116,24 @@ class VolumeCloneDriver(object):
                 str(CONF.v2vgateway_api_listen_port)
             )
             disks = set(client.vservices.get_disk_name().get('dev_name'))
-
-            if need_set_shareable:
-                self.cinder_api.set_volume_shareable(context, volume_id, True)
-                self.compute_api.attach_volume(context, vgw_id,
-                                               volume_id, None)
+            if CONF.is_provide_device_name:
+                if need_set_shareable:
+                    self.cinder_api.set_volume_shareable(context, volume_id,
+                                                         True)
+                    self.compute_api.attach_volume(context, vgw_id,
+                                                   volume_id, None)
+                    # des_dev_name = attach_resp._info.get('device')
+                    self._wait_for_shareable_volume_status(context, volume_id,
+                                                           vgw_id, 'in-use')
+                else:
+                    self.compute_api.attach_volume(context, vgw_id,
+                                                   volume_id, None)
+                    if volume_wait_fun:
+                        volume_wait_fun(context, volume_id, 'in-use')
                 # des_dev_name = attach_resp._info.get('device')
-                self._wait_for_shareable_volume_status(context, volume_id,
-                                                       vgw_id, 'in-use')
             else:
-                self.compute_api.attach_volume(context, vgw_id,
-                                               volume_id, None)
-                if volume_wait_fun:
-                    volume_wait_fun(context, volume_id, 'in-use')
-                # des_dev_name = attach_resp._info.get('device')
+                self._attach_volume_for_ok(context, need_set_shareable,
+                                           vgw_id, volume_id, volume_wait_fun)
             n_disks = set(client.vservices.get_disk_name().get('dev_name'))
             diff_disk = n_disks - disks
             des_dev_name = list(diff_disk)[0] if len(diff_disk) >= 1 else None
@@ -138,7 +148,8 @@ class VolumeCloneDriver(object):
         # 5. copy data
         try:
             result = self._copy_volume_data(context, resource_name,
-                                            vgw_ip, template, des_dev_name)
+                                            vgw_ip, vgw_id, template,
+                                            des_dev_name)
 
             des_gw_ip = result.get('des_ip')
             des_port = result.get('des_port')
@@ -193,8 +204,149 @@ class VolumeCloneDriver(object):
                 LOG.error('Volume clone error: detach failed:%(id)s,%(e)s',
                           {'id': volume_id, 'e': e})
 
+    def _copy_stack_volume(self, context, resource_name, template, plan_id,
+                           trans_data_wait_fun=None, volume_wait_fun=None,
+                           set_plan_state=None):
+        resources = template.get('resources')
+        volume_res = resources.get(resource_name)
+        ext_properties = volume_res.get('extra_properties', None)
+        if ext_properties:
+            sys_clone = ext_properties.get('sys_clone', False)
+            boot_index = ext_properties.get('boot_index', 1)
+        else:
+            sys_clone = False
+            boot_index = 1
+        if not sys_clone and boot_index in ['0', 0]:
+            plan_state = 'DATA_TRANS_FINISHED'
+            set_plan_state(context, plan_id, plan_state,
+                           plan_status.STATE_MAP)
+            return
+        volume_id = volume_res.get('id')
+        try:
+            volume_info = self.cinder_api.get(context, volume_id)
+        except Exception as e:
+            LOG.error("Clone volume driver get volume %(id)s error: %(error)s",
+                      {'id': volume_id, 'error': e})
+            raise exception.VolumeNotFound()
+        volume_status = volume_info['status']
+        v_shareable = volume_info.get('shareable', False)
+        volume_az = volume_info.get('availability_zone')
+        volume_attachments = volume_info.get('attachments', [])
+        if volume_status == 'in-use' and not v_shareable:
+            for attachment in volume_attachments:
+                server_id = attachment.get('server_id')
+                if not CONF.is_active_detach_volume:
+                    resouce_common = common.ResourceCommon()
+                    self.compute_api.stop_server(context, server_id)
+                    resouce_common._await_instance_status(context,
+                                                          server_id,
+                                                          'SHUTOFF')
+                self.compute_api.detach_volume(context, server_id,
+                                               volume_id)
+                if volume_wait_fun:
+                    volume_wait_fun(context, volume_id, 'available')
+        vgw_id, vgw_ip = utils.get_next_vgw(volume_az)
+        LOG.debug('Clone volume driver vgw info: id: %(id)s,ip: %(ip)s',
+                  {'id': vgw_id, 'ip': vgw_ip})
+        des_dev_name = None
+        try:
+            client = birdiegatewayclient.get_birdiegateway_client(
+                vgw_ip,
+                str(CONF.v2vgateway_api_listen_port)
+            )
+            disks = set(client.vservices.get_disk_name().get('dev_name'))
+            self.compute_api.attach_volume(context, vgw_id,
+                                           volume_id, None)
+            if volume_wait_fun:
+                volume_wait_fun(context, volume_id, 'in-use')
+            n_disks = set(client.vservices.get_disk_name().get('dev_name'))
+            diff_disk = n_disks - disks
+            des_dev_name = list(diff_disk)[0] if len(diff_disk) >= 1 else None
+            LOG.debug("dev_name = %s", des_dev_name)
+        except Exception as e:
+            LOG.error('Volume clone error: attach volume failed:%(id)s,%(e)s',
+                      {'id': volume_id, 'e': e})
+            raise exception.VolumeNotAttach(volume_id=volume_id,
+                                            seconds=120,
+                                            attempts=5)
+        # 5. copy data
+        try:
+            result = self._copy_volume_data(context, resource_name,
+                                            vgw_ip, vgw_id, template,
+                                            des_dev_name)
+
+            des_gw_ip = result.get('des_ip')
+            des_port = result.get('des_port')
+            task_ids = result.get('copy_tasks')
+            if trans_data_wait_fun:
+                trans_data_wait_fun(context, des_gw_ip,
+                                    des_port, task_ids,
+                                    plan_status.STATE_MAP,
+                                    plan_id)
+        except Exception as e:
+            LOG.error('Volume clone error: copy data failed:%(id)s,%(e)s',
+                      {'id': volume_id, 'e': e})
+            raise
+        finally:
+            try:
+                # if protocol is ftp, we should unmount volume in gateway vm
+                data_trans_protocol = CONF.data_transformer_procotol
+                if 'ftp' == data_trans_protocol:
+                    client = birdiegatewayclient.get_birdiegateway_client(
+                        vgw_ip,
+                        str(CONF.v2vgateway_api_listen_port)
+                    )
+                    client.vservices._force_umount_disk("/opt/" + volume_id)
+
+                # if provider cloud can not detach volume in active status
+                if not CONF.is_active_detach_volume:
+                    resouce_common = common.ResourceCommon()
+                    self.compute_api.stop_server(context, vgw_id)
+                    resouce_common._await_instance_status(context,
+                                                          vgw_id,
+                                                          'SHUTOFF')
+                # 5. detach volume
+                self.compute_api.detach_volume(context, vgw_id, volume_id)
+                if volume_wait_fun:
+                    volume_wait_fun(context, volume_id, 'available')
+
+                if not CONF.is_active_detach_volume:
+                    self.compute_api.start_server(context, vgw_id)
+                    resouce_common._await_instance_status(context,
+                                                          vgw_id,
+                                                          'ACTIVE')
+                for attachment in volume_attachments:
+                    server_id = attachment.get('server_id')
+                    self.compute_api.attach_volume(context, server_id,
+                                                   volume_id, None)
+                    if volume_wait_fun:
+                        volume_wait_fun(context, volume_id, 'in-use')
+            except Exception as e:
+                LOG.error('Volume clone error: detach failed:%(id)s,%(e)s',
+                          {'id': volume_id, 'e': e})
+
+    def _attach_volume_for_ok(self, context, need_set_shareable, vgw_id,
+                              volume_id, volume_wait_fun):
+        @utils.synchronized(vgw_id)
+        def _do_attach_volume_for_ok(context, need_set_shareable, vgw_id,
+                                     volume_id, volume_wait_fun):
+            if need_set_shareable:
+                self.cinder_api.set_volume_shareable(context, volume_id, True)
+                self.compute_api.attach_volume(context, vgw_id,
+                                               volume_id, None)
+                # des_dev_name = attach_resp._info.get('device')
+                self._wait_for_shareable_volume_status(context, volume_id,
+                                                       vgw_id, 'in-use')
+            else:
+                self.compute_api.attach_volume(context, vgw_id,
+                                               volume_id, None)
+                if volume_wait_fun:
+                    volume_wait_fun(context, volume_id, 'in-use')
+        _do_attach_volume_for_ok(context, need_set_shareable, vgw_id,
+                                 volume_id, volume_wait_fun)
+
     def _copy_volume_data(self, context, resource_name,
-                          des_gw_ip, template, dev_name):
+                          des_gw_ip, vgw_id, template, dev_name):
 
         LOG.debug('Clone volume driver copy data start for %s', resource_name)
         resources = template.get('resources')
@@ -206,8 +358,9 @@ class VolumeCloneDriver(object):
         des_gw_url = des_gw_ip + ':' + des_gw_port
         # data transformer procotol(ftp/fillp)
         data_trans_protocol = CONF.data_transformer_procotol
-        data_trans_ports = CONF.trans_ports
-        trans_port = data_trans_ports[0]
+        # data_trans_ports = CONF.trans_ports
+        # trans_port = data_trans_ports[0]
+        trans_port = utils.get_next_port_for_vgw(vgw_id)
         # 2. get source cloud gateway vm conveyor agent service ip and port
         src_gw_url = volume_ext_properties.get('gw_url')
 

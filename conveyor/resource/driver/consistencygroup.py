@@ -35,7 +35,8 @@ class ConsistencyGroup(base.Resource):
         self._collected_parameters = collected_parameters or {}
         self._collected_dependencies = collected_dependencies or {}
 
-    def extract_consistency_groups(self, cg_ids):
+    def extract_consistency_groups(self, cg_ids, parent_name=None,
+                                   parent_resources=None):
         if not cg_ids:
             _msg = 'Create consistency groups resource error: id is null.'
             LOG.error(_msg)
@@ -43,7 +44,8 @@ class ConsistencyGroup(base.Resource):
 
         try:
             for cg_id in cg_ids:
-                self.extract_consistency_group(cg_id)
+                self.extract_consistency_group(cg_id, parent_name,
+                                               parent_resources)
         except exception.ResourceExtractFailed:
             raise
         except Exception as e:
@@ -51,7 +53,8 @@ class ConsistencyGroup(base.Resource):
             LOG.error(_msg)
             raise exception.ResourceExtractFailed(_msg)
 
-    def extract_consistency_group(self, cg_id):
+    def extract_consistency_group(self, cg_id, parent_name=None,
+                                  parent_resources=None):
         # check consistency group resource exist or not
         cgroup_col = self._collected_resources.get(cg_id)
         if cgroup_col:
@@ -70,7 +73,8 @@ class ConsistencyGroup(base.Resource):
         cg_type = "OS::Cinder::ConsistencyGroup"
         cg_name = 'consistencyGroup%d' \
                   % self._get_resource_num(cg_type)
-
+        if parent_name and cg_id in parent_resources:
+            cg_name = parent_name + '.' + cg_name
         cg_res = resource.Resource(cg_name, cg_type,
                                    cg_id,
                                    properties=properties)
@@ -87,7 +91,9 @@ class ConsistencyGroup(base.Resource):
         if volume_types_id:
             volume_type_res = \
                 volume_driver.extract_volume_types(volume_types_id,
-                                                   cg_id)
+                                                   cg_id,
+                                                   parent_name,
+                                                   parent_resources)
             volume_type_property = []
             for v in volume_type_res:
                 # addd properties
@@ -110,7 +116,8 @@ class ConsistencyGroup(base.Resource):
             raise exception.ResourceExtractFailed(reason=_msg)
 
         if volume_ids:
-            volume_driver.extract_volumes(volume_ids, cg_id)
+            volume_driver.extract_volumes(volume_ids, cg_id, parent_name,
+                                          parent_resources)
 
         self._collected_resources = volume_driver.get_collected_resources()
         self._collected_dependencies = \

@@ -43,7 +43,8 @@ class InstanceResource(base.Resource):
         self.cinder_api = volume.API()
         self.neutron_api = network.API()
 
-    def extract_instances(self, instance_ids=None):
+    def extract_instances(self, instance_ids=None, parent_name=None,
+                          parent_resources=None):
 
         instance_reses = []
         servers = []
@@ -64,10 +65,13 @@ class InstanceResource(base.Resource):
                     raise exception.ResourceNotFound(message=msg)
 
         for server in servers:
-            res = self._extract_single_instance(server)
+            res = self._extract_single_instance(server, parent_name,
+                                                parent_resources)
             instance_reses.append(res)
+        return instance_reses
 
-    def _extract_single_instance(self, server):
+    def _extract_single_instance(self, server, parent_name=None,
+                                 parent_resources=None):
 
         if not server:
             return
@@ -87,6 +91,8 @@ class InstanceResource(base.Resource):
 
         resource_type = "OS::Nova::Server"
         resource_name = "server_%d" % self._get_resource_num(resource_type)
+        if parent_name and instance_id in parent_resources:
+            resource_name = parent_name + '.' + resource_name
         instance_resources = resource.Resource(resource_name, resource_type,
                                                instance_id, properties={})
 
@@ -118,7 +124,9 @@ class InstanceResource(base.Resource):
         if flavor and flavor.get('id'):
             flavor_id = flavor.get('id')
             try:
-                flavor_res = self.extract_flavors([flavor_id])
+                flavor_res = self.extract_flavors([flavor_id],
+                                                  parent_name,
+                                                  parent_resources)
                 instance_resources.add_property('flavor',
                                                 {'get_resource':
                                                  flavor_res[0].name})
@@ -136,7 +144,9 @@ class InstanceResource(base.Resource):
         keypair_name = server.get('key_name', '')
         if keypair_name:
             try:
-                keypair_res = self.extract_keypairs([keypair_name])
+                keypair_res = self.extract_keypairs([keypair_name],
+                                                    parent_name,
+                                                    parent_resources)
                 instance_resources.add_property('key_name',
                                                 {'get_resource':
                                                  keypair_res[0].name})
@@ -154,7 +164,8 @@ class InstanceResource(base.Resource):
         image = server.get('image', '')
         if image and image.get('id'):
             image_id = image.get('id')
-            image_para_name = self.extract_image(image_id)
+            image_para_name = self.extract_image(image_id, parent_name,
+                                                 parent_resources)
             description = ("Image to use to boot server or volume")
             constraints = [{'custom_constraint': "glance.image"}]
             instance_resources.add_parameter(image_para_name, description,
@@ -168,14 +179,17 @@ class InstanceResource(base.Resource):
                                       '')
         if volumes_attached:
             self._build_vm_bdm(server, instance_resources,
-                               instance_dependencies)
+                               instance_dependencies, parent_name,
+                               parent_resources)
 
         # extract network resources
         addresses = server.get('addresses', {})
         if addresses:
             self._build_vm_networks(server,
                                     instance_resources,
-                                    instance_dependencies)
+                                    instance_dependencies,
+                                    parent_name,
+                                    parent_resources)
         else:
             msg = "Instance addresses information is abnormal. \
                     'addresses' attribute is None"
@@ -194,7 +208,8 @@ class InstanceResource(base.Resource):
 
         return instance_resources
 
-    def extract_flavors(self, flavor_ids):
+    def extract_flavors(self, flavor_ids, parent_name=None,
+                        parent_resources=None):
 
         flavor_objs = []
         flavorResources = []
@@ -248,6 +263,8 @@ class InstanceResource(base.Resource):
 
             resource_type = "OS::Nova::Flavor"
             resource_name = "flavor_%d" % self._get_resource_num(resource_type)
+            if parent_name and resource_id in parent_resources:
+                resource_name = parent_name + '.' + resource_name
             flavor_res = resource.Resource(resource_name, resource_type,
                                            resource_id, properties=properties)
             name = flavor.get('name', "")
@@ -268,7 +285,8 @@ class InstanceResource(base.Resource):
 
         return flavorResources
 
-    def extract_keypairs(self, keypair_ids):
+    def extract_keypairs(self, keypair_ids, parent_name=None,
+                         parent_resources=None):
 
         keypair_objs = []
         keypairResources = []
@@ -306,6 +324,8 @@ class InstanceResource(base.Resource):
             resource_type = "OS::Nova::KeyPair"
             resource_name = "keypair_%d" \
                 % self._get_resource_num(resource_type)
+            if parent_name and resource_id in parent_resources:
+                resource_name = parent_name + '.' + resource_name
             keypair_res = resource.Resource(resource_name, resource_type,
                                             resource_id, properties=properties)
             keypair_dep = resource.ResourceDependency(resource_id,
@@ -327,7 +347,9 @@ class InstanceResource(base.Resource):
 
     def _build_vm_secgroups(self, server,
                             instance_resources,
-                            instance_dependencies):
+                            instance_dependencies,
+                            parent_name=None,
+                            parent_resources=None):
 
         server_id = server.get('id')
         LOG.debug('Extract security group of instance: %s.', server_id)
@@ -354,7 +376,9 @@ class InstanceResource(base.Resource):
                       collected_dependencies=collected_dependencies)
 
         try:
-            secgroups__res = nr.extract_secgroups(secgroup_id_list)
+            secgroups__res = nr.extract_secgroups(secgroup_id_list,
+                                                  parent_name,
+                                                  parent_resources)
             sec_property = []
             for sec in secgroups__res:
                 sec_property.append({'get_resource': sec.get('name')})
@@ -370,7 +394,8 @@ class InstanceResource(base.Resource):
             msg = "Instance security group extracted failed. %s" % unicode(e)
             LOG.error(msg)
 
-    def _build_vm_bdm(self, server, instance_resources, instance_dependencies):
+    def _build_vm_bdm(self, server, instance_resources, instance_dependencies,
+                      parent_name=None, parent_resources=None):
 
         server_id = server.get('id', '')
 
@@ -395,7 +420,8 @@ class InstanceResource(base.Resource):
                             collected_parameters=self._collected_parameters,
                             collected_dependencies=collected_dependencies)
 
-        volume_res = vr.extract_volumes(volume_ids)
+        volume_res = vr.extract_volumes(volume_ids, parent_name,
+                                        parent_resources)
 
         index = 0
         for v in volume_res:
@@ -429,7 +455,9 @@ class InstanceResource(base.Resource):
 
     def _build_vm_networks(self, server,
                            instance_resources,
-                           instance_dependencies):
+                           instance_dependencies,
+                           parent_name=None,
+                           parent_resources=None):
 
         server_id = server.get('id', '')
         LOG.debug('Extract network resources of instance: %s.', server_id)
@@ -474,7 +502,8 @@ class InstanceResource(base.Resource):
                         raise exception.ResourceNotFound(message=msg)
 
                     port_id = port[0].get('id')
-                    port_res = nr.extract_ports([port_id])
+                    port_res = nr.extract_ports([port_id], parent_name,
+                                                parent_resources)
 
                     network_properties.append({"port": {"get_resource":
                                                         port_res[0].name}})
@@ -496,16 +525,20 @@ class InstanceResource(base.Resource):
                         raise exception.ResourceNotFound(message=msg)
 
                     floatingip_id = floatingip[0].get('id')
-                    nr.extract_floatingips([floatingip_id])
+                    nr.extract_floatingips([floatingip_id], parent_name,
+                                           parent_resources)
 
         instance_resources.add_property('networks', network_properties)
 
-    def extract_image(self, image_id):
+    def extract_image(self, image_id, parent_name=None,
+                      parent_resources=None):
 
         parameter_name = self._collected_parameters.get(image_id)
 
         if not parameter_name:
             parameter_name = "image_%d" % self._get_parameter_num()
+            if parent_name and image_id in parent_resources:
+                parameter_name = parent_name + '.' + parameter_name
             self._collected_parameters[image_id] = parameter_name
 
         return parameter_name
