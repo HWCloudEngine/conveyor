@@ -630,7 +630,7 @@ class CloneManager(manager.Manager):
                     self._handle_stack_template(context, stack_res, stack_id,
                                                 template)
                     self._clone_stack(context, stack_res,
-                                                     plan_id, az_map)
+                                      plan_id, az_map)
                 values = {}
                 values['plan_status'] = plan_status.STATE_MAP.get('FINISHED')
                 self.plan_api.update_plan(context, plan_id, values)
