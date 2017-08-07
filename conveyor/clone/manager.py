@@ -653,16 +653,12 @@ class CloneManager(manager.Manager):
                                                      context)
         timer.start(interval=0.5).wait()
 
-        # add reback resource status after clone finished (wanggang)
-        # plan = self.plan_api.get_plan_by_id(context, id)
-        # clone_resources = plan.get('updated_resources', {})
-        clone_resources = update_res if update_resources else ori_res
         for key, value in resource_map.items():
             resource_map[key] = value.to_dict()
         self.clone_driver.reset_resources(context, resource_map)
 
         # save cloned_res and az_map
-        self._save_cloned_res_and_az(context, plan_id, az_map, clone_resources,
+        self._save_cloned_res_and_az(context, plan_id, az_map, update_res,
                                      cl_res, src_template,
                                      update_dep, clone_links)
         LOG.debug('end time of clone is %s' %
