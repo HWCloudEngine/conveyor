@@ -642,7 +642,7 @@ class CloneManager(manager.Manager):
                 self.plan_api.update_plan(context, plan_id, values)
             except Exception as e:
                 LOG.error(_LE("Clone stack resource error: %s"), e)
-                self.plan_api.update_plan(context, id,
+                self.plan_api.update_plan(context, plan_id,
                                           {'plan_status': plan_status.ERROR})
                 self.heat_api.delete_stack(context, plan_id)
 
@@ -1299,7 +1299,7 @@ class CloneManager(manager.Manager):
                                                   son_stack_id)
             plan = db_api.plan_get(context, plan_id)
             if plan.get('plan_status') == plan_status.ERROR:
-                raise exception.PlanCloneFailed(id=id, msg='')
+                raise exception.PlanCloneFailed(id=plan_id, msg='')
 
     def _get_template_contents(self, context, template_dict, des):
         LOG.debug('the origin template is %s', template_dict)
