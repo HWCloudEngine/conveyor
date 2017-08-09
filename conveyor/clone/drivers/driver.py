@@ -101,35 +101,106 @@ class BaseDriver(object):
             if clone_along_with_vm:
                 break
         if not clone_along_with_vm:
-            self._add_extra_properties_for_dep_volume(context, resource,
-                                                      copy_data, undo_mgr)
+            new_copy = resource.extra_properties['copy_data'] and copy_data
+            resource.extra_properties.update({'copy_data': new_copy})
+            if not new_copy:
+                return
+            volume_id = resource.extra_properties.get('id')
+            volume = self.volume_api.get(context, volume_id)
+            volume_status = volume['status']
+            resource.extra_properties['status'] = volume_status
+            if volume_status == 'in-use':
+                self._add_extra_prop_for_dep_in_use_volume(context, resource,
+                                                           copy_data, undo_mgr)
+            else:
+                self._add_extra_properties_for_dep_volume(context, resource,
+                                                          copy_data, undo_mgr)
+
+    def _add_extra_prop_for_dep_in_use_volume(self, context, resource,
+                                              copy_data, undo_mgr):
+        volume_id = resource.extra_properties.get('id')
+        volume = self.volume_api.get(context, volume_id)
+        v_shareable = volume['shareable']
+        gw_url = resource.extra_properties.get('gw_url')
+        gw_id = None
+        gw_ip = None
+        if not gw_url:
+            az = resource.properties.get('availability_zone')
+            gw_id, gw_ip = utils.get_next_vgw(az)
+            if not gw_id or not gw_ip:
+                raise exception.V2vException(message='no vgw host found')
+            gw_url = gw_ip + ':' + str(CONF.v2vgateway_api_listen_port)
+            resource.extra_properties.update({"gw_url": gw_url,
+                                              "gw_id": gw_id})
+        if not v_shareable:
+            v_attachments = volume.get('attachments', [])
+            resource.extra_properties['attachments'] = v_attachments
+            for attachment in v_attachments:
+                server_id = attachment.get('server_id')
+                server_info = self.compute_api.get_server(context,
+                                                          server_id)
+                vm_state = server_info.get('OS-EXT-STS:vm_state', None)
+                if vm_state != 'stopped':
+                    _msg = 'the server %s not stopped' % server_id
+                    raise exception.V2vException(message=_msg)
+                device = attachment.get('device')
+                self.compute_api.detach_volume(context, server_id,
+                                               volume_id)
+                self._wait_for_volume_status(context, volume_id,
+                                             server_id,
+                                             'available')
+                undo_mgr.undo_with(functools.partial(self._attach_volume,
+                                                     context,
+                                                     server_id,
+                                                     volume_id,
+                                                     device))
+        client = birdiegatewayclient.get_birdiegateway_client(
+            gw_ip,
+            str(CONF.v2vgateway_api_listen_port)
+        )
+        disks = set(client.vservices.get_disk_name().get('dev_name'))
+        LOG.debug('Attach volume %s to gw host %s', volume_id, gw_id)
+        attach_resp = self.compute_api.attach_volume(context,
+                                                     gw_id,
+                                                     volume_id,
+                                                     None)
+        LOG.debug('The volume attachment info is %s '
+                  % str(attach_resp))
+        undo_mgr.undo_with(functools.partial(self._detach_volume,
+                                             context,
+                                             gw_id,
+                                             volume_id))
+        self._wait_for_volume_status(context, volume_id, gw_id,
+                                     'in-use')
+        n_disks = set(client.vservices.get_disk_name().get('dev_name'))
+        diff_disk = n_disks - disks
+        LOG.debug('Begin get info for volume,the vgw ip %s' % gw_ip)
+        sys_dev_name = list(diff_disk)[0] if len(diff_disk) >= 1 else None
+        LOG.debug("dev_name = %s", sys_dev_name)
+        resource.extra_properties['sys_dev_name'] = sys_dev_name
+        guest_format = client.vservices.get_disk_format(sys_dev_name) \
+            .get('disk_format')
+        if guest_format:
+            resource.extra_properties['guest_format'] = guest_format
+            mount_point = client.vservices.force_mount_disk(
+                sys_dev_name, "/opt/" + volume_id)
+            resource.extra_properties['mount_point'] = mount_point.get(
+                'mount_disk')
 
     def _add_extra_properties_for_dep_volume(self, context, resource,
                                              copy_data, undo_mgr):
-        volume_id = resource.id
-        volume = self.volume_api.get(context, volume_id)
-        volume_status = volume['status']
-        is_shareable = volume['shareable']
-        if volume_status == 'in_use' and is_shareable == 'false':
-            error_message = 'the volume is in_use and not shareable'
-            raise exception.V2vException(message=error_message)
-        else:
-            gw_url = resource.extra_properties.get('gw_url')
-            if not gw_url:
-                az = resource.properties.get('availability_zone')
-                gw_id, gw_ip = utils.get_next_vgw(az)
-                if not gw_id or not gw_ip:
-                    raise exception.V2vException(message='no vgw host found')
-                gw_url = gw_ip + ':' + str(CONF.v2vgateway_api_listen_port)
-                resource.extra_properties.update({"gw_url": gw_url,
-                                                  "gw_id": gw_id})
-                resource.extra_properties['is_deacidized'] = True
-                new_copy = \
-                    resource.extra_properties['copy_data'] and copy_data
-                resource.extra_properties.update({'copy_data': new_copy})
-                if new_copy:
-                    self._handle_dep_volume(context, resource, gw_id, gw_ip,
-                                            undo_mgr)
+        gw_url = resource.extra_properties.get('gw_url')
+        if not gw_url:
+            az = resource.properties.get('availability_zone')
+            gw_id, gw_ip = utils.get_next_vgw(az)
+            if not gw_id or not gw_ip:
+                raise exception.V2vException(message='no vgw host found')
+            gw_url = gw_ip + ':' + str(CONF.v2vgateway_api_listen_port)
+            resource.extra_properties.update({"gw_url": gw_url,
+                                              "gw_id": gw_id})
+            resource.extra_properties['is_deacidized'] = True
+            self._handle_dep_volume(context, resource, gw_id, gw_ip,
+                                    undo_mgr)
 
     def _handle_dep_volume(self, context, resource, gw_id, gw_ip, undo_mgr):
         volume_id = resource.id
@@ -370,47 +441,76 @@ class BaseDriver(object):
             if clone_along_with_vm:
                 break
         if not clone_along_with_vm:
-            self._handle_dep_volume_after_clone(context, resource)
+            v_status = resource.get('extra_properties', {}).get('status')
+            if v_status == 'in-use':
+                self._handle_dep_in_use_volume_after_clone(context,
+                                                           resource)
+            else:
+                self._handle_dep_volume_after_clone(context, resource)
+
+    def _handle_dep_in_use_volume_after_clone(self, context, resource):
+        try:
+            copy_data = resource.get('extra_properties', {}). \
+                get('copy_data')
+            if not copy_data:
+                return
+            attachments = resource.get('extra_properties', {}) \
+                .get('attachments')
+            volume_id = resource.get('extra_properties', {}) \
+                .get('id')
+            vgw_id = resource.get('extra_properties').get('gw_id')
+            self._detach_volume(context, vgw_id, volume_id)
+            if attachments:
+                for attachment in attachments:
+                    server_id = attachment.get('server_id')
+                    device = attachment.get('device')
+                    self.compute_api.attach_volume(context,
+                                                   server_id,
+                                                   volume_id,
+                                                   device)
+        except Exception as e:
+            LOG.error(_LE('Error from handle dependent in use volume after'
+                          ' clone.'
+                          'Error=%(e)s'), {'e': e})
 
     def _handle_dep_volume_after_clone(self, context, resource):
         volume_id = resource.get('extra_properties', {}).get('id')
-        if resource.get('extra_properties', {}).get('is_deacidized'):
-            extra_properties = resource.get('extra_properties', {})
-            vgw_id = extra_properties.get('gw_id')
-            if not extra_properties.get('copy_data', True):
-                return
-            if vgw_id:
-                try:
-                    mount_point = resource.get('extra_properties', {}) \
-                        .get('mount_point')
-                    if mount_point:
-                        vgw_url = resource.get('extra_properties', {}) \
-                            .get('gw_url')
-                        vgw_ip = vgw_url.split(':')[0]
-                        client = birdiegatewayclient.get_birdiegateway_client(
-                            vgw_ip, str(CONF.v2vgateway_api_listen_port))
-                        client.vservices._force_umount_disk(
-                            "/opt/" + volume_id)
+        extra_properties = resource.get('extra_properties', {})
+        vgw_id = extra_properties.get('gw_id')
+        if not extra_properties.get('copy_data', True):
+            return
+        if vgw_id:
+            try:
+                mount_point = resource.get('extra_properties', {}) \
+                    .get('mount_point')
+                if mount_point:
+                    vgw_url = resource.get('extra_properties', {}) \
+                        .get('gw_url')
+                    vgw_ip = vgw_url.split(':')[0]
+                    client = birdiegatewayclient.get_birdiegateway_client(
+                        vgw_ip, str(CONF.v2vgateway_api_listen_port))
+                    client.vservices._force_umount_disk(
+                        "/opt/" + volume_id)
 
-                    # if provider cloud can not detach volume in active status
-                    resouce_common = common.ResourceCommon()
-                    if not CONF.is_active_detach_volume:
-                        # resouce_common = common.ResourceCommon()
-                        self.compute_api.stop_server(context, vgw_id)
-                        resouce_common._await_instance_status(context,
-                                                              vgw_id,
-                                                              'SHUTOFF')
-                    self.compute_api.detach_volume(context,
-                                                   vgw_id,
-                                                   volume_id)
-                    self._wait_for_volume_status(context, volume_id, vgw_id,
-                                                 'available')
+                # if provider cloud can not detach volume in active status
+                resouce_common = common.ResourceCommon()
+                if not CONF.is_active_detach_volume:
+                    # resouce_common = common.ResourceCommon()
+                    self.compute_api.stop_server(context, vgw_id)
+                    resouce_common._await_instance_status(context,
+                                                          vgw_id,
+                                                          'SHUTOFF')
+                self.compute_api.detach_volume(context,
+                                               vgw_id,
+                                               volume_id)
+                self._wait_for_volume_status(context, volume_id, vgw_id,
+                                             'available')
 
-                    if not CONF.is_active_detach_volume:
-                        self.compute_api.start_server(context, vgw_id)
-                        resouce_common._await_instance_status(context,
-                                                              vgw_id,
-                                                              'ACTIVE')
-                except Exception as e:
-                    LOG.error(_LE('Error from handle volume of vm after clone.'
-                                  'Error=%(e)s'), {'e': e})
+                if not CONF.is_active_detach_volume:
+                    self.compute_api.start_server(context, vgw_id)
+                    resouce_common._await_instance_status(context,
+                                                          vgw_id,
+                                                          'ACTIVE')
+            except Exception as e:
+                LOG.error(_LE('Error from handle volume of vm after clone.'
+                              'Error=%(e)s'), {'e': e})
