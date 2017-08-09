@@ -15,6 +15,7 @@
 #    under the License.
 
 import copy
+import json
 import numbers
 import six
 
@@ -200,6 +201,7 @@ class ResourceManager(manager.Manager):
                                   'id': clone_res.get('id')})
         original_resources, original_dep = \
             self._build_reources_topo(context, resources)
+        self._add_stack_resources_to_original_resources(original_resources)
         # 4. query already cloned resources
         topo_result = []
         for src_az, des_az in availability_zone_map.items():
@@ -470,7 +472,7 @@ class ResourceManager(manager.Manager):
         return stack_resources
 
     def _fliter_resources_by_stack(self, stack_resources, resouces):
-        '''remove resource in resources, which in stack_reosurces'''
+        """remove resource in resources, which in stack_reosurces"""
         res_list = []
         for res in resouces:
             if res not in stack_resources:
@@ -577,7 +579,14 @@ class ResourceManager(manager.Manager):
         for r_n, res in resources.items():
             properties = res.get('properties', {})
             az = properties.get('availability_zone', 'non-az')
-            if az == availability_zone:
+            res_type = res.get('type', '')
+            az_list = []
+            if 'OS::Heat::Stack' == res_type:
+                stack_temp = res.get('properties', {}).get('template', {})
+                p_dict = json.loads(stack_temp)
+                stack_res = p_dict.get('resources', {})
+                az_list = self._get_stack_resources_az_list(stack_res)
+            if az == availability_zone or availability_zone in az_list:
                 depend = dependencies.get(r_n, None)
                 if depend:
                     flag, rs = \
@@ -630,7 +639,7 @@ class ResourceManager(manager.Manager):
         return result
 
     def _add_topo_items(self, topo_list, add_datas):
-        '''insert add_datas to topo_list, if not exist'''
+        """insert add_datas to topo_list, if not exist"""
         add_temp = []
         if not add_datas:
             return
@@ -737,6 +746,7 @@ class ResourceManager(manager.Manager):
 
     def _clone_object_include_resources(self, clone_resources,
                                         cloned_resources):
+        """remove conveyor cloned resources in this cloning resources list"""
         if not cloned_resources:
             return
         cloned_resources_ids = []
@@ -753,6 +763,30 @@ class ResourceManager(manager.Manager):
                 res_id = clone_res.get('id', '')
                 if res_id in cloned_resources_ids:
                     clone_reses.remove(clone_res)
+
+    def _add_stack_resources_to_original_resources(self, origial_resources):
+        """if original resources include stack, add resources in stack to
+           origial_resources
+           """
+        stack_resources = {}
+        for res_key, res in origial_resources.items():
+            res_type = res.get('type', '')
+            if 'OS::Heat::Stack' == res_type:
+                stack_temp = res.get('properties', {}).get('template', {})
+                p_dict = json.loads(stack_temp)
+                stack_res = p_dict.get('resources', {})
+                stack_resources.update(stack_res)
+        origial_resources.update(stack_resources)
+
+    def _get_stack_resources_az_list(self, stack_resources):
+        """list all az of stack resources"""
+        az_list = []
+        for stack_res in stack_resources.values():
+            properties = stack_res.get('properties', {})
+            az = properties.get('availability_zone', None)
+            if az:
+                az_list.append(az)
+        return az_list
 
     def _is_resource_exist(self, res_id, cloned_resources):
         if not cloned_resources:
@@ -821,6 +855,29 @@ class ResourceManager(manager.Manager):
                 resource_obj = updated_res.get(i_key)
                 resource_name = i_key
                 break
+        if not resource_id or not resource_obj:
+            # get resources from stack
+            for r_key, r_value in updated_res.items():
+                r_type = r_value.get('type')
+                if r_type == 'OS::Heat::Stack':
+                    template = r_value['properties'].get('template')
+                    template_dict = json.loads(template)
+                    s_resource = template_dict.get('resources', {})
+                    for s_key, s_value in s_resource.items():
+                        ext_id = s_value['extra_properties']['id']
+                        if resource_id == ext_id:
+                            resource_obj = s_resource.get(s_key)
+                            resource_name = s_key
+                            all_resources = dict(updated_res.items() +
+                                                 s_resource.items())
+                            self._update_plan_resource(context, data_copy,
+                                                       all_resources,
+                                                       updated_dep,
+                                                       res, resources_list)
+                            s_resource[s_key] = all_resources.get(s_key)
+                            r_value['properties']['template'] = \
+                                json.dumps(template_dict)
+                            return
         if not resource_id or not resource_obj:
             msg = "%s resource not found." % resource_id
             LOG.error(msg)
@@ -1028,6 +1085,31 @@ class ResourceManager(manager.Manager):
                 des_name = i_key
             else:
                 continue
+        if not resource_id or not resource_obj:
+            for r_key, r_value in updated_res.items():
+                    r_type = r_value.get('type')
+                    if r_type == 'OS::Heat::Stack':
+                        template = r_value['properties'].get('template')
+                        template_dict = json.loads(template)
+                        s_resource = template_dict.get('resources', {})
+                        for s_key, s_value in s_resource.items():
+                            ext_id = i_value['extra_properties']['id']
+                            if resource_id == ext_id:
+                                resource_obj = updated_res.get(i_key)
+                                resource_name = i_key
+                            elif new_res_id == ext_id:
+                                des_name = i_key
+                        if resource_id and resource_obj:
+                            all_resources = dict(updated_res.items() +
+                                                 s_resource.items())
+                            self._replace_plan_resource(context, all_resources,
+                                                        updated_dep,
+                                                        rep_res,
+                                                        resources_list)
+                            s_resource[s_key] = all_resources.get(s_key)
+                            r_value['properties']['template'] = json.dumps(
+                                template_dict)
+                            return
         if not resource_id or not resource_obj:
             msg = "%s resource not found." % resource_id
             LOG.error(msg)

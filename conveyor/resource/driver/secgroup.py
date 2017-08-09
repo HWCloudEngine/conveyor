@@ -43,7 +43,8 @@ class SecGroup(base.Resource):
 
         if not secgroup_ids:
             LOG.debug('Extract resources of security groups')
-            return secgroupResources
+            secgroup_list = self.neutron_api.secgroup_list(self.context)
+            secgroup_objs = filter(self._tenant_filter, secgroup_list)
         else:
             LOG.debug('Extract resources of security groups: %s',
                       secgroup_ids)
