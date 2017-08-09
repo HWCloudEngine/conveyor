@@ -598,16 +598,9 @@ class CloneManager(manager.Manager):
                         cinderclient_exceptions.NotFound):
                     pass
 
-        try:
-            self._add_clone_links(context, plan_id, clone_links,
-                                  template_resource, az_map,
-                                  template['parameters'])
-        except exception.ResourceTypeNotFound:
-            LOG.error(_LE("clone links type is not correct"))
-            raise
-        except exception.IdNotInResource:
-            LOG.error(_LE("clone links type is not correct"))
-            raise
+        inner_link = self._update_template_by_clone_link(
+            context, plan_id, clone_links, template_resource, az_map,
+            template['parameters'])
         template = {
             "template": {
                 "heat_template_version": '2013-05-23',
@@ -620,17 +613,30 @@ class CloneManager(manager.Manager):
         LOG.debug("The template is  %s ", template)
         cl_res = copy.deepcopy(template_resource)
         stack_id, src_template = self.start_template_clone(context, template)
+
+        # save the az relation
+        relation_map = {}
+        relation_deps = {}
+        for d_az in az_map.values():
+            relation_map[d_az] = []
+            relation_deps[d_az] = []
+
         if not stack_id:
             LOG.error(_LE('Clone template error'))
             self.plan_api.update_plan(context, plan_id,
                                       {'plan_status': plan_status.ERROR})
         else:
+            self._update_relation_deps(context, update_res, cl_res,
+                                       src_template, update_dep, clone_links,
+                                       relation_map, relation_deps)
             try:
                 for stack_res in stack_reses:
                     self._handle_stack_template(context, stack_res, stack_id,
                                                 template)
-                    self._clone_stack(context, stack_res,
-                                                     plan_id, az_map)
+                    inner_link = self._clone_stack(
+                        context, stack_res, plan_id, az_map,
+                        inner_link, relation_map, relation_deps,
+                        update_dep, update_res)
                 values = {}
                 values['plan_status'] = plan_status.STATE_MAP.get('FINISHED')
                 self.plan_api.update_plan(context, plan_id, values)
@@ -658,21 +664,30 @@ class CloneManager(manager.Manager):
         self.clone_driver.reset_resources(context, resource_map)
 
         # save cloned_res and az_map
-        self._save_cloned_res_and_az(context, plan_id, az_map, update_res,
-                                     cl_res, src_template,
-                                     update_dep, clone_links)
+        if src_template:
+            self._save_relation_and_deps(context, plan_id, az_map,
+                                         relation_map, relation_deps)
         LOG.debug('end time of clone is %s' %
                   (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())))
 
-    def _save_cloned_res_and_az(self, context, plan_id, az_map,
-                                clone_resources, cl_res,
-                                src_resources, src_deps, clone_links):
-        relation_map = {}
-        relation_deps = {}
-        for d_az in az_map.values():
-            relation_map[d_az] = []
-            relation_deps[d_az] = []
+    def _update_template_by_clone_link(self, context, plan_id, clone_links,
+                                       template_res, az_map, template_pa):
+        try:
+            inner_link = self._add_clone_links(
+                context, plan_id, clone_links, template_res, az_map,
+                template_pa)
+            LOG.debug("The inner_link is  %s ", inner_link)
+        except exception.ResourceTypeNotFound:
+            LOG.error(_LE("clone links type is not correct"))
+            raise
+        except exception.IdNotInResource:
+            LOG.error(_LE("clone links type is not correct"))
+            raise
+        return inner_link
 
+    def _update_relation_deps(self, context, clone_resources, cl_res,
+                              src_resources, src_deps, clone_links,
+                              relation_map, relation_deps):
         def _add_dep(o_deps, az_info):
             for i_d in o_deps:
                 for r_d in relation_deps[az_info]:
@@ -681,44 +696,49 @@ class CloneManager(manager.Manager):
                 else:
                     d_res = clone_resources.get(i_d['name'], {})
                     if d_res:
+                        de_id = None
                         if src_resources['parameters'].get(i_d['name'], {}):
                             de_id = src_resources['parameters'].get(
                                 i_d['name'])['default']
                         elif src_resources['resources'].get(i_d['name'], {}):
                             de_id = src_resources['resources'].get(
                                 i_d['name'])['id']
-                        else:
-                            raise
-                        relation_map[az_info].append(
-                            {
-                                'src_resource_id':
-                                    d_res['extra_properties']['id'],
-                                'des_resource_id': de_id
-                            })
+                        if de_id is not None:
+                            relation_map[az_info].append(
+                                {
+                                    'src_resource_id':
+                                        d_res['extra_properties']['id'],
+                                    'des_resource_id': de_id
+                                })
                         d_dep = src_deps.get(i_d['name'])
-                        relation_deps[az_info].append(d_dep)
-                        _add_dep(d_dep['dependencies'], az_info)
+                        if d_dep:
+                            relation_deps[az_info].append(d_dep)
+                            _add_dep(d_dep['dependencies'], az_info)
 
         for i_key, i_res in cl_res.items():
             i_az = i_res['properties'].get('availability_zone', None)
+            if i_az is None:
+                i_az = self._check_server_volume_az(
+                    context, i_res['type'], i_res['extra_properties']['id'])
             if i_az is None:
                 continue
             for i_d in relation_deps[i_az]:
                 if i_d['name'] == i_key:
                     break
             else:
+                des_id = None
                 if src_resources['parameters'].get(i_key, {}):
                     des_id = src_resources['parameters'][i_key]['default']
                 elif src_resources['resources'].get(i_key, {}):
                     des_id = src_resources['resources'][i_key]['id']
-                else:
-                    raise
-                relation_map[i_az].append(
-                    {'src_resource_id': i_res['extra_properties']['id'],
-                     'des_resource_id': des_id})
-                i_deps = src_deps.get(i_key)
-                relation_deps[i_az].append(i_deps)
-                _add_dep(i_deps['dependencies'], i_az)
+                if des_id:
+                    relation_map[i_az].append(
+                        {'src_resource_id': i_res['extra_properties']['id'],
+                         'des_resource_id': des_id})
+                i_deps = src_deps.get(i_key, {})
+                if i_deps:
+                    relation_deps[i_az].append(i_deps)
+                    _add_dep(i_deps['dependencies'], i_az)
         for cl in clone_links:
             n_dep = dict(name_in_template='', type=cl['src_type'],
                          id=cl['src_id'], name='')
@@ -733,6 +753,9 @@ class CloneManager(manager.Manager):
                             dependencies=dependencies, type=cl['attach_type'],
                             id=cl['attach_id'], is_cloned=False)
                 relation_deps[cl['az']].append(deps)
+
+    def _save_relation_and_deps(self, context, plan_id, az_map,
+                                relation_map, relation_deps):
         for d_az in az_map.values():
             cloned_res = {
                 'plan_id': plan_id,
@@ -744,9 +767,6 @@ class CloneManager(manager.Manager):
                 db_api.plan_cloned_resource_create(context, cloned_res)
             except Exception as e:
                 raise e
-        self._save_az_map(context, plan_id, az_map)
-
-    def _save_az_map(self, context, plan_id, az_map):
         try:
             values = {'az_mapper': az_map, 'plan_id': plan_id}
             db_api.plan_availability_zone_mapper_create(context, values)
@@ -774,6 +794,17 @@ class CloneManager(manager.Manager):
                         return server.get('OS-EXT-AZ:availability_zone', '')
         return None
 
+    def _check_server_volume_az(self, context, i_type, i_id):
+        src = self.res_api.get_resource_detail(context, i_type, i_id)
+        src_az = self._extract_az(i_type, src)
+        if src_az:
+            return src_az
+        if "OS::Neutron::Port" == i_type:
+            return self._extract_port_az(context, i_id)
+        else:
+            LOG.error(_LE("unsupported type in _check_server_volume_az"))
+            return None
+
     def _check_link_az(self, context, clone_link):
         src = self.res_api.get_resource_detail(context, clone_link['src_type'],
                                                clone_link['src_id'])
@@ -792,13 +823,32 @@ class CloneManager(manager.Manager):
             return self._extract_port_az(context, clone_link['attach_id'])
         else:
             LOG.error(_LE("unsupported type in check az"))
-            pass
+            return None
+
+    def _check_clone_link_in_template(self, cl, template_res, template_par):
+        for j_key, j_res in template_par.items():
+            if j_res['default'] == cl['src_id']:
+                return False
+            if j_res['default'] == cl['attach_id']:
+                return False
+        for i_key, i_res in template_res.items():
+            if i_res['extra_properties']['id'] == cl['src_id']:
+                return False
+            if i_res['extra_properties']['id'] == cl['attach_id']:
+                return False
+        return True
 
     def _add_clone_links(self, context, plan_id, clone_links,
                          template_resource, az_map, template_para):
         ind = 1
         clone_template = {}
-        for cl in clone_links:
+        pop_links = []
+        for cl in clone_links[::-1]:
+            if self._check_clone_link_in_template(cl, template_resource,
+                                                  template_para):
+                clone_links.remove(cl)
+                pop_links.append(cl)
+                continue
             des_az = self._check_link_az(context, cl)
             cloned_res = db_api.plan_cloned_resource_get(
                 context, plan_id,
@@ -932,9 +982,10 @@ class CloneManager(manager.Manager):
                 # raise exception.ResourceTypeNotFound()
                 pass
             ind += 1
-            if temp_map.get('properties'):
+            if temp_map[name].get('properties'):
                 clone_template.update(temp_map)
         template_resource.update(clone_template)
+        return pop_links
 
     def _translate_clone_link_id(self, temp_map, template_resource, src_map,
                                  attach_map, name, src_property,
@@ -1013,7 +1064,8 @@ class CloneManager(manager.Manager):
             _get_re(v.get('properties'))
         stack_res.properties['template'] = json.dumps(top_template)
 
-    def _clone_stack(self, context, stack_info, plan_id, des):
+    def _clone_stack(self, context, stack_info, plan_id, des, inner_link,
+                     relation_map, relation_deps, update_dep, update_res):
         LOG.debug('begin clone stack')
         stack_in = stack_info.to_dict()
         template = stack_in['properties'].get('template')
@@ -1025,11 +1077,15 @@ class CloneManager(manager.Manager):
         stack_in['properties'].pop('parameters', None)
         stack_in.pop('extra_properties', None)
         stack_in.pop('parameters', None)
-        stack_in.pop('id', None)
+        original_id = stack_in.pop('id', None)
         stack_in.pop('name', None)
         if stack_in['properties'].get('parameters'):
             stack_in['properties'].pop('parameters')
         self._delete_exist_res_for_stack(context, template_dict)
+        son_link = self._update_template_by_clone_link(
+            context, plan_id, inner_link, template_dict['resources'], des,
+            template_dict['parameters'])
+        cloned_res = copy.deepcopy(template_dict['resources'])
         template_dict = self._get_template_contents(context,
                                                     template_dict, des)
         stack_in['properties']['template'] = json.dumps(template_dict)
@@ -1086,7 +1142,34 @@ class CloneManager(manager.Manager):
         new_stack_id = new_stack_res.physical_resource_id
         self._copy_data_for_stack(context, origin_template_dict,
                                   stack_id, plan_id, new_stack_id)
-        return stack_id
+
+        # save relation and dep
+        for key, r_resource in template_dict['resources'].items():
+            heat_resource = self.original_heat_api.get_resource(
+                context, new_stack_id, key)
+            r_resource['id'] = heat_resource.physical_resource_id
+        self._update_relation_deps(context, update_res, cloned_res,
+                                   template_dict, update_dep, inner_link,
+                                   relation_map, relation_deps)
+        for i_k, i_r in update_dep.items():
+            if i_r['type'] == 'OS::Heat::Stack' and i_r['id'] == original_id:
+                for i_d in i_r['dependencies']:
+                    i_az = self._check_server_volume_az(
+                        context, i_d['type'], i_d['id'])
+                    if i_az:
+                        d_az = des.get(i_az)
+                        for r_d in relation_deps[d_az]:
+                            if i_r['id'] == r_d['id']:
+                                break
+                        else:
+                            relation_map[d_az].append(
+                                {
+                                    'src_resource_id': original_id,
+                                    'des_resource_id': new_stack_id
+                                })
+                            relation_deps[d_az].append(i_r)
+                break
+        return son_link
 
     def _delete_exist_res_for_stack(self, context, template_dict):
         resource_cb_map = {
@@ -1139,7 +1222,11 @@ class CloneManager(manager.Manager):
                 # maybe exist problem if the network not exist
                 for _fix_ip in resource.get('properties', {})\
                                        .get('fixed_ips', []):
-                    if _pop_need or not _fix_ip.get('ip_address'):
+                    ip_a = _fix_ip.get('ip_address', None)
+                    subnet_id = _fix_ip.get('subnet_id', None)
+                    valid_ip = self._validate_ipaddress_in_subnet(
+                        context, key, ip_a, subnet_id, template_resource)
+                    if _pop_need or not valid_ip:
                         _fix_ip.pop('ip_address', None)
             cb = resource_cb_map.get(resource['type'])
             exist_resource_type = ['OS::Cinder::Volume']

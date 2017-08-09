@@ -34,7 +34,8 @@ class Resource(object):
         self.properties = properties or {}
         self.extra_properties = extra_properties or {}
         self.parameters = parameters or {}
-        self.extra_properties['id'] = self.id
+        if self.id:
+            self.extra_properties['id'] = self.id
 
     def add_parameter(self, name, description, parameter_type='string',
                       constraints=None, default=None):
