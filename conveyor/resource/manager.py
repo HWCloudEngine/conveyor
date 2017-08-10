@@ -319,6 +319,8 @@ class ResourceManager(manager.Manager):
             # 1.remove server which in stack resources
             instance_ids = self._fliter_resources_by_stack(stack_resources,
                                                            instance_ids)
+            # remove vgw instances
+            instance_ids = self._filter_gw_instance(instance_ids)
             ir.extract_instances(instance_ids)
 
         new_resources = ir.get_collected_resources()
@@ -795,6 +797,25 @@ class ResourceManager(manager.Manager):
             if res.get('id') == res_id:
                 return True, res
         return False, None
+
+    def _filter_gw_instance(self, instance_ids):
+        '''remove gw instances frome clone resources list'''
+        if not instance_ids:
+            return []
+        vgw_dict = {}
+        try:
+            vgw_str = '{' + CONF.vgw_info + '}'
+            vgw_dict = eval(vgw_str)
+        except Exception as e:
+            LOG.warn('read the vgw info error: %s', e)
+        vgw_ids = []
+        for vgw_info in vgw_dict.values():
+            vgw_ids.extend(vgw_info.keys())
+        res_id = []
+        for instance_id in instance_ids:
+            if instance_id not in vgw_ids:
+                res_id.append(instance_id)
+        return res_id
 
     def delete_cloned_resource(self, context, plan_id):
         try:

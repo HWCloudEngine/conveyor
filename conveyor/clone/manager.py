@@ -723,7 +723,7 @@ class CloneManager(manager.Manager):
                     i_az = self._check_server_volume_az(
                         context, i_res['type'],
                         i_res['extra_properties']['id'])
-                    i_az = az_map[i_az]
+                    i_az = az_map.get(i_az, None)
             if i_az is None:
                 continue
             for i_d in relation_deps[i_az]:
