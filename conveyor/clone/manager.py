@@ -626,10 +626,11 @@ class CloneManager(manager.Manager):
             self.plan_api.update_plan(context, plan_id,
                                       {'plan_status': plan_status.ERROR})
         else:
-            self._update_relation_deps(context, update_res, cl_res,
-                                       src_template, update_dep, clone_links,
-                                       relation_map, relation_deps)
             try:
+                self._update_relation_deps(context, update_res, cl_res,
+                                           src_template, update_dep,
+                                           clone_links, relation_map,
+                                           relation_deps, az_map)
                 for stack_res in stack_reses:
                     self._handle_stack_template(context, stack_res, stack_id,
                                                 template)
@@ -642,7 +643,7 @@ class CloneManager(manager.Manager):
                 self.plan_api.update_plan(context, plan_id, values)
             except Exception as e:
                 LOG.error(_LE("Clone stack resource error: %s"), e)
-                self.plan_api.update_plan(context, id,
+                self.plan_api.update_plan(context, plan_id,
                                           {'plan_status': plan_status.ERROR})
                 self.heat_api.delete_stack(context, plan_id)
 
@@ -687,7 +688,7 @@ class CloneManager(manager.Manager):
 
     def _update_relation_deps(self, context, clone_resources, cl_res,
                               src_resources, src_deps, clone_links,
-                              relation_map, relation_deps):
+                              relation_map, relation_deps, az_map):
         def _add_dep(o_deps, az_info):
             for i_d in o_deps:
                 for r_d in relation_deps[az_info]:
@@ -718,8 +719,11 @@ class CloneManager(manager.Manager):
         for i_key, i_res in cl_res.items():
             i_az = i_res['properties'].get('availability_zone', None)
             if i_az is None:
-                i_az = self._check_server_volume_az(
-                    context, i_res['type'], i_res['extra_properties']['id'])
+                if i_res.get('extra_properties', {}):
+                    i_az = self._check_server_volume_az(
+                        context, i_res['type'],
+                        i_res['extra_properties']['id'])
+                    i_az = az_map[i_az]
             if i_az is None:
                 continue
             for i_d in relation_deps[i_az]:
@@ -1086,6 +1090,7 @@ class CloneManager(manager.Manager):
             context, plan_id, inner_link, template_dict['resources'], des,
             template_dict['parameters'])
         cloned_res = copy.deepcopy(template_dict['resources'])
+        self._change_stack_az(cloned_res, des)
         template_dict = self._get_template_contents(context,
                                                     template_dict, des)
         stack_in['properties']['template'] = json.dumps(template_dict)
@@ -1150,7 +1155,7 @@ class CloneManager(manager.Manager):
             r_resource['id'] = heat_resource.physical_resource_id
         self._update_relation_deps(context, update_res, cloned_res,
                                    template_dict, update_dep, inner_link,
-                                   relation_map, relation_deps)
+                                   relation_map, relation_deps, des)
         for i_k, i_r in update_dep.items():
             if i_r['type'] == 'OS::Heat::Stack' and i_r['id'] == original_id:
                 for i_d in i_r['dependencies']:
@@ -1317,6 +1322,14 @@ class CloneManager(manager.Manager):
             if 'id' in res:
                 res.pop('id')
         return template_dict
+
+    def _change_stack_az(self, template_dict, des):
+        resources = template_dict
+        for key, res in resources.items():
+            if 'availability_zone' in res.get('properties', {}):
+                src_az = res['properties']['availability_zone']
+                res.get('extra_properties', {})['availability_zone'] = src_az
+                res['properties']['availability_zone'] = des.get(src_az, None)
 
     def _handle_lb(self, template_resource):
         vip_pool_dict = {}
