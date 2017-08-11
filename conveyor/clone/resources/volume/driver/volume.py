@@ -131,13 +131,16 @@ class VolumeCloneDriver(object):
                     if volume_wait_fun:
                         volume_wait_fun(context, volume_id, 'in-use')
                 # des_dev_name = attach_resp._info.get('device')
+                n_disks = set(client.vservices.get_disk_name().get('dev_name'))
+                diff_disk = n_disks - disks
+                des_dev_name = list(diff_disk)[0] if len(diff_disk) >= 1 \
+                    else None
+                LOG.debug("dev_name = %s", des_dev_name)
             else:
-                self._attach_volume_for_ok(context, need_set_shareable,
-                                           vgw_id, volume_id, volume_wait_fun)
-            n_disks = set(client.vservices.get_disk_name().get('dev_name'))
-            diff_disk = n_disks - disks
-            des_dev_name = list(diff_disk)[0] if len(diff_disk) >= 1 else None
-            LOG.debug("dev_name = %s", des_dev_name)
+                des_dev_name = self._attach_volume_for_device_name(
+                    context, need_set_shareable, vgw_id, volume_id,
+                    volume_wait_fun, client)
+                LOG.debug("dev_name = %s", des_dev_name)
         except Exception as e:
             LOG.error('Volume clone error: attach volume failed:%(id)s,%(e)s',
                       {'id': volume_id, 'e': e})
@@ -325,11 +328,14 @@ class VolumeCloneDriver(object):
                 LOG.error('Volume clone error: detach failed:%(id)s,%(e)s',
                           {'id': volume_id, 'e': e})
 
-    def _attach_volume_for_ok(self, context, need_set_shareable, vgw_id,
-                              volume_id, volume_wait_fun):
+    def _attach_volume_for_device_name(self, context, need_set_shareable,
+                                       vgw_id, volume_id, volume_wait_fun,
+                                       agent_client):
         @utils.synchronized(vgw_id)
         def _do_attach_volume_for_ok(context, need_set_shareable, vgw_id,
-                                     volume_id, volume_wait_fun):
+                                     volume_id, volume_wait_fun,
+                                     agent_client):
+            disks = set(agent_client.vservices.get_disk_name().get('dev_name'))
             if need_set_shareable:
                 self.cinder_api.set_volume_shareable(context, volume_id, True)
                 self.compute_api.attach_volume(context, vgw_id,
@@ -342,8 +348,14 @@ class VolumeCloneDriver(object):
                                                volume_id, None)
                 if volume_wait_fun:
                     volume_wait_fun(context, volume_id, 'in-use')
-        _do_attach_volume_for_ok(context, need_set_shareable, vgw_id,
-                                 volume_id, volume_wait_fun)
+            n_disks = set(agent_client.vservices.get_disk_name()
+                                                .get('dev_name'))
+            diff_disk = n_disks - disks
+            des_dev_name = list(diff_disk)[0] if len(diff_disk) >= 1 else None
+            return des_dev_name
+        return _do_attach_volume_for_ok(context, need_set_shareable, vgw_id,
+                                        volume_id, volume_wait_fun,
+                                        agent_client)
 
     def _copy_volume_data(self, context, resource_name,
                           des_gw_ip, vgw_id, template, dev_name):
