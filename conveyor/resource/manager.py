@@ -422,12 +422,16 @@ class ResourceManager(manager.Manager):
         # include resources are the D-value of this two resources
         cloned_resources = db_api.plan_cloned_resource_get(context, plan_id)
         self._clone_object_include_resources(clone_resources, cloned_resources)
-
+        # get gw isntances and does not combine gw instances attribute
+        gw_instances = self._get_gw_instances()
         attribute_list = []
         if clone_resources:
             for reses in clone_resources.values():
                 for res in reses:
                     value = res.get(attribute, '')
+                    res_id = res.get('id', '')
+                    if res_id in gw_instances:
+                        continue
                     if value:
                         attribute_list.append(value)
         # remove duplicate attribute value
@@ -802,6 +806,14 @@ class ResourceManager(manager.Manager):
         '''remove gw instances frome clone resources list'''
         if not instance_ids:
             return []
+        vgw_ids = self._get_gw_instances()
+        res_id = []
+        for instance_id in instance_ids:
+            if instance_id not in vgw_ids:
+                res_id.append(instance_id)
+        return res_id
+
+    def _get_gw_instances(self):
         vgw_dict = {}
         try:
             vgw_str = '{' + CONF.vgw_info + '}'
@@ -811,11 +823,7 @@ class ResourceManager(manager.Manager):
         vgw_ids = []
         for vgw_info in vgw_dict.values():
             vgw_ids.extend(vgw_info.keys())
-        res_id = []
-        for instance_id in instance_ids:
-            if instance_id not in vgw_ids:
-                res_id.append(instance_id)
-        return res_id
+        return vgw_ids
 
     def delete_cloned_resource(self, context, plan_id):
         try:
